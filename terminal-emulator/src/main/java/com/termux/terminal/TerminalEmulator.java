@@ -1,6 +1,6 @@
 package com.termux.terminal;
 
-import android.util.Base64;
+import java.util.Base64;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -1979,7 +1979,7 @@ public final class TerminalEmulator {
             case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
                 int startIndex = textParameter.indexOf(";") + 1;
                 try {
-                    String clipboardText = new String(Base64.decode(textParameter.substring(startIndex), 0), StandardCharsets.UTF_8);
+                    String clipboardText = new String(Base64.getDecoder().decode(textParameter.substring(startIndex).replaceAll("\\s", "")), StandardCharsets.UTF_8);
                     mSession.onCopyTextToClipboard(clipboardText);
                 } catch (Exception e) {
                     mClient.logError(LOG_TAG, "OSC Manipulate selection, invalid string '" + textParameter + "");

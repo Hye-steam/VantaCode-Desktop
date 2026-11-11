@@ -1,13 +1,10 @@
 package com.termux.terminal;
 
-import android.annotation.SuppressLint;
-import android.os.Handler;
-import android.os.Message;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * A terminal session, consisting of a process (or remote stream) coupled to a terminal interface.
@@ -21,9 +18,6 @@ import java.util.UUID;
  * <p>The backend may be exited forcefully via {@link #finishIfRunning()}.
  */
 public final class TerminalSession extends TerminalOutput {
-
-    private static final int MSG_NEW_INPUT = 1;
-    private static final int MSG_PROCESS_EXITED = 4;
 
     public final String mHandle = UUID.randomUUID().toString();
 
@@ -54,7 +48,9 @@ public final class TerminalSession extends TerminalOutput {
     /** Set by the application for user identification of session, not by terminal. */
     public String mSessionName;
 
-    final Handler mMainThreadHandler = new MainThreadHandler();
+    /** Single-threaded dispatcher replacing Android's main-thread Handler: all emulator
+     * callbacks run sequentially on one daemon thread, posted from pump threads. */
+    final MainThreadDispatcher mMainThreadDispatcher = new MainThreadDispatcher();
 
     private final Integer mTranscriptRows;
 
@@ -177,7 +173,7 @@ public final class TerminalSession extends TerminalOutput {
                 @Override
                 public void run() {
                     int processExitCode = mBackend.waitForExit();
-                    mMainThreadHandler.sendMessage(mMainThreadHandler.obtainMessage(MSG_PROCESS_EXITED, processExitCode));
+                    mMainThreadDispatcher.post(MainThreadDispatcher.Type.PROCESS_EXITED, processExitCode);
                 }
             }.start();
         } else {
@@ -189,7 +185,7 @@ public final class TerminalSession extends TerminalOutput {
                 @Override
                 public void run() {
                     int processExitCode = mBackend.waitForExit();
-                    mMainThreadHandler.sendMessage(mMainThreadHandler.obtainMessage(MSG_PROCESS_EXITED, processExitCode));
+                    mMainThreadDispatcher.post(MainThreadDispatcher.Type.PROCESS_EXITED, processExitCode);
                 }
             }.start();
         }
@@ -213,7 +209,7 @@ public final class TerminalSession extends TerminalOutput {
                             return;
                         }
                         if (!mProcessToTerminalIOQueue.write(buffer, 0, read)) return;
-                        mMainThreadHandler.sendEmptyMessage(MSG_NEW_INPUT);
+                        mMainThreadDispatcher.post(MainThreadDispatcher.Type.NEW_INPUT, 0);
                     }
                 } catch (Exception e) {
                     mClient.logWarn(LOG_TAG, "PTY 读取异常(pid=" + mShellPid + "): " + e);
@@ -376,21 +372,47 @@ public final class TerminalSession extends TerminalOutput {
         return null;
     }
 
-    @SuppressLint("HandlerLeak")
-    class MainThreadHandler extends Handler {
+    /** Single-threaded dispatcher replacing Android's main-thread Handler: all emulator
+     * callbacks run sequentially on dedicated daemon threads, posted from pump threads. */
+    final class MainThreadDispatcher {
+
+        enum Type { NEW_INPUT, PROCESS_EXITED }
+
+        private record Task(Type type, int arg) {}
 
         final byte[] mReceiveBuffer = new byte[4 * 1024];
 
-        @Override
-        public void handleMessage(Message msg) {
+        private final LinkedBlockingQueue<Task> mQueue = new LinkedBlockingQueue<>();
+        private final Thread mThread;
+
+        MainThreadDispatcher() {
+            mThread = new Thread(() -> {
+                try {
+                    for (;;) {
+                        Task task = mQueue.take();
+                        handle(task);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }, "TermSessionDispatcher");
+            mThread.setDaemon(true);
+            mThread.start();
+        }
+
+        void post(Type type, int arg) {
+            mQueue.add(new Task(type, arg));
+        }
+
+        void handle(Task task) {
             int bytesRead = mProcessToTerminalIOQueue.read(mReceiveBuffer, false);
             if (bytesRead > 0) {
                 mEmulator.append(mReceiveBuffer, bytesRead);
                 notifyScreenUpdate();
             }
 
-            if (msg.what == MSG_PROCESS_EXITED) {
-                int exitCode = (Integer) msg.obj;
+            if (task.type() == Type.PROCESS_EXITED) {
+                int exitCode = task.arg();
                 mClient.logInfo(LOG_TAG, "PTY 子进程退出: pid=" + mShellPid + " exit=" + exitCode);
                 cleanupResources(exitCode);
 

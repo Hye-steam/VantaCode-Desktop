@@ -1,24 +1,27 @@
+@file:Suppress("unused")
+
 pluginManagement {
     repositories {
-        maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") }
-        google()
+        maven("https://mirrors.cloud.tencent.com/nexus/repository/maven-public")
         mavenCentral()
+        google()
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
-        // Termux 终端组件（terminal-emulator / terminal-view）只在 JitPack 发布，腾讯镜像没有
-        maven { url = uri("https://jitpack.io") }
-        maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") }
-        google()
+        // Tencent mirror proxies mavenCentral + google() (androidx). Direct google() is
+        // unreachable from some networks, so it stays behind the mirror.
+        maven("https://mirrors.cloud.tencent.com/nexus/repository/maven-public")
         mavenCentral()
+        google()
+        maven("https://jitpack.io")
     }
 }
-rootProject.name = "app"
 
-include(":app")
+rootProject.name = "vantacode-desktop"
+
 include(":terminal-emulator")
-include(":terminal-view")
-
+include(":desktop")

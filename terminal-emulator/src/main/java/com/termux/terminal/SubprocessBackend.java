@@ -1,8 +1,5 @@
 package com.termux.terminal;
 
-import android.system.Os;
-import android.system.OsConstants;
-
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -79,7 +76,7 @@ final class SubprocessBackend implements SessionBackend {
         mClosed = true;
         if (mPid > 0) {
             try {
-                Os.kill(mPid, OsConstants.SIGKILL);
+                java.lang.ProcessHandle.of(mPid).ifPresent(java.lang.ProcessHandle::destroyForcibly);
             } catch (Exception ignored) {
             }
         }
