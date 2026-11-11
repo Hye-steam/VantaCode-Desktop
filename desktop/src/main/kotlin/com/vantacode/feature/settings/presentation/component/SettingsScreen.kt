@@ -58,8 +58,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -285,7 +285,7 @@ fun SettingsScreen(
     val proxyTestState by viewModel.proxyTestState.collectAsStateWithLifecycle()
     var showTerminalSettingsSheet by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val currentLanguageDisplayName = if (languageTag.isNullOrBlank()) {
         Strings.language_follow_system
     } else {
@@ -1892,8 +1892,7 @@ private fun SkillImportResultDialog(state: SkillImportState, onDismiss: () -> Un
                             )
                             report.failures.forEach { failure ->
                                 Text(
-                                    text = stringResource(
-                                        R.string.skills_import_failure_line,
+                                    text = Strings.formatted(Strings.skills_import_failure_line,
                                         failure.name,
                                         stringResource(failure.error.messageRes())
                                     ),

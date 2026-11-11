@@ -42,8 +42,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.annotation.StringRes
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -383,7 +383,7 @@ internal fun ModelSelectionSheet(
     testResults: Map<String, ModelTestResult> = emptyMap()
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val collapseStore = remember { ModelSheetCollapseStore(context.applicationContext) }
     var searchQuery by remember { mutableStateOf("") }
     var collapsedProviderIds by remember { mutableStateOf(collapseStore.collapsedProviderIds()) }

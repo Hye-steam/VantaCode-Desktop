@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.domain.service
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.AILogger
 import com.vantacode.core.util.FileLogger
@@ -46,7 +46,7 @@ import com.vantacode.core.ui.Strings
  */
 @Singleton
 class StorageUsageScanner @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val containerInstaller: ContainerInstaller,
     private val containerSettingsRepository: ContainerSettingsRepository,
     private val toolOutputStore: ToolOutputStore,
@@ -105,9 +105,9 @@ class StorageUsageScanner @Inject constructor(
             .map { usage ->
                 StorageDetail(
                     label = usage.title?.takeIf { it.isNotBlank() }
-                        ?: context.Strings.storage_untitled_session,
+                        ?: Strings.storage_untitled_session,
                     bytes = usage.bytes,
-                    note = context.Strings.formatted(Strings.storage_chat_messages, usage.messageCount)
+                    note = Strings.formatted(Strings.storage_chat_messages, usage.messageCount)
                 )
             }
         return StorageEntry(StorageCategory.Chat, bytes, details)
@@ -176,7 +176,7 @@ class StorageUsageScanner @Inject constructor(
                 label = project.name,
                 bytes = dirSize(project, cancelled),
                 note = attachments.takeIf { it > 0 }?.let {
-                    context.Strings.formatted(Strings.storage_workspace_attachments, formatStorageSize(it))
+                    Strings.formatted(Strings.storage_workspace_attachments, formatStorageSize(it))
                 }
             )
         }
@@ -216,8 +216,8 @@ class StorageUsageScanner @Inject constructor(
         val appLogs = runCatching { FileLogger.listLogFiles().sumOf { it.length() } }.getOrDefault(0L)
         val aiLogs = runCatching { AILogger.listLogFiles().sumOf { it.length() } }.getOrDefault(0L)
         val details = buildList {
-            if (appLogs > 0) add(StorageDetail(context.Strings.storage_logs_app, appLogs))
-            if (aiLogs > 0) add(StorageDetail(context.Strings.storage_logs_ai, aiLogs))
+            if (appLogs > 0) add(StorageDetail(Strings.storage_logs_app, appLogs))
+            if (aiLogs > 0) add(StorageDetail(Strings.storage_logs_ai, aiLogs))
         }
         return StorageEntry(StorageCategory.Logs, appLogs + aiLogs, details)
     }

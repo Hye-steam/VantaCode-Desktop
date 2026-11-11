@@ -1,8 +1,8 @@
 package com.vantacode.feature.terminal.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
@@ -45,7 +45,7 @@ class TerminalKeyModifiers {
  * 主要职责是把屏幕刷新转交给 [TerminalView]，并接驳系统剪贴板。
  */
 class AppTerminalSessionClient(
-    private val context: Context,
+    private val context: DesktopContext,
     private val viewProvider: () -> TerminalView?,
     private val onFinished: (TerminalSession) -> Unit,
     var cursorStyle: Int = 0
@@ -65,12 +65,12 @@ class AppTerminalSessionClient(
 
     override fun onCopyTextToClipboard(session: TerminalSession, text: String?) {
         if (text.isNullOrEmpty()) return
-        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val cm = context.getSystemService(DesktopContext.CLIPBOARD_SERVICE) as? ClipboardManager
         cm?.setPrimaryClip(ClipData.newPlainText("terminal", text))
     }
 
     override fun onPasteTextFromClipboard(session: TerminalSession?) {
-        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val cm = context.getSystemService(DesktopContext.CLIPBOARD_SERVICE) as? ClipboardManager
         val text = cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: return
         if (text.isNotEmpty()) {
             val bytes = text.toByteArray(Charsets.UTF_8)
@@ -99,7 +99,7 @@ class AppTerminalSessionClient(
  * 用合理默认值实现，并把 Ctrl/Alt 等虚拟修饰键交给 [TerminalKeyModifiers]。
  */
 class AppTerminalViewClient(
-    private val context: Context,
+    private val context: DesktopContext,
     private val viewProvider: () -> TerminalView?,
     private val modifiers: TerminalKeyModifiers,
     private val currentFontSizeSp: () -> Int,
@@ -139,7 +139,7 @@ class AppTerminalViewClient(
     override fun onSingleTapUp(e: MotionEvent?) {
         val view = viewProvider() ?: return
         view.requestFocus()
-        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        val imm = context.getSystemService(DesktopContext.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
     }
 

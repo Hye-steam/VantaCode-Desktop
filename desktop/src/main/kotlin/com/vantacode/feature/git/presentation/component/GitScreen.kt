@@ -54,8 +54,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,7 +103,7 @@ fun GitScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboard = LocalClipboard.current
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val scope = rememberCoroutineScope()
 
     // toast → Snackbar 一次性消费。
@@ -246,7 +246,7 @@ fun GitScreen(
                             onCopyPath = { path ->
                                 scope.launch {
                                     clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("git-path", path)))
-                                    snackbarHostState.showSnackbar(context.Strings.git_toast_path_copied)
+                                    snackbarHostState.showSnackbar(Strings.git_toast_path_copied)
                                 }
                             },
                             onStashOpen = viewModel::loadStashes,

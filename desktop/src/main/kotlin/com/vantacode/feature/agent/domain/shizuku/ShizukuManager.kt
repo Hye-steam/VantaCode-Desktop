@@ -1,7 +1,7 @@
 package com.vantacode.feature.agent.domain.shizuku
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.ApplicationInfo
@@ -52,7 +52,7 @@ data class ShizukuCommandResult(val output: String, val exitCode: Int)
  */
 @Singleton
 class ShizukuManager @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         const val TAG = "ShizukuManager"

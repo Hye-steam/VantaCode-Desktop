@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.mcp.auth
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.vantacode.core.util.FileLogger
@@ -37,7 +37,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class McpOAuthManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val client: OkHttpClient,
     private val discovery: McpOAuthDiscovery,
     private val registrar: McpClientRegistrar,

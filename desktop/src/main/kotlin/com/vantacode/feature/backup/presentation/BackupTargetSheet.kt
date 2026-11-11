@@ -39,8 +39,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -72,7 +72,7 @@ fun BackupTargetSheet(
     onSave: (BackupTarget) -> Unit,
     onTest: (BackupTarget, (Boolean, String) -> Unit) -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
 
     var type by remember(initial) { mutableStateOf(initial?.type ?: BackupTargetType.WEBDAV) }
     var name by remember(initial) { mutableStateOf(initial?.name ?: "") }
@@ -251,7 +251,7 @@ fun BackupTargetSheet(
                             isTesting = true
                             onTest(currentTarget()) { _, msg ->
                                 isTesting = false
-                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                PlatformToast.show(msg, true)
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),

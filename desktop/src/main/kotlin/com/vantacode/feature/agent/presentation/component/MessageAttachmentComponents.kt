@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.Image as ComposeImage
@@ -28,7 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -230,13 +230,13 @@ internal val LocalAttachmentOpener = staticCompositionLocalOf<AttachmentOpener> 
  * 再复制进 cacheDir（已由 cache-path 覆盖）分享。文件确实不存在与最终无法分享分别提示，不再混用一句文案。
  */
 internal suspend fun openSentAttachment(
-    context: Context,
+    context: DesktopContext,
     attachment: AgentAttachment,
     fileAccess: FileAccessProvider
 ) {
     val local = withContext(Dispatchers.IO) { resolveLocalFile(attachment, fileAccess) }
     if (local == null) {
-        Toast.makeText(context, context.Strings.chat_open_file_missing, Toast.LENGTH_SHORT).show()
+        PlatformToast.show(Strings.chat_open_file_missing)
         return
     }
     // APK 安装包：统一走 ApkInstaller（含「允许安装未知应用」的授权判定与设置页引导）。
@@ -246,19 +246,19 @@ internal suspend fun openSentAttachment(
             if (isShareable(context, local)) local else copyToShareCache(context, local)
         }
         if (installable == null) {
-            Toast.makeText(context, context.Strings.chat_open_file_unshareable, Toast.LENGTH_SHORT).show()
+            PlatformToast.show(Strings.chat_open_file_unshareable)
             return
         }
         when (ApkInstaller.install(context, installable)) {
             ApkInstaller.Result.STARTED -> Unit
             ApkInstaller.Result.NEED_PERMISSION -> {
-                Toast.makeText(context, context.Strings.chat_open_apk_permission, Toast.LENGTH_LONG).show()
+                PlatformToast.show(Strings.chat_open_apk_permission, true)
                 if (!ApkInstaller.openInstallPermissionSettings(context)) {
-                    Toast.makeText(context, context.Strings.chat_open_file_no_app, Toast.LENGTH_SHORT).show()
+                    PlatformToast.show(Strings.chat_open_file_no_app)
                 }
             }
             ApkInstaller.Result.NO_HANDLER ->
-                Toast.makeText(context, context.Strings.chat_open_file_no_app, Toast.LENGTH_SHORT).show()
+                PlatformToast.show(Strings.chat_open_file_no_app)
         }
         return
     }
@@ -269,7 +269,7 @@ internal suspend fun openSentAttachment(
         runCatching { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) }.getOrNull()
     }
     if (uri == null) {
-        Toast.makeText(context, context.Strings.chat_open_file_unshareable, Toast.LENGTH_SHORT).show()
+        PlatformToast.show(Strings.chat_open_file_unshareable)
         return
     }
     val intent = Intent(Intent.ACTION_VIEW)
@@ -278,7 +278,7 @@ internal suspend fun openSentAttachment(
     try {
         context.startActivity(intent)
     } catch (e: Exception) {
-        Toast.makeText(context, context.Strings.chat_open_file_no_app, Toast.LENGTH_SHORT).show()
+        PlatformToast.show(Strings.chat_open_file_no_app)
     }
 }
 
@@ -291,14 +291,14 @@ private suspend fun resolveLocalFile(attachment: AgentAttachment, fileAccess: Fi
 }
 
 /** 路径落在 FileProvider 声明的目录树内时可直接授权；不能就抛异常，故按能否取到 URI 判定。 */
-private fun isShareable(context: Context, file: File): Boolean =
+private fun isShareable(context: DesktopContext, file: File): Boolean =
     runCatching { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file) }.isSuccess
 
 /**
  * 把无法直接授权的文件（外部本地目录工作区、自定义挂载源、SD 卡等）复制进 cacheDir 再分享。
  * 目标目录按源路径散列分隔：既避开同名文件互相覆盖，也不把散列值挂进分享出去的文件名。
  */
-private fun copyToShareCache(context: Context, source: File): File? = runCatching {
+private fun copyToShareCache(context: DesktopContext, source: File): File? = runCatching {
     val dir = File(File(context.cacheDir, SHARE_CACHE_DIR), source.absolutePath.hashCode().toString())
     dir.mkdirs()
     val target = File(dir, source.name.ifBlank { "file" })

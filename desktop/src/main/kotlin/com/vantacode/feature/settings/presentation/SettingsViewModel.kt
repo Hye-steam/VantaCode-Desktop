@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
@@ -355,7 +355,7 @@ private fun padTrend(
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val repository: AIProviderRepository,
     private val modelApiService: ModelApiService,
     private val modelMetadataService: ModelMetadataService,
@@ -443,7 +443,7 @@ class SettingsViewModel @Inject constructor(
 
     // ── 全局代理 ──
 
-    /** 全局代理配置快照（SharedPreferences 即时读写，改即对新连接生效）。 */
+    /** 全局代理配置快照（DesktopPrefs 即时读写，改即对新连接生效）。 */
     val proxyConfig: StateFlow<ProxyConfig> = proxySettingsRepository.config
 
     /** 代理连通性测试状态。 */
@@ -1436,7 +1436,7 @@ class SettingsViewModel @Inject constructor(
             }
             val valid = parsed.filter { McpServerConfig.isValidName(it.name) }
             if (valid.isEmpty()) {
-                _mcpImportState.value = McpImportUiState(error = context.Strings.mcp_json_import_empty)
+                _mcpImportState.value = McpImportUiState(error = Strings.mcp_json_import_empty)
                 return@launch
             }
             runCatching {
@@ -1858,7 +1858,7 @@ class SettingsViewModel @Inject constructor(
             // Release 没挂 APK 资产（或资产命名不认识）：只能引导去浏览器下载
             _updateCheckState.value = UpdateCheckUiState.DownloadFailed(
                 previous = target,
-                message = context.Strings.about_update_verify_not_apk
+                message = Strings.about_update_verify_not_apk
             )
             return
         }
@@ -1931,14 +1931,14 @@ class SettingsViewModel @Inject constructor(
                 if (!ApkInstaller.openInstallPermissionSettings(context)) {
                     _updateCheckState.value = UpdateCheckUiState.DownloadFailed(
                         previous = ready.previous,
-                        message = context.Strings.about_update_install_failed
+                        message = Strings.about_update_install_failed
                     )
                 }
             }
             ApkInstaller.Result.NO_HANDLER -> {
                 _updateCheckState.value = UpdateCheckUiState.DownloadFailed(
                     previous = ready.previous,
-                    message = context.Strings.about_update_install_failed
+                    message = Strings.about_update_install_failed
                 )
             }
         }
@@ -1946,10 +1946,10 @@ class SettingsViewModel @Inject constructor(
 
     private fun verifyFailureMessage(result: ApkVerifyResult): String = when (result) {
         is ApkVerifyResult.Ok -> ""
-        is ApkVerifyResult.NotAnApk -> context.Strings.about_update_verify_not_apk
-        is ApkVerifyResult.PackageMismatch -> context.Strings.about_update_verify_package
-        is ApkVerifyResult.SignatureMismatch -> context.Strings.about_update_verify_signature
-        is ApkVerifyResult.NotNewer -> context.Strings.about_update_verify_not_newer
+        is ApkVerifyResult.NotAnApk -> Strings.about_update_verify_not_apk
+        is ApkVerifyResult.PackageMismatch -> Strings.about_update_verify_package
+        is ApkVerifyResult.SignatureMismatch -> Strings.about_update_verify_signature
+        is ApkVerifyResult.NotNewer -> Strings.about_update_verify_not_newer
     }
 
     /** 关闭更新弹窗：只收起界面，下载中的任务继续跑（状态保留，重开可见）。 */
@@ -2047,7 +2047,7 @@ class SettingsViewModel @Inject constructor(
                     if (selected == null) {
                         return@runCatching LogViewerUiState(
                             filterServerName = filterServerName,
-                            error = context.Strings.settings_log_no_files
+                            error = Strings.settings_log_no_files
                         )
                     }
 
@@ -2070,7 +2070,7 @@ class SettingsViewModel @Inject constructor(
                 }.getOrElse { e ->
                     LogViewerUiState(
                         filterServerName = filterServerName,
-                        error = context.Strings.formatted(Strings.settings_log_read_failed, e.message ?: "")
+                        error = Strings.formatted(Strings.settings_log_read_failed, e.message ?: "")
                     )
                 }
             }
@@ -2440,7 +2440,7 @@ class SettingsViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 _containerImageDownload.value =
-                    ContainerImageDownloadUiState.Error(entry.id, e.message ?: context.Strings.formatted(Strings.container_download_failed, ""))
+                    ContainerImageDownloadUiState.Error(entry.id, e.message ?: Strings.formatted(Strings.container_download_failed, ""))
             }
         }
     }
@@ -2781,7 +2781,7 @@ class SettingsViewModel @Inject constructor(
                 .onFailure { error ->
                     val debug = (error as? com.vantacode.feature.settings.data.remote.FetchModelsException)?.debugInfo
                     _fetchState.value = FetchState.Error(
-                        error.message ?: context.Strings.settings_models_fetch_failed,
+                        error.message ?: Strings.settings_models_fetch_failed,
                         debug
                     )
                 }
@@ -2874,7 +2874,7 @@ class SettingsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _dashboardTestState.value = ProviderDashboardState.Error(
-                        error.message ?: context.Strings.dashboard_exec_failed,
+                        error.message ?: Strings.dashboard_exec_failed,
                         error.localizedMessage ?: ""
                     )
                 }
@@ -2911,7 +2911,7 @@ class SettingsViewModel @Inject constructor(
                 .onFailure { error ->
                     // 函数参数 context: DashboardContext 遮蔽了类的 ApplicationContext；
                     // 且此处位于 launch{} 内，this 已变为 CoroutineScope，必须用类标签限定
-                    _providerDashboards.update { it + (provider.id to ProviderDashboardState.Error(error.message ?: this@SettingsViewModel.context.Strings.dashboard_query_failed)) }
+                    _providerDashboards.update { it + (provider.id to ProviderDashboardState.Error(error.message ?: Strings.dashboard_query_failed)) }
                 }
         }
     }
@@ -2942,7 +2942,7 @@ class SettingsViewModel @Inject constructor(
 }
 
 /** 读取公告 md（zh 用中文版，其余英文版）；跟随系统语言时按系统语言判断。读取失败返回空串（空内容不弹窗）。 */
-private fun loadContainerAnnouncement(context: Context, languageTag: String?): String {
+private fun loadContainerAnnouncement(context: DesktopContext, languageTag: String?): String {
     val lang = languageTag?.takeIf { it.isNotBlank() } ?: java.util.Locale.getDefault().language
     val zh = lang.startsWith("zh", ignoreCase = true)
     return runCatching {
@@ -2952,7 +2952,7 @@ private fun loadContainerAnnouncement(context: Context, languageTag: String?): S
 }
 
 /** 读取「提示词」页公告 md（zh 用中文版，其余英文版）；读取失败返回空串（空内容不弹窗）。 */
-private fun loadPromptsAnnouncement(context: Context, languageTag: String?): String {
+private fun loadPromptsAnnouncement(context: DesktopContext, languageTag: String?): String {
     val lang = languageTag?.takeIf { it.isNotBlank() } ?: java.util.Locale.getDefault().language
     val zh = lang.startsWith("zh", ignoreCase = true)
     return runCatching {

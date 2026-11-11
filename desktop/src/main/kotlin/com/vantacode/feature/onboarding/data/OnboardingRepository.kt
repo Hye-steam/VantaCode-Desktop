@@ -1,9 +1,9 @@
 package com.vantacode.feature.onboarding.data
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.onboardingDataStore by preferencesDataStore(
+private val DesktopContext.onboardingDataStore by preferencesDataStore(
     name = "onboarding_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -37,7 +37,7 @@ enum class OnboardingStatus(val persisted: String) {
  */
 @Singleton
 class OnboardingRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val ONBOARDING_STATUS_KEY = stringPreferencesKey("onboarding_status")

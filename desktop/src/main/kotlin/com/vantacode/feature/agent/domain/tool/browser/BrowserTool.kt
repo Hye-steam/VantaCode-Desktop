@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.browser
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -26,7 +26,7 @@ import com.vantacode.core.ui.Strings
 class BrowserTool @Inject constructor(
     private val browserManager: BrowserManager,
     private val fileAccess: FileAccessProvider,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AgentTool() {
 
     private companion object {
@@ -289,7 +289,7 @@ class BrowserTool @Inject constructor(
                     ), tabId = tabId)
                     ToolResult.Success(data, images = listOf(image.copy(path = savePath)))
                 } else {
-                    buildError(action, appContext.Strings.tool_browser_screenshot_failed, "SCREENSHOT_FAILED", tabId = tabId)
+                    buildError(action, Strings.tool_browser_screenshot_failed, "SCREENSHOT_FAILED", tabId = tabId)
                 }
             }
 

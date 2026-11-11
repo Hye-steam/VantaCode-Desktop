@@ -1,6 +1,6 @@
 package com.vantacode.feature.credentials.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.util.Base64
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.credentials.domain.model.GitCredential
@@ -25,7 +25,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class FileCredentialRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) : CredentialRepository {
 
     private companion object {

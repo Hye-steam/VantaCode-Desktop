@@ -1,6 +1,6 @@
 package com.vantacode.feature.terminal.domain
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.Intent
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.agent.domain.container.LinuxContainerEngine
@@ -42,7 +42,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class TerminalSessionManager @Inject constructor(
-    @param:ApplicationContext private val appContext: Context,
+    @param:ApplicationContext private val appContext: DesktopContext,
     private val containerEngine: LinuxContainerEngine,
     private val workspaceRepository: WorkspaceRepository
 ) : TerminalSessionProvider {

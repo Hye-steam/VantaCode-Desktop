@@ -39,7 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -262,8 +262,7 @@ fun HostKeysScreen(
                 title = { Text(address) },
                 text = {
                     Text(
-                        stringResource(
-                            R.string.ssh_host_key_detail,
+                        Strings.formatted(Strings.ssh_host_key_detail,
                             hostKeys[address].orEmpty()
                         )
                     )

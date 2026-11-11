@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.permission
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.core.watch.FileChangeBatch
 import com.vantacode.core.watch.FileChangeHub
@@ -56,7 +56,7 @@ import javax.inject.Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class PermissionRulesRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val workspaceRepository: WorkspaceRepository,
     private val projectAicodeRoot: ProjectAicodeRoot,
     private val fileChangeHub: FileChangeHub,

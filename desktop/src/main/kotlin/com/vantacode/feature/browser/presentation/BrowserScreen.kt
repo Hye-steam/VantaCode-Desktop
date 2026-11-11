@@ -61,10 +61,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -144,7 +144,7 @@ fun BrowserScreen(
     // 每个页面实例各持一个容器：NavHost 过渡期间新旧页面会短暂共存，若共用同一个 FrameLayout，
     // 后创建的 AndroidView 会拿到仍挂在旧节点上的容器，AndroidViewHolder 构造时 addView 直接抛
     // 「The specified child already has a parent」。各持一份即可彻底避免。
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val container = remember { FrameLayout(context) }
 
     var showTabsSheet by rememberSaveable { mutableStateOf(false) }

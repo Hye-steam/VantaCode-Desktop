@@ -103,7 +103,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.vantacode.R
@@ -391,8 +391,7 @@ internal fun ToolMessageBody(
                     ChatCodeCard(
                         title = edit.path.ifBlank { null },
                         copyText = details?.diffCopyText.orEmpty(),
-                        footer = stringResource(
-                            R.string.tool_changed_files_summary,
+                        footer = Strings.formatted(Strings.tool_changed_files_summary,
                             edit.added,
                             edit.removed,
                             if (edit.path.isBlank()) 0 else 1

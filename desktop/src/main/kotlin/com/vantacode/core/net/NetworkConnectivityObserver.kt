@@ -1,6 +1,6 @@
 package com.vantacode.core.net
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -24,10 +24,10 @@ import javax.inject.Singleton
  */
 @Singleton
 class NetworkConnectivityObserver @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val connectivityManager by lazy {
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        context.getSystemService(DesktopContext.CONNECTIVITY_SERVICE) as ConnectivityManager
     }
 
     private val _isOnline = MutableStateFlow(currentlyOnline()).also { NetworkStatus.update(it.value) }

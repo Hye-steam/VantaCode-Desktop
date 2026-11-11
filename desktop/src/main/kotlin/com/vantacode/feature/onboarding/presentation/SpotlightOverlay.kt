@@ -60,7 +60,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -347,8 +347,7 @@ private fun SpotlightCard(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
                 ) {
                     Text(
-                        text = stringResource(
-                            R.string.onboarding_step_badge,
+                        text = Strings.formatted(Strings.onboarding_step_badge,
                             step.stepIndex,
                             OnboardingStep.totalSteps
                         ),

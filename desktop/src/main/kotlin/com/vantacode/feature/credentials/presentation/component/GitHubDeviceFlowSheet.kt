@@ -1,7 +1,7 @@
 package com.vantacode.feature.credentials.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ClipData
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -46,8 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -83,7 +83,7 @@ internal fun GitHubDeviceFlowSheet(
     onRetry: () -> Unit,
     onSuccessDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
 
@@ -128,9 +128,7 @@ internal fun GitHubDeviceFlowSheet(
                                     ClipEntry(ClipData.newPlainText("device-code", state.userCode))
                                 )
                             }
-                            Toast.makeText(
-                                context,
-                                context.Strings.credential_device_code_copied,
+                            PlatformToast.show(Strings.credential_device_code_copied,
                                 Toast.LENGTH_SHORT
                             ).show()
                         },
@@ -140,9 +138,7 @@ internal fun GitHubDeviceFlowSheet(
                                     ClipEntry(ClipData.newPlainText("device-code", state.userCode))
                                 )
                             }
-                            Toast.makeText(
-                                context,
-                                context.Strings.credential_device_code_copied_opening,
+                            PlatformToast.show(Strings.credential_device_code_copied_opening,
                                 Toast.LENGTH_SHORT
                             ).show()
                             runCatching {
@@ -252,7 +248,7 @@ private fun RequestingCodeContent() {
 private fun AwaitingContent(
     userCode: String,
     verificationUri: String,
-    context: Context,
+    context: DesktopContext,
     onCopyCode: () -> Unit,
     onAuthorizeAndOpen: () -> Unit
 ) {
@@ -462,7 +458,7 @@ private fun AwaitingContent(
 private fun SuccessContent(
     username: String,
     needsInstall: Boolean,
-    context: Context,
+    context: DesktopContext,
     onSuccessDismiss: () -> Unit
 ) {
     Column(

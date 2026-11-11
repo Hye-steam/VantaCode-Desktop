@@ -1,10 +1,10 @@
 
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.keepaliveDataStore by preferencesDataStore(
+private val DesktopContext.keepaliveDataStore by preferencesDataStore(
     name = "keepalive_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -27,7 +27,7 @@ private val Context.keepaliveDataStore by preferencesDataStore(
  */
 @Singleton
 class KeepaliveSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val ENABLED_KEY = booleanPreferencesKey("keepalive_enabled")

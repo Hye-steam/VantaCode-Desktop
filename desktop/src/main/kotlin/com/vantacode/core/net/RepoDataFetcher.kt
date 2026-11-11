@@ -1,6 +1,6 @@
 package com.vantacode.core.net
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  * 5. 网络全挂时优雅回退本地已有磁盘缓存或内置 assets。
  */
 class RepoDataFetcher(
-    private val context: Context,
+    private val context: DesktopContext,
     private val owner: String = DEFAULT_OWNER,
     private val repo: String = DEFAULT_REPO,
     private val branch: String = DEFAULT_BRANCH,

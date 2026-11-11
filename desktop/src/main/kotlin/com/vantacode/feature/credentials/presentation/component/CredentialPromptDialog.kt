@@ -26,7 +26,7 @@ import com.vantacode.core.theme.Spacing
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Eye
 import compose.icons.feathericons.EyeOff
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.R
 import com.vantacode.core.ui.Strings
 

@@ -1,9 +1,9 @@
 package com.vantacode.feature.terminal.domain
+import com.vantacode.core.platform.DesktopContext
 
 import android.app.ActivityManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
 import android.os.Binder
@@ -159,7 +159,7 @@ class TerminalKeepaliveService : Service() {
     private fun acquireWifiLocks() {
         runCatching {
             if (!wifiLocksInitialized) {
-                val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
+                val wm = applicationContext.getSystemService(DesktopContext.WIFI_SERVICE) as? WifiManager ?: return
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     wifiLocks += wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AiCode:Keepalive:low-latency")
                 }
@@ -188,7 +188,7 @@ class TerminalKeepaliveService : Service() {
         const val ACTION_DISABLE_PERSISTENT = "com.vantacode.action.DISABLE_PERSISTENT"
 
         /** 开启常驻保活（幂等）。 */
-        fun enablePersistent(context: Context) {
+        fun enablePersistent(context: DesktopContext) {
             val intent = Intent(context, TerminalKeepaliveService::class.java).apply {
                 action = ACTION_ENABLE_PERSISTENT
             }
@@ -205,7 +205,7 @@ class TerminalKeepaliveService : Service() {
         }
 
         /** 关闭常驻保活（幂等）。仅在确曾开启过时调用，避免为关闭而凭空拉起 Service。 */
-        fun disablePersistent(context: Context) {
+        fun disablePersistent(context: DesktopContext) {
             val intent = Intent(context, TerminalKeepaliveService::class.java).apply {
                 action = ACTION_DISABLE_PERSISTENT
             }
@@ -214,7 +214,7 @@ class TerminalKeepaliveService : Service() {
         }
 
         /** 登记一个后台会话（不改变用户常驻开关）。由调用方按状态迁移保证不重复计数。 */
-        fun startSession(context: Context) {
+        fun startSession(context: DesktopContext) {
             val intent = Intent(context, TerminalKeepaliveService::class.java).apply {
                 action = ACTION_START_SESSION
             }
@@ -223,7 +223,7 @@ class TerminalKeepaliveService : Service() {
         }
 
         /** 结束一个后台会话。 */
-        fun stopSession(context: Context) {
+        fun stopSession(context: DesktopContext) {
             val intent = Intent(context, TerminalKeepaliveService::class.java).apply {
                 action = ACTION_STOP_SESSION
             }
@@ -233,8 +233,8 @@ class TerminalKeepaliveService : Service() {
 
         /** 判断保活服务当前是否在运行。WorkManager 兜底拉起前先探测，避免反复 startService。 */
         @Suppress("DEPRECATION")
-        fun isRunning(context: Context): Boolean {
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        fun isRunning(context: DesktopContext): Boolean {
+            val am = context.getSystemService(DesktopContext.ACTIVITY_SERVICE) as ActivityManager
             val serviceName = TerminalKeepaliveService::class.java.name
             return am.getRunningServices(Int.MAX_VALUE)
                 .any { it.service.packageName == context.packageName && it.service.className == serviceName }

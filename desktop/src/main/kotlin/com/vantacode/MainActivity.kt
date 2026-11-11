@@ -166,10 +166,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var browserManager: com.vantacode.feature.agent.domain.tool.browser.BrowserManager
 
-    override fun attachBaseContext(newBase: android.content.Context) {
+    override fun attachBaseContext(newBase: DesktopContext) {
         // 在 Activity 创建前同步应用用户选择的语言，确保冷启动也生效。
-        // Hilt 尚未注入，直接从 SharedPreferences 同步读取。
-        val tag = newBase.getSharedPreferences("language_prefs_sync", android.content.Context.MODE_PRIVATE)
+        // Hilt 尚未注入，直接从 DesktopPrefs 同步读取。
+        val tag = newBase.getSharedPreferences("language_prefs_sync", DesktopContext.MODE_PRIVATE)
             .getString("language_tag", null)
         val context = if (tag.isNullOrBlank()) {
             newBase
@@ -430,7 +430,7 @@ fun AppNavigation(
 
     // ── 导出会话：SAF 保存文件 ──
     var pendingExportSessionId by remember { mutableStateOf<String?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalDesktopContext.current
     val sessionExportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
@@ -440,14 +440,12 @@ fun AppNavigation(
                 val os = withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri) }
                 if (os != null) {
                     agentViewModel.exportSession(sessionId, os) { success ->
-                        Toast.makeText(
-                            context,
-                            context.getString(if (success) R.string.chat_export_session_done else R.string.chat_export_session_failed),
+                        PlatformToast.show(context.getString(if (success) R.string.chat_export_session_done else R.string.chat_export_session_failed),
                             if (success) Toast.LENGTH_SHORT else Toast.LENGTH_LONG
                         ).show()
                     }
                 } else {
-                    Toast.makeText(context, context.Strings.chat_export_session_failed, Toast.LENGTH_LONG).show()
+                    PlatformToast.show(Strings.chat_export_session_failed, true)
                 }
                 pendingExportSessionId = null
             }
@@ -1037,8 +1035,8 @@ fun AppNavigation(
 }
 
 /** 侧边栏文件页写操作失败提示（新建 / 重命名 / 删除共用）。 */
-private fun toastFileOpFailed(context: android.content.Context, messageRes: Int) {
-    Toast.makeText(context, context.getString(messageRes), Toast.LENGTH_SHORT).show()
+private fun toastFileOpFailed(context: DesktopContext, messageRes: Int) {
+    PlatformToast.show(context.getString(messageRes))
 }
 
 /**

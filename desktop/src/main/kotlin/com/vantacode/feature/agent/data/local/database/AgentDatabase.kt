@@ -1,7 +1,9 @@
 package com.vantacode.feature.agent.data.local.database
 
+import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabaseConstructor
 import com.vantacode.feature.agent.data.local.dao.AgentMessageDao
 import com.vantacode.feature.agent.data.local.dao.ChatSessionDao
 import com.vantacode.feature.agent.data.local.dao.CheckpointDao
@@ -26,6 +28,7 @@ import com.vantacode.feature.workspace.data.local.entity.RemoteMountEntity
     version = AgentDatabase.SCHEMA_VERSION,
     exportSchema = true
 )
+@ConstructedBy(AgentDatabaseConstructor::class)
 abstract class AgentDatabase : RoomDatabase() {
     abstract fun agentMessageDao(): AgentMessageDao
     abstract fun chatSessionDao(): ChatSessionDao
@@ -42,4 +45,12 @@ abstract class AgentDatabase : RoomDatabase() {
         /** 数据库文件名（落在 `databases/` 下，另有 Room 默认 WAL 模式产生的 `-wal`/`-shm`）。 */
         const val DATABASE_NAME = "aicode_agent_db"
     }
+}
+
+/**
+ * Room KMP 没有 JVM 反射实例化能力，必须经 @ConstructedBy 提供初始化入口。
+ * KSP 会校验该类存在并生成实际实例化代码。
+ */
+object AgentDatabaseConstructor : RoomDatabaseConstructor<AgentDatabase> {
+    override fun initialize(): AgentDatabase = AgentDatabase()
 }

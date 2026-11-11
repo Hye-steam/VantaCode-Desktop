@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.prompt
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.agent.domain.container.ContainerInstaller
 import com.vantacode.feature.workspace.domain.ProjectAicodeRoot
@@ -53,7 +53,7 @@ data class PromptFragment(
  */
 @Singleton
 class PromptFragmentCatalog @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val containerInstaller: ContainerInstaller,
     private val projectAicodeRoot: ProjectAicodeRoot
 ) {

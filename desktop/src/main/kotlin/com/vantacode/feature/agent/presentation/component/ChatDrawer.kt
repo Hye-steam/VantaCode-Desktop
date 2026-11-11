@@ -127,7 +127,7 @@ import compose.icons.feathericons.Server
 import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Trash2
 import compose.icons.feathericons.X
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.R
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -393,8 +393,7 @@ fun ChatDrawerContent(
             title = { Text(Strings.file_browser_paste_conflict_title) },
             text = {
                 Text(
-                    stringResource(
-                        R.string.file_browser_paste_conflict_message,
+                    Strings.formatted(Strings.file_browser_paste_conflict_message,
                         targetPath.substringAfterLast('/')
                     )
                 )

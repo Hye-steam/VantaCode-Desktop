@@ -1,6 +1,6 @@
 package com.vantacode.feature.credentials.data
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.core.watch.FileChangeHub
 import com.vantacode.feature.agent.domain.container.LinuxContainerEngine
@@ -46,7 +46,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class CredentialRequestBridge @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val credentialRepository: CredentialRepository,
     private val containerEngine: LinuxContainerEngine,
     private val fileChangeHub: FileChangeHub

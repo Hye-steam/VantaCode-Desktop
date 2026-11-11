@@ -1,6 +1,6 @@
 package com.vantacode.feature.backup.data
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.security.KeystoreCipher
 import com.vantacode.core.util.FileLogger
 import com.vantacode.core.util.GitIgnoreMatcher
@@ -74,7 +74,7 @@ import javax.inject.Singleton
 
 @Singleton
 class BackupManagerImpl @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val aiProviderDao: AIProviderDao,
     private val remoteConnectionDao: RemoteConnectionDao,
     private val chatSessionDao: ChatSessionDao,

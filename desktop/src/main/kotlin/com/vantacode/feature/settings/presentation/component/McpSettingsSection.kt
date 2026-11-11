@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.core.theme.Radius
 import com.vantacode.core.theme.Spacing
 import com.vantacode.core.ui.BatchDeleteConfirmDialog

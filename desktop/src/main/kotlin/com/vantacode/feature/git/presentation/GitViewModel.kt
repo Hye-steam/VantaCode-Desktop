@@ -1,6 +1,6 @@
 package com.vantacode.feature.git.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.res.Configuration
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
@@ -56,7 +56,7 @@ private fun GitGraph.toGitCommits() =
 @HiltViewModel
 class GitViewModel @Inject constructor(
     private val repository: GitRepository,
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val themeSettings: ThemeSettingsRepository,
     private val agentWorkflow: AgentWorkflow
 ) : ViewModel() {
@@ -199,7 +199,7 @@ class GitViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "加载分支列表失败", e)
-                _state.update { it.copy(branchesLoading = false, toast = context.Strings.formatted(Strings.git_toast_load_branches_failed, e.message)) }
+                _state.update { it.copy(branchesLoading = false, toast = Strings.formatted(Strings.git_toast_load_branches_failed, e.message)) }
             }
         }
     }
@@ -252,7 +252,7 @@ class GitViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "刷新失败", e)
-                _state.update { it.copy(loading = false, toast = context.Strings.formatted(Strings.git_toast_refresh_failed, e.message)) }
+                _state.update { it.copy(loading = false, toast = Strings.formatted(Strings.git_toast_refresh_failed, e.message)) }
             }
         }
     }
@@ -269,12 +269,12 @@ class GitViewModel @Inject constructor(
             val name = context.getString(nameRes)
             val msg = try {
                 action()
-                context.Strings.formatted(Strings.git_toast_action_success, name)
+                Strings.formatted(Strings.git_toast_action_success, name)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "${name}失败", e)
                 val reason = (e as? GitCommandFailureException)?.output ?: e.message
-                context.Strings.formatted(Strings.git_toast_action_failed, name, GitErrorMessage.friendly(reason ?: ""))
+                Strings.formatted(Strings.git_toast_action_failed, name, GitErrorMessage.friendly(reason ?: ""))
             }
             // 刷新以反映新状态；失败也刷新，让 UI 与仓库一致。
             try {
@@ -289,7 +289,7 @@ class GitViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _state.update { it.copy(busy = false, toast = context.Strings.formatted(Strings.git_toast_action_refresh_failed, msg)) }
+                _state.update { it.copy(busy = false, toast = Strings.formatted(Strings.git_toast_action_refresh_failed, msg)) }
             }
         }
     }
@@ -352,7 +352,7 @@ class GitViewModel @Inject constructor(
             try {
                 val diff = repository.diffForCommitMessage()
                 if (diff.isBlank()) {
-                    _state.update { it.copy(generatingCommitMessage = false, toast = context.Strings.git_toast_no_diff_for_commit) }
+                    _state.update { it.copy(generatingCommitMessage = false, toast = Strings.git_toast_no_diff_for_commit) }
                     return@launch
                 }
                 val message = agentWorkflow.generateCommitMessage(diff)
@@ -360,12 +360,12 @@ class GitViewModel @Inject constructor(
                 if (!message.isNullOrBlank()) {
                     onResult(message)
                 } else {
-                    _state.update { it.copy(toast = context.Strings.git_toast_generate_commit_failed) }
+                    _state.update { it.copy(toast = Strings.git_toast_generate_commit_failed) }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "生成提交信息异常", e)
-                _state.update { it.copy(generatingCommitMessage = false, toast = context.Strings.git_toast_generate_commit_failed) }
+                _state.update { it.copy(generatingCommitMessage = false, toast = Strings.git_toast_generate_commit_failed) }
             }
         }
     }
@@ -388,7 +388,7 @@ class GitViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 if (!repository.isGitRepo(path)) {
-                    _state.update { it.copy(toast = context.Strings.git_toast_not_repo) }
+                    _state.update { it.copy(toast = Strings.git_toast_not_repo) }
                     return@launch
                 }
                 repository.setRepoPath(path)
@@ -396,7 +396,7 @@ class GitViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "切换仓库失败", e)
-                _state.update { it.copy(toast = context.Strings.formatted(Strings.git_toast_switch_repo_failed, e.message)) }
+                _state.update { it.copy(toast = Strings.formatted(Strings.git_toast_switch_repo_failed, e.message)) }
             }
         }
     }
@@ -405,14 +405,14 @@ class GitViewModel @Inject constructor(
     fun cloneRepo(url: String) = runAction(R.string.git_action_clone, { repository.cloneRepo(url) })
     fun pull() {
         if (!_state.value.hasRemote) {
-            _state.update { it.copy(toast = context.Strings.git_toast_no_remote_pull) }
+            _state.update { it.copy(toast = Strings.git_toast_no_remote_pull) }
             return
         }
         runAction(R.string.git_pull, { repository.pull() })
     }
     fun push(onPromptRenameMaster: () -> Unit = {}) {
         if (!_state.value.hasRemote) {
-            _state.update { it.copy(toast = context.Strings.git_toast_no_remote_push) }
+            _state.update { it.copy(toast = Strings.git_toast_no_remote_push) }
             return
         }
         viewModelScope.launch {
@@ -477,7 +477,7 @@ class GitViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "加载更多提交失败", e)
-                _state.update { it.copy(graphLoadingMore = false, toast = context.Strings.formatted(Strings.git_toast_load_more_failed, e.message)) }
+                _state.update { it.copy(graphLoadingMore = false, toast = Strings.formatted(Strings.git_toast_load_more_failed, e.message)) }
             }
         }
     }
@@ -491,12 +491,12 @@ class GitViewModel @Inject constructor(
         viewModelScope.launch {
             val msg = try {
                 repository.checkout(ref, isRemote)
-                context.Strings.formatted(Strings.git_toast_checkout_success, ref)
+                Strings.formatted(Strings.git_toast_checkout_success, ref)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 FileLogger.e(TAG, "切换分支失败", e)
                 val reason = (e as? GitCommandFailureException)?.output ?: e.message
-                context.Strings.formatted(Strings.git_toast_checkout_failed, GitErrorMessage.friendly(reason ?: ""))
+                Strings.formatted(Strings.git_toast_checkout_failed, GitErrorMessage.friendly(reason ?: ""))
             }
             try {
                 if (repository.isRepo()) {
@@ -510,7 +510,7 @@ class GitViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _state.update { it.copy(checkoutLoading = null, toast = context.Strings.formatted(Strings.git_toast_action_refresh_failed, msg)) }
+                _state.update { it.copy(checkoutLoading = null, toast = Strings.formatted(Strings.git_toast_action_refresh_failed, msg)) }
             }
         }
     }
@@ -727,7 +727,7 @@ class GitViewModel @Inject constructor(
     /** diff 计算完成：成功填数据，失败关闭 diff 页并 toast。 */
     private fun finishDiff(data: DiffData?) {
         if (data == null) {
-            _state.update { it.copy(diffVisible = false, diffData = null, toast = context.Strings.git_toast_diff_failed) }
+            _state.update { it.copy(diffVisible = false, diffData = null, toast = Strings.git_toast_diff_failed) }
         } else {
             _state.update { it.copy(diffData = data) }
         }

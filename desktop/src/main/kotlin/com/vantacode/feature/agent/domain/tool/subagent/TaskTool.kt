@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.subagent
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,7 +69,7 @@ class TaskTool @Inject constructor(
     private val agentDefinitionRepository: AgentDefinitionRepository,
     private val aiProviderRepository: AIProviderRepository,
     private val subagentTierSettings: SubagentTierSettingsRepository,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AbstractContextualTool() {
 
     private companion object {
@@ -349,14 +349,13 @@ class TaskTool @Inject constructor(
                     // 跨提供商的组合大概率无法调用，不说明的话主代理只会在派发失败上一头雾水
                     if (definition?.providerId != null && definitionProviderId == null) {
                         add(
-                            appContext.getString(
-                                R.string.tool_subagent_provider_unresolved,
+                            appContext.Strings.formatted(Strings.tool_subagent_provider_unresolved,
                                 definition.providerId,
                                 modelBinding.model ?: "inherit"
                             )
                         )
                     }
-                    if (writeCapped) add(appContext.Strings.tool_subagent_plan_readonly_warning)
+                    if (writeCapped) add(Strings.tool_subagent_plan_readonly_warning)
                     describeModelFallback(modelBinding)?.let { add(it) }
                 }
 
@@ -445,19 +444,17 @@ class TaskTool @Inject constructor(
         val requested = binding.requestedTier ?: return null
         val requestedLabel = tierLabel(requested)
         return when (binding.fallback) {
-            SubagentModelFallback.DEFINITION_PINNED -> appContext.getString(
-                R.string.tool_subagent_tier_pinned,
+            SubagentModelFallback.DEFINITION_PINNED -> appContext.Strings.formatted(Strings.tool_subagent_tier_pinned,
                 binding.model ?: "inherit",
                 requestedLabel
             )
             SubagentModelFallback.TIER_UNAVAILABLE -> binding.tier?.let { applied ->
-                appContext.getString(
-                    R.string.tool_subagent_tier_fallback,
+                appContext.Strings.formatted(Strings.tool_subagent_tier_fallback,
                     requestedLabel,
                     tierLabel(applied),
                     binding.model ?: "inherit"
                 )
-            } ?: appContext.Strings.formatted(Strings.tool_subagent_tier_unavailable, requestedLabel)
+            } ?: Strings.formatted(Strings.tool_subagent_tier_unavailable, requestedLabel)
             null -> null
         }
     }
@@ -505,7 +502,7 @@ class TaskTool @Inject constructor(
             buildJsonObject {
                 put("id", subSessionId)
                 put("state", "delivered")
-                put("message", appContext.Strings.tool_subagent_message_delivered)
+                put("message", Strings.tool_subagent_message_delivered)
             }
         )
     }

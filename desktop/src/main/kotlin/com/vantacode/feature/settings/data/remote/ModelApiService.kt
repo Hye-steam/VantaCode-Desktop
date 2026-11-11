@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.toUserMessage
 import com.vantacode.feature.agent.domain.provider.joinUrl
@@ -59,7 +59,7 @@ data class ModelTestResult(
 @Singleton
 class ModelApiService @Inject constructor(
     private val client: OkHttpClient,
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -75,7 +75,7 @@ class ModelApiService @Inject constructor(
         var capturedUrl = ""
         var capturedHeaders: Map<String, String> = emptyMap()
         runCatching {
-            if (apiKey.isBlank()) error(context.Strings.provider_api_key_required)
+            if (apiKey.isBlank()) error(Strings.provider_api_key_required)
 
             val modelsPath = if (type == ProviderType.GEMINI) "v1beta/models" else "v1/models"
             val url = if (useFullUrl) baseUrl else joinUrl(baseUrl, modelsPath)
@@ -127,16 +127,16 @@ class ModelApiService @Inject constructor(
                     val debug = ModelTestResult(
                         success = false,
                         latencyMs = latency,
-                        message = context.Strings.provider_fetch_missing_fields,
+                        message = Strings.provider_fetch_missing_fields,
                         requestUrl = url,
                         requestHeaders = reqHeadersMap,
                         requestBody = "",
                         responseCode = response.code,
                         responseHeaders = respHeadersMap,
                         responseBody = body,
-                        errorDetail = context.Strings.formatted(Strings.provider_fetch_missing_fields_detail, body)
+                        errorDetail = Strings.formatted(Strings.provider_fetch_missing_fields_detail, body)
                     )
-                    throw FetchModelsException(context.Strings.provider_fetch_missing_fields, debug)
+                    throw FetchModelsException(Strings.provider_fetch_missing_fields, debug)
                 }
 
                 val modelList = data.mapNotNull { 
@@ -149,7 +149,7 @@ class ModelApiService @Inject constructor(
                 val debug = ModelTestResult(
                     success = true,
                     latencyMs = latency,
-                    message = context.Strings.formatted(Strings.provider_fetch_success, modelList.size, latency),
+                    message = Strings.formatted(Strings.provider_fetch_success, modelList.size, latency),
                     requestUrl = url,
                     requestHeaders = reqHeadersMap,
                     requestBody = "",
@@ -164,7 +164,7 @@ class ModelApiService @Inject constructor(
                 throw e
             }
             val latency = (System.nanoTime() - start) / 1_000_000
-            val fallback = context.Strings.settings_models_fetch_failed
+            val fallback = Strings.settings_models_fetch_failed
             val debug = ModelTestResult(
                 success = false,
                 latencyMs = latency,
@@ -208,7 +208,7 @@ class ModelApiService @Inject constructor(
         var capturedHeaders: Map<String, String> = emptyMap()
         var capturedBody = ""
         try {
-            if (apiKey.isBlank()) error(context.Strings.provider_api_key_required)
+            if (apiKey.isBlank()) error(Strings.provider_api_key_required)
 
             val (url, payload) = when (type) {
                 ProviderType.ANTHROPIC -> {
@@ -277,7 +277,7 @@ class ModelApiService @Inject constructor(
                     TestAttempt(ModelTestResult(
                         success = true,
                         latencyMs = latency,
-                        message = context.Strings.formatted(Strings.provider_test_success, latency),
+                        message = Strings.formatted(Strings.provider_test_success, latency),
                         requestUrl = url,
                         requestHeaders = reqHeadersMap,
                         requestBody = payload,

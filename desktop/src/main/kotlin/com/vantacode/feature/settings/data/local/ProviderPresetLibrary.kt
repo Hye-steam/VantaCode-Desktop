@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.local
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.net.RepoDataFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,7 +51,7 @@ object ProviderPresetLibrary {
      * 仅供 App 启动阶段（AIEditorApp）在后台协程异步调用：
      * 走 RepoDataFetcher 测活拉取最新配置并持久化，失败完全静默。
      */
-    suspend fun refreshFromNetworkIfStale(context: Context) = withContext(Dispatchers.IO) {
+    suspend fun refreshFromNetworkIfStale(context: DesktopContext) = withContext(Dispatchers.IO) {
         if (refreshAttemptedThisProcess) return@withContext
         refreshAttemptedThisProcess = true
 
@@ -82,7 +82,7 @@ object ProviderPresetLibrary {
      * 顺序：内存缓存 -> 磁盘下载文件 -> assets 内置文件。
      * 纯本地 IO，绝对不发任何网络请求，秒级返回。
      */
-    fun loadOfficial(context: Context): List<ProviderPreset> {
+    fun loadOfficial(context: DesktopContext): List<ProviderPreset> {
         cached?.let { return it }
 
         // 1. 尝试直接读取本地磁盘缓存文件（由 RepoDataFetcher 写入）
@@ -107,7 +107,7 @@ object ProviderPresetLibrary {
         return fallback
     }
 
-    private fun loadFromAssets(context: Context): List<ProviderPreset> = runCatching {
+    private fun loadFromAssets(context: DesktopContext): List<ProviderPreset> = runCatching {
         val text = context.assets.open(PROVIDERS_ASSET_FILE_NAME).bufferedReader().use { it.readText() }
         val list = json.decodeFromString<List<ProviderPreset>>(text)
         list.sortedWith(

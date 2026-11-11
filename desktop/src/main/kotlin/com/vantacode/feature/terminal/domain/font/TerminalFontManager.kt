@@ -1,6 +1,6 @@
 package com.vantacode.feature.terminal.domain.font
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.graphics.Typeface
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -18,7 +18,7 @@ data class TerminalFont(
 
 /**
  * 终端自定义字体管理：导入的 ttf/otf 存放在 App 私有目录，按路径加载并缓存 Typeface。
- * 不走 Hilt，设置面板与终端渲染两侧都直接以 Context 调用。
+ * 不走 Hilt，设置面板与终端渲染两侧都直接以 DesktopContext 调用。
  */
 object TerminalFontManager {
 
@@ -30,10 +30,10 @@ object TerminalFontManager {
 
     private val typefaceCache = ConcurrentHashMap<String, Typeface>()
 
-    fun fontsDir(context: Context): File =
+    fun fontsDir(context: DesktopContext): File =
         File(context.filesDir, DIR_NAME).apply { if (!exists()) mkdirs() }
 
-    fun listFonts(context: Context): List<TerminalFont> =
+    fun listFonts(context: DesktopContext): List<TerminalFont> =
         fontsDir(context).listFiles()
             ?.filter { it.isFile && it.extension.lowercase() in SUPPORTED_EXTENSIONS }
             ?.sortedBy { it.name.lowercase() }
@@ -41,7 +41,7 @@ object TerminalFontManager {
             ?: emptyList()
 
     /** 复制字体文件到私有目录并校验可解析；失败返回 null。 */
-    fun importFont(context: Context, uri: Uri): TerminalFont? {
+    fun importFont(context: DesktopContext, uri: Uri): TerminalFont? {
         val fileName = queryDisplayName(context, uri) ?: return null
         if (File(fileName).extension.lowercase() !in SUPPORTED_EXTENSIONS) return null
 
@@ -68,7 +68,7 @@ object TerminalFontManager {
     }
 
     /** 加载字体；路径为空或文件损坏时返回 null，由调用方回落到系统等宽字体。 */
-    fun loadTypeface(context: Context, path: String): Typeface? {
+    fun loadTypeface(context: DesktopContext, path: String): Typeface? {
         if (path.isBlank()) return null
         if (path == BUILTIN_PATH) {
             typefaceCache[BUILTIN_PATH]?.let { return it }
@@ -88,7 +88,7 @@ object TerminalFontManager {
         }
     }
 
-    private fun queryDisplayName(context: Context, uri: Uri): String? {
+    private fun queryDisplayName(context: DesktopContext, uri: Uri): String? {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
             ?.use { cursor ->
                 if (cursor.moveToFirst()) {

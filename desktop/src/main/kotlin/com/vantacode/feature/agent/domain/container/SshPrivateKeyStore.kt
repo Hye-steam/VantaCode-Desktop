@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.container
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.security.KeystoreCipher
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -16,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SshPrivateKeyStore @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         const val TAG = "SshPrivateKeyStore"

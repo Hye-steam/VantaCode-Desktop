@@ -56,7 +56,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -476,7 +476,7 @@ internal fun AttachmentSheet(
                 .padding(bottom = Spacing.xl)
         ) {
             Text(
-                text = stringResource(com.vantacode.R.string.chat_add_attachment),
+                text = Strings.chat_add_attachment,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -484,19 +484,19 @@ internal fun AttachmentSheet(
             )
             AttachmentSheetItem(
                 icon = FeatherIcons.FileText,
-                title = stringResource(com.vantacode.R.string.chat_upload_file),
+                title = Strings.chat_upload_file,
                 enabled = canUploadFiles,
                 onClick = onUploadFile
             )
             AttachmentSheetItem(
                 icon = FeatherIcons.Image,
-                title = stringResource(com.vantacode.R.string.chat_upload_image),
+                title = Strings.chat_upload_image,
                 enabled = canUploadImages,
                 onClick = onUploadImage
             )
             AttachmentSheetItem(
                 icon = FeatherIcons.Camera,
-                title = stringResource(com.vantacode.R.string.chat_take_photo),
+                title = Strings.chat_take_photo,
                 enabled = canUploadImages,
                 onClick = onTakePhoto
             )

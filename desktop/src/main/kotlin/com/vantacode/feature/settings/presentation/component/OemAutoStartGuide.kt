@@ -1,7 +1,7 @@
 package com.vantacode.feature.settings.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -43,7 +43,7 @@ object OemAutoStartGuide {
     )
 
     /** 尝试跳转厂商自启动管理页；无匹配或跳转失败时回退到应用详情页。 */
-    fun openAutoStartSettings(context: Context) {
+    fun openAutoStartSettings(context: DesktopContext) {
         val manufacturer = Build.MANUFACTURER.lowercase()
         val entry = vendorEntries.firstOrNull { vendor ->
             vendor.keywords.any { manufacturer.contains(it) }
@@ -52,7 +52,7 @@ object OemAutoStartGuide {
         openAppDetails(context)
     }
 
-    private fun startResolved(context: Context, component: String): Boolean {
+    private fun startResolved(context: DesktopContext, component: String): Boolean {
         val (pkg, cls) = component.split("/", limit = 2)
         val intent = Intent().setComponent(ComponentName(pkg, cls))
         if (intent.resolveActivity(context.packageManager) == null) {
@@ -65,7 +65,7 @@ object OemAutoStartGuide {
     }
 
     /** 跳转到本应用的系统设置详情页（权限页）。供权限提醒弹窗复用。 */
-    internal fun openAppDetails(context: Context) {
+    internal fun openAppDetails(context: DesktopContext) {
         val intent = Intent(
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
             Uri.parse("package:${context.packageName}")

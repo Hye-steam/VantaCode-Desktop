@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.local
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.settings.domain.model.ModelMetadata
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,7 +21,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class CustomModelMetadataStore @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()

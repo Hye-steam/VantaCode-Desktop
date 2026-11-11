@@ -1,8 +1,8 @@
 
 package com.vantacode.feature.agent.presentation.notification
+import com.vantacode.core.platform.DesktopContext
 
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -34,7 +34,7 @@ import com.vantacode.core.ui.Strings
  */
 @Singleton
 class AgentLiveNotificationManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val settings: LiveNotificationSettingsRepository
 ) {
     /** 一个运行中的会话在通知里的展示信息。 */
@@ -97,7 +97,7 @@ class AgentLiveNotificationManager @Inject constructor(
         val title = if (running.size == 1) {
             running.first().statusLabel
         } else {
-            context.Strings.formatted(Strings.notification_agent_live_title_multi, running.size)
+            Strings.formatted(Strings.notification_agent_live_title_multi, running.size)
         }
         val body = running.joinToString("\n") { "${it.title} · ${it.statusLabel}" }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)

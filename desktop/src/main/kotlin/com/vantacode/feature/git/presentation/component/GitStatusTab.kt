@@ -50,7 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -165,7 +165,7 @@ internal fun StatusTab(
         )
     }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalDesktopContext.current
 
     fun untrackedFileMenu(path: String): FileMenu {
         val ext = path.substringAfterLast('.', "").takeIf { it.isNotBlank() }
@@ -173,9 +173,9 @@ internal fun StatusTab(
             path = path,
             actions = buildList {
                 add(FileAction.ViewDiff { onUntrackedDiff(path) })
-                add(FileAction.Ignore(context.Strings.formatted(Strings.git_ignore_file, path.substringAfterLast('/'))) { onAddToGitignore("/$path") })
+                add(FileAction.Ignore(Strings.formatted(Strings.git_ignore_file, path.substringAfterLast('/'))) { onAddToGitignore("/$path") })
                 if (ext != null) {
-                    add(FileAction.Ignore(context.Strings.formatted(Strings.git_ignore_extension, ext)) { onAddToGitignore("*.$ext") })
+                    add(FileAction.Ignore(Strings.formatted(Strings.git_ignore_extension, ext)) { onAddToGitignore("*.$ext") })
                 }
                 add(FileAction.DeleteFile { pendingDelete = path })
                 add(FileAction.CopyPath { onCopyPath(path) })
@@ -186,7 +186,7 @@ internal fun StatusTab(
     fun untrackedDirMenu(path: String) = FileMenu(
         path = path,
         actions = listOf(
-            FileAction.Ignore(context.Strings.formatted(Strings.git_ignore_dir, path.removeSuffix("/").substringAfterLast('/'))) {
+            FileAction.Ignore(Strings.formatted(Strings.git_ignore_dir, path.removeSuffix("/").substringAfterLast('/'))) {
                 onAddToGitignore("/${path.removeSuffix("/")}/")
             },
             FileAction.DeleteDir { pendingDelete = path },

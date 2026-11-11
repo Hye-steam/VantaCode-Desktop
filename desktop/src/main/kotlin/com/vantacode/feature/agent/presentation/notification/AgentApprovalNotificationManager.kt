@@ -1,7 +1,7 @@
 package com.vantacode.feature.agent.presentation.notification
+import com.vantacode.core.platform.DesktopContext
 
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
@@ -34,7 +34,7 @@ import com.vantacode.core.ui.Strings
  */
 @Singleton
 class AgentApprovalNotificationManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val settings: ApprovalNotificationSettingsRepository
 ) {
     /** 待审批项的类型，决定通知上挂哪组按钮。 */
@@ -99,9 +99,9 @@ class AgentApprovalNotificationManager @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE
         )
         val title = if (pending.size == 1) {
-            context.Strings.notification_approval_title
+            Strings.notification_approval_title
         } else {
-            context.Strings.formatted(Strings.notification_approval_multi_title, pending.size)
+            Strings.formatted(Strings.notification_approval_multi_title, pending.size)
         }
         val body = pending.joinToString("\n") { "${it.sessionTitle} · ${it.label}" }
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -117,12 +117,12 @@ class AgentApprovalNotificationManager @Inject constructor(
             val requestId = single.requestId ?: return@let
             when (single.kind) {
                 ApprovalKind.PERMISSION -> {
-                    builder.addAction(0, context.Strings.notification_approval_action_reject, actionIntent(ApprovalKind.PERMISSION, PermissionChoice.REJECT.name, requestId, 11))
-                    builder.addAction(0, context.Strings.notification_approval_action_allow, actionIntent(ApprovalKind.PERMISSION, PermissionChoice.ONCE.name, requestId, 12))
+                    builder.addAction(0, Strings.notification_approval_action_reject, actionIntent(ApprovalKind.PERMISSION, PermissionChoice.REJECT.name, requestId, 11))
+                    builder.addAction(0, Strings.notification_approval_action_allow, actionIntent(ApprovalKind.PERMISSION, PermissionChoice.ONCE.name, requestId, 12))
                 }
                 ApprovalKind.PLAN -> {
-                    builder.addAction(0, context.Strings.notification_approval_action_approve_plan, actionIntent(ApprovalKind.PLAN, PlanApprovalChoice.APPROVE.name, requestId, 13))
-                    builder.addAction(0, context.Strings.notification_approval_action_reject, actionIntent(ApprovalKind.PLAN, PlanApprovalChoice.REFINE.name, requestId, 14))
+                    builder.addAction(0, Strings.notification_approval_action_approve_plan, actionIntent(ApprovalKind.PLAN, PlanApprovalChoice.APPROVE.name, requestId, 13))
+                    builder.addAction(0, Strings.notification_approval_action_reject, actionIntent(ApprovalKind.PLAN, PlanApprovalChoice.REFINE.name, requestId, 14))
                 }
                 ApprovalKind.QUESTION -> Unit
             }

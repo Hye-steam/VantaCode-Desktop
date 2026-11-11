@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.memory
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,7 +27,7 @@ import com.vantacode.core.ui.Strings
 
 class MemoryTool @Inject constructor(
     private val memoryRepository: MemoryRepository,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AbstractContextualTool() {
     private companion object {
         const val TAG = "MemoryTool"
@@ -163,7 +163,7 @@ class MemoryTool @Inject constructor(
 
         val success = memoryRepository.saveMemory(name, description, content, scope, projectRoot)
         return if (success) {
-            ToolResult.Success(JsonPrimitive(appContext.Strings.formatted(Strings.tool_memory_saved, name, scope.name.lowercase())))
+            ToolResult.Success(JsonPrimitive(Strings.formatted(Strings.tool_memory_saved, name, scope.name.lowercase())))
         } else {
             ToolResult.Error("保存记忆失败，请查看日志。", "SAVE_FAILED")
         }

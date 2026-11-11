@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.container
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
 import java.security.PublicKey
@@ -18,12 +18,12 @@ interface SshHostKeyStore {
 
 private const val PREFS_NAME = "ssh_host_keys"
 
-/** 基于应用私有 SharedPreferences 的实现。 */
+/** 基于应用私有 DesktopPrefs 的实现。 */
 @Singleton
 class SharedPrefsSshHostKeyStore @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) : SshHostKeyStore {
-    private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(PREFS_NAME, DesktopContext.MODE_PRIVATE)
 
     private fun key(host: String, port: Int): String = "$host:$port"
 

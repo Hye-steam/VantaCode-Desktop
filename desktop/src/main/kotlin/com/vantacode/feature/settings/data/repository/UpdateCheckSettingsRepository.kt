@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.feature.settings.data.remote.UpdateCheckResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -14,15 +14,15 @@ enum class UpdateChannel {
 }
 
 /**
- * 「自动检查更新」偏好存储：开关、更新通道、上次检测日期统一存 SharedPreferences
+ * 「自动检查更新」偏好存储：开关、更新通道、上次检测日期统一存 DesktopPrefs
  * （键值文件，非数据库）。上次检测日期不写数据库，但也不放 cacheDir——缓存目录可能被
- * 系统清理导致「每天一次」失效，持久化到 SharedPreferences 更可靠。
+ * 系统清理导致「每天一次」失效，持久化到 DesktopPrefs 更可靠。
  */
 @Singleton
 class UpdateCheckSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
-    private val prefs = context.getSharedPreferences("update_check_prefs", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("update_check_prefs", DesktopContext.MODE_PRIVATE)
 
     /** 自动检查更新开关，默认开启。 */
     var autoCheckEnabled: Boolean

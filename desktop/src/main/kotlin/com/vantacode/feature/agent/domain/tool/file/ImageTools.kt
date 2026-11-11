@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.file
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -69,7 +69,7 @@ class ViewImageTool @Inject constructor(
     private val openAIApi: OpenAIApi,
     private val anthropicApi: AnthropicApi,
     private val geminiApi: GeminiApi,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AbstractContextualTool() {
     override val name = "viewImage"
     override val description = "查看当前执行环境中的图片。聊天模型支持视觉时直接附加图片；否则调用识图模型，返回分析内容与 vision_id。仅在收到 vision_id 后使用 id 继续追问。"
@@ -145,10 +145,10 @@ class ViewImageTool @Inject constructor(
             }
         }
         val content = buildString {
-            append(appContext.Strings.formatted(Strings.tool_vision_images_attached, encoded.size))
+            append(Strings.formatted(Strings.tool_vision_images_attached, encoded.size))
             if (prompt.isNotBlank()) {
                 append('\n')
-                append(appContext.Strings.formatted(Strings.tool_vision_focus, prompt))
+                append(Strings.formatted(Strings.tool_vision_focus, prompt))
             }
         }
         return ToolResult.Success(
@@ -181,7 +181,7 @@ class ViewImageTool @Inject constructor(
             visionSessionStore.save(id, messages)
             val provider = resolveVisionProvider(sessionId)
             val response = callVisionProvider(provider, messages, sessionId)
-            val content = response.content.ifBlank { appContext.Strings.tool_vision_empty_response }
+            val content = response.content.ifBlank { Strings.tool_vision_empty_response }
             visionSessionStore.save(id, messages + AgentMessage.AssistantMessage(content = content))
             successResult(id, content)
         } catch (e: CancellationException) {
@@ -203,7 +203,7 @@ class ViewImageTool @Inject constructor(
         return try {
             val provider = resolveVisionProvider(sessionId)
             val response = callVisionProvider(provider, messages, sessionId)
-            val content = response.content.ifBlank { appContext.Strings.tool_vision_empty_response }
+            val content = response.content.ifBlank { Strings.tool_vision_empty_response }
             visionSessionStore.save(id, messages + AgentMessage.AssistantMessage(content = content))
             successResult(id, content)
         } catch (e: CancellationException) {
@@ -275,9 +275,9 @@ class ViewImageTool @Inject constructor(
     }
 
     private fun defaultPrompt(count: Int): String = if (count == 1) {
-        appContext.Strings.tool_vision_default_single
+        Strings.tool_vision_default_single
     } else {
-        appContext.Strings.formatted(Strings.tool_vision_default_multiple, count)
+        Strings.formatted(Strings.tool_vision_default_multiple, count)
     }
 
     /**

@@ -48,8 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -219,7 +219,7 @@ private fun TerminalFontSection(
     currentPath: String,
     onChangeFontPath: (String) -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val scope = rememberCoroutineScope()
     var fonts by remember { mutableStateOf(TerminalFontManager.listFonts(context)) }
 
@@ -228,7 +228,7 @@ private fun TerminalFontSection(
         scope.launch {
             val imported = withContext(Dispatchers.IO) { TerminalFontManager.importFont(context, uri) }
             if (imported == null) {
-                Toast.makeText(context, R.string.terminal_font_import_failed, Toast.LENGTH_SHORT).show()
+                PlatformToast.show(R.string.terminal_font_import_failed)
             } else {
                 fonts = TerminalFontManager.listFonts(context)
                 onChangeFontPath(imported.path)

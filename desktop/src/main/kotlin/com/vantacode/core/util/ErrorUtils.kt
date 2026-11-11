@@ -1,6 +1,6 @@
 package com.vantacode.core.util
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import java.io.IOException
 import com.vantacode.core.ui.Strings
@@ -12,7 +12,7 @@ import com.vantacode.core.ui.Strings
  * "Unable to resolve host ...: No address associated with hostname"）会让用户误判成域名不存在，
  * 而丢掉原文又不利于排查。空 message 的异常回退到异常类名（直接使用会显示成 "null"）。
  */
-fun Throwable.toUserMessage(context: Context): String {
+fun Throwable.toUserMessage(context: DesktopContext): String {
     val parts = mutableListOf<String>()
     var current: Throwable? = this
     var depth = 0
@@ -29,7 +29,7 @@ fun Throwable.toUserMessage(context: Context): String {
         current = t.cause
         depth++
     }
-    return parts.joinToString(" · ").ifBlank { context.Strings.common_error_unknown }
+    return parts.joinToString(" · ").ifBlank { Strings.common_error_unknown }
 }
 
 private fun MutableList<String>.addIfAbsent(value: String) {
@@ -37,12 +37,12 @@ private fun MutableList<String>.addIfAbsent(value: String) {
 }
 
 /** 针对常见网络异常给出中文归类；非网络类异常返回 null，由原始 message 兜底。 */
-private fun Throwable.networkLabel(context: Context): String? = when (this) {
-    is java.net.UnknownHostException -> context.Strings.network_error_dns
-    is java.net.SocketTimeoutException -> context.Strings.network_error_timeout
-    is java.net.ConnectException -> context.Strings.network_error_connect
+private fun Throwable.networkLabel(context: DesktopContext): String? = when (this) {
+    is java.net.UnknownHostException -> Strings.network_error_dns
+    is java.net.SocketTimeoutException -> Strings.network_error_timeout
+    is java.net.ConnectException -> Strings.network_error_connect
     // SSLException / ConnectException / UnknownHostException 都是 IOException 子类，必须先于兜底匹配
-    is javax.net.ssl.SSLException -> context.Strings.network_error_ssl
+    is javax.net.ssl.SSLException -> Strings.network_error_ssl
     is IOException -> null
     else -> null
 }

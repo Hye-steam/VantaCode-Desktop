@@ -1,7 +1,5 @@
 package com.vantacode.core.util
 
-import android.content.Context
-import android.util.Log
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -75,11 +73,9 @@ object AILogger {
     private val counters = ConcurrentHashMap<String, AtomicInteger>()
 
     /** 初始化日志目录。重复调用安全。 */
-    fun init(context: Context) {
+    fun init(baseDir: java.io.File? = null) {
         if (logDir != null) return
-        // 优先外部私有目录，便于（root 或 adb 下）取出；不可用时回退内部存储。
-        val base = context.getExternalFilesDir(null) ?: context.filesDir
-        val dir = File(base, "ai-logs").apply { mkdirs() }
+        val dir = (baseDir ?: com.vantacode.core.platform.PlatformPaths.aiLogsDir).apply { mkdirs() }
         logDir = dir
         ioExecutor.execute { cleanupOldLogs(dir) }
         FileLogger.i(TAG, "AILogger 初始化完成，AI 会话日志目录: ${dir.absolutePath}")
@@ -215,7 +211,7 @@ object AILogger {
                     if (file.delete()) freed.addAndGet(size)
                 }
                 counters.clear()
-            }.onFailure { Log.e(TAG, "清空 AI 会话日志失败", it) }
+            }.onFailure { /* console log removed */ }
             latch.countDown()
         }
         runCatching { latch.await(5, java.util.concurrent.TimeUnit.SECONDS) }
@@ -301,7 +297,7 @@ object AILogger {
                     block(w)
                     w.flush()
                 }
-            }.onFailure { Log.e(TAG, "写入 AI 会话日志失败", it) }
+            }.onFailure { /* console log removed */ }
         }
     }
 

@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,9 +12,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class ModelReasoningEffortRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS_NAME, DesktopContext.MODE_PRIVATE)
 
     /** 读取某模型的默认档位 name；未记忆过返回 null。 */
     fun get(providerId: String, model: String): String? =

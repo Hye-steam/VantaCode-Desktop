@@ -1,8 +1,8 @@
 package com.vantacode.feature.agent.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -42,8 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -76,7 +76,7 @@ fun ProviderDashboardBar(
     onRefreshByButton: () -> Unit = {},
     onExpandedChange: (Boolean) -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     // 弹窗/键盘叠加时同帧收起：用派生状态而不是 LaunchedEffect 异步改 isExpanded，
@@ -179,14 +179,14 @@ fun ProviderDashboardBar(
                                     }
                                     context.startActivity(intent)
                                 }.onFailure {
-                                    Toast.makeText(context, context.Strings.common_open_link_failed, Toast.LENGTH_SHORT).show()
+                                    PlatformToast.show(Strings.common_open_link_failed)
                                 }
                             }
                             is AdaptiveCardAction.CopyToClipboard -> {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                val clipboard = context.getSystemService(DesktopContext.CLIPBOARD_SERVICE) as? ClipboardManager
                                 val clip = ClipData.newPlainText(action.title, action.value)
                                 clipboard?.setPrimaryClip(clip)
-                                Toast.makeText(context, context.Strings.formatted(Strings.common_copied_with_title, action.title), Toast.LENGTH_SHORT).show()
+                                PlatformToast.show(Strings.formatted(Strings.common_copied_with_title, action.title))
                             }
                         }
                     }

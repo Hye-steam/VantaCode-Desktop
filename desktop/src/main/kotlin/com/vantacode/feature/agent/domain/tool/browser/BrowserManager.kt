@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.browser
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.MutableContextWrapper
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -152,7 +152,7 @@ data class BrowserConsoleEntry(
 
 @Singleton
 class BrowserManager @Inject constructor(
-    @param:ApplicationContext private val appContext: Context,
+    @param:ApplicationContext private val appContext: DesktopContext,
     private val fileAccess: FileAccessProvider,
     private val pathHomeResolver: PathHomeResolver
 ) {
@@ -235,7 +235,7 @@ class BrowserManager @Inject constructor(
     private val nightMode: Boolean get() = nightModeOverride ?: appDarkTheme
 
     private val prefs by lazy {
-        appContext.getSharedPreferences("browser_settings", Context.MODE_PRIVATE)
+        appContext.getSharedPreferences("browser_settings", DesktopContext.MODE_PRIVATE)
     }
     private var currentUaPreset: BrowserUserAgentPreset = BrowserUserAgentPreset.DEFAULT
     private var currentCustomUa: String = ""

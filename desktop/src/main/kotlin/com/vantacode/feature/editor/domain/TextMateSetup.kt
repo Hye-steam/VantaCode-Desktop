@@ -1,6 +1,6 @@
 package com.vantacode.feature.editor.domain
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import io.github.rosemoe.sora.lang.analysis.AsyncIncrementalAnalyzeManager
 import io.github.rosemoe.sora.langs.textmate.registry.FileProviderRegistry
 import io.github.rosemoe.sora.langs.textmate.registry.GrammarRegistry
@@ -24,7 +24,7 @@ object TextMateSetup {
     private var initialized = false
 
     /** 幂等：编辑器页每次打开都会调用，只有首次真正加载。 */
-    fun ensureInitialized(context: Context) {
+    fun ensureInitialized(context: DesktopContext) {
         if (initialized) return
         synchronized(this) {
             if (initialized) return

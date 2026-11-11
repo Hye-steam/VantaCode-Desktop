@@ -51,7 +51,7 @@ import com.vantacode.feature.agent.domain.tool.question.PendingUserQuestion
 import com.vantacode.feature.agent.domain.tool.question.QuestionItem
 import com.vantacode.feature.agent.domain.tool.question.SingleAnswer
 import com.vantacode.feature.agent.domain.tool.question.UserQuestionAnswer
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.R
 import com.vantacode.core.ui.AppTextField
 import com.vantacode.core.ui.ExpandableChevronIcon

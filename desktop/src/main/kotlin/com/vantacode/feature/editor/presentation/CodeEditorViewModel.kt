@@ -1,6 +1,6 @@
 package com.vantacode.feature.editor.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vantacode.core.util.FileLogger
@@ -50,7 +50,7 @@ sealed interface SaveResult {
 
 @HiltViewModel
 class CodeEditorViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val fileAccess: FileAccessProvider,
     private val editorSettings: EditorSettingsRepository,
     private val versions: FileVersionRegistry

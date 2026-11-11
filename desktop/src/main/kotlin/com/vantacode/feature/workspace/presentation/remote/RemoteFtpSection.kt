@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,7 +72,7 @@ fun WiFiFtpServerSection(
     var editAnonymous by remember(isAnonymous) { mutableStateOf(isAnonymous) }
     var editAutoStart by remember(autoStart) { mutableStateOf(autoStart) }
     var showAnonymousConfirm by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalDesktopContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
 
@@ -153,7 +153,7 @@ fun WiFiFtpServerSection(
                                         scope.launch {
                                             clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("ftp", serverUrl)))
                                         }
-                                        android.widget.Toast.makeText(context, context.Strings.ftp_address_copied, android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.PlatformToast.show(Strings.ftp_address_copied, android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                     .padding(top = 2.dp, end = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -191,7 +191,7 @@ fun WiFiFtpServerSection(
             if (errorMessage != null) {
                 val error = errorMessage
                 Text(
-                    text = context.Strings.formatted(Strings.ftp_error, error),
+                    text = Strings.formatted(Strings.ftp_error, error),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm)
@@ -266,7 +266,7 @@ fun WiFiFtpServerSection(
                     onClick = {
                         val p = editPort.toIntOrNull() ?: 2121
                         viewModel.saveFtpServerConfig(p, editUsername, editPassword, editAnonymous, editAutoStart)
-                        android.widget.Toast.makeText(context, context.Strings.ftp_config_saved, android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.PlatformToast.show(Strings.ftp_config_saved, android.widget.Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier
                         .fillMaxWidth()

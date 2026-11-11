@@ -1,9 +1,9 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.approvalNotificationDataStore by preferencesDataStore(
+private val DesktopContext.approvalNotificationDataStore by preferencesDataStore(
     name = "approval_notification_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -26,7 +26,7 @@ private val Context.approvalNotificationDataStore by preferencesDataStore(
  */
 @Singleton
 class ApprovalNotificationSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val ENABLED_KEY = booleanPreferencesKey("approval_notification_enabled")

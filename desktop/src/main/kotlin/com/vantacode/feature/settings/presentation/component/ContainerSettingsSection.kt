@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,9 +71,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -141,7 +141,7 @@ internal fun ContainerSection(
     /** 长按拖拽排序落库（顺序即列表存储顺序）。 */
     onReorder: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> }
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     // 长按拖拽排序的触感反馈（与「供应商」页一致：进入拖拽与松手各一次）
     val hapticFeedback = LocalHapticFeedback.current
     var showAddSheetInternal by remember { mutableStateOf(false) }
@@ -255,9 +255,9 @@ internal fun ContainerSection(
             onConfirm = { profile, setDefault ->
                 val id = "custom-${System.currentTimeMillis()}"
                 val final = if (profile.mode == ExecutionMode.REMOTE_SSH) {
-                    profile.copy(id = id, name = profile.name.ifBlank { context.Strings.container_remote_ssh })
+                    profile.copy(id = id, name = profile.name.ifBlank { Strings.container_remote_ssh })
                 } else {
-                    profile.copy(id = id, name = profile.name.ifBlank { context.Strings.container_custom_image })
+                    profile.copy(id = id, name = profile.name.ifBlank { Strings.container_custom_image })
                 }
                 onSaveCustom(final)
                 if (setDefault) onSetDefaultContainer(final.id)
@@ -355,10 +355,10 @@ internal fun ContainerSection(
 }
 
 /** 删除确认的补充说明：内置可恢复、自定义本地清 rootfs、远程 SSH 无额外说明。 */
-private fun deleteHint(context: Context, profile: ContainerProfile): String = when {
-    profile.isBuiltin -> context.Strings.container_builtin_restorable
+private fun deleteHint(context: DesktopContext, profile: ContainerProfile): String = when {
+    profile.isBuiltin -> Strings.container_builtin_restorable
     profile.mode == ExecutionMode.REMOTE_SSH -> ""
-    else -> context.Strings.container_rootfs_will_be_cleared
+    else -> Strings.container_rootfs_will_be_cleared
 }
 
 /**
@@ -512,14 +512,14 @@ private fun SourceBadge(text: String, color: Color) {
 }
 
 /** 镜像列表项副标题：本地镜像（内置/自定义）统一显示生效 shell，不区分来源；远程 SSH 显示通道名。 */
-private fun profileSubtitle(context: Context, profile: ContainerProfile, connections: List<RemoteConnection>): String {
+private fun profileSubtitle(context: DesktopContext, profile: ContainerProfile, connections: List<RemoteConnection>): String {
     if (profile.mode == ExecutionMode.REMOTE_SSH) {
         val ssh = profile.rootfsSource as? RootfsSource.RemoteSsh
         val connName = ssh?.connectionId?.let { cid -> connections.firstOrNull { it.id == cid }?.name }
-        return connName ?: context.Strings.container_channel_deleted
+        return connName ?: Strings.container_channel_deleted
     }
     val shellDesc = profile.shellPath?.ifBlank { null } ?: "/bin/sh"
-    return context.Strings.formatted(Strings.container_shell_desc, shellDesc)
+    return Strings.formatted(Strings.container_shell_desc, shellDesc)
 }
 
 /**
@@ -577,7 +577,7 @@ private fun ProfileEditSheet(
     val initialUri = (initial?.rootfsSource as? RootfsSource.LocalFile)?.uri
     var pickedUri by remember { mutableStateOf(initialUri) }
     var pickedName by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     LaunchedEffect(pickedUri) {
         pickedName = pickedUri?.let { queryImageDisplayName(context, it) }
     }
@@ -1224,7 +1224,7 @@ private fun canConfirm(
  * 把所选镜像文件复制一份到 App 私有目录（rootfs_images/）保存副本，返回副本 file uri；
  * 已是 file uri（私有副本或历史数据）时不复制直接返回原值；复制失败返回 null（调用方回退原 uri）。
  */
-private fun copyImageToPrivate(context: Context, uriString: String, profileId: String?): String? {
+private fun copyImageToPrivate(context: DesktopContext, uriString: String, profileId: String?): String? {
     if (uriString.startsWith("file://")) return uriString
     val uri = Uri.parse(uriString)
     return runCatching {
@@ -1253,7 +1253,7 @@ private fun deleteImageCopy(profile: ContainerProfile) {
 }
 
 /** 查询所选镜像文件的显示名：content uri 用 OpenableColumns，file uri 回退路径末段。 */
-private fun queryImageDisplayName(context: Context, uriString: String): String? {
+private fun queryImageDisplayName(context: DesktopContext, uriString: String): String? {
     val uri = Uri.parse(uriString)
     if (uri.scheme == "content") {
         return runCatching {

@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.container
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.system.Os
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +28,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ContainerInstaller @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val containerOsDetector: ContainerOsDetector
 ) {
     companion object {
@@ -41,7 +41,7 @@ class ContainerInstaller @Inject constructor(
          * 提取前先整目录删除：文档按功能分类，版本间调整分类会改变文件路径，只覆盖不清理会让
          * 上个版本的同名旧文件残留在别的路径下，AI 可能读到过期内容。
          */
-        fun extractDocs(context: Context) {
+        fun extractDocs(context: DesktopContext) {
             if (docsExtractedSession) return
             val destDir = File(File(context.filesDir, "aicode"), "docs")
             runCatching {
@@ -60,7 +60,7 @@ class ContainerInstaller @Inject constructor(
          * 用户自定义覆盖放在 ~/.aicode/prompts.custom/（同名即覆盖），本方法不触碰该目录，
          * 故用户重写的片段不会被升级覆盖。参见 [com.vantacode.feature.agent.domain.prompt.SystemPromptProvider]。
          */
-        fun extractPrompts(context: Context) {
+        fun extractPrompts(context: DesktopContext) {
             val destDir = File(File(context.filesDir, "aicode"), "prompts")
             destDir.mkdirs()
             runCatching {
@@ -71,7 +71,7 @@ class ContainerInstaller @Inject constructor(
         }
 
         /** 递归复制 assets 下的目录到目标目录，支持子目录（如 prompts/agent/、docs/guide/）。 */
-        private fun extractAssetsRecursive(context: Context, assetDir: String, destDir: File) {
+        private fun extractAssetsRecursive(context: DesktopContext, assetDir: String, destDir: File) {
             val entries = context.assets.list(assetDir) ?: return
             destDir.mkdirs()
             for (entry in entries) {
@@ -92,7 +92,7 @@ class ContainerInstaller @Inject constructor(
          * 从 assets 提取内置子代理定义（如 Explore）到 ~/.aicode/agents/。
          * 若文件已存在则不覆盖，以保留用户的修改与删除后的重建选择。
          */
-        fun extractAgents(context: Context) {
+        fun extractAgents(context: DesktopContext) {
             val destDir = File(File(context.filesDir, "aicode"), "agents")
             destDir.mkdirs()
             runCatching {
@@ -114,7 +114,7 @@ class ContainerInstaller @Inject constructor(
          * 从 assets 提取内置脚本（如面板 demo_balance.py）到 ~/.aicode/scripts/。
          * 若文件已存在则不覆盖，以保留用户的修改。
          */
-        fun extractScripts(context: Context) {
+        fun extractScripts(context: DesktopContext) {
             val destDir = File(File(context.filesDir, "aicode"), "scripts")
             destDir.mkdirs()
             runCatching {
@@ -144,7 +144,7 @@ class ContainerInstaller @Inject constructor(
          * 一旦 git 装好且配置登记，helper 立即可用。提取失败仅告警不抛（helper 缺席仅导致未登录时无弹窗，
          * git 仍能裸跑报认证失败，不致命）。
          */
-        fun extractCredentialHelper(context: Context) {
+        fun extractCredentialHelper(context: DesktopContext) {
             val dest = File(File(context.filesDir, "aicode"), "git-credential-aicode")
             runCatching {
                 dest.parentFile?.mkdirs()
@@ -169,7 +169,7 @@ class ContainerInstaller @Inject constructor(
          * 启动即提取、每次覆盖写（脚本随 App 版本更新）。提取失败仅告警不抛：
          * 缺脚本时初始化菜单不会出现，用户可手动安装基础工具。
          */
-        fun extractProvisionScript(context: Context) {
+        fun extractProvisionScript(context: DesktopContext) {
             val dest = File(File(context.filesDir, "aicode"), "provision.sh")
             runCatching {
                 dest.parentFile?.mkdirs()
@@ -192,7 +192,7 @@ class ContainerInstaller @Inject constructor(
          * 供用户随时执行 `aicode` 安装开发环境（场景化）。每次覆盖写（随 App 版本更新）；提取失败仅告警
          * 不抛：缺工具时容器初始化菜单（provision.sh）会提示未就绪，用户重启 App 即可重新提取。
          */
-        fun extractEnvTool(context: Context) {
+        fun extractEnvTool(context: DesktopContext) {
             runCatching {
                 extractDirOverwrite(context, "aicode/bin", File(File(context.filesDir, "aicode"), "bin"), executable = true)
                 extractDirOverwrite(context, "aicode/lib", File(File(context.filesDir, "aicode"), "lib"), executable = false)
@@ -202,7 +202,7 @@ class ContainerInstaller @Inject constructor(
         }
 
         /** 递归复制 assets 下某目录到 [destDir]（每次覆盖，支持子目录如 lib/scenarios/）；[executable] 时对每个文件赋可执行位。 */
-        private fun extractDirOverwrite(context: Context, assetDir: String, destDir: File, executable: Boolean) {
+        private fun extractDirOverwrite(context: DesktopContext, assetDir: String, destDir: File, executable: Boolean) {
             val entries = context.assets.list(assetDir) ?: return
             destDir.mkdirs()
             for (entry in entries) {

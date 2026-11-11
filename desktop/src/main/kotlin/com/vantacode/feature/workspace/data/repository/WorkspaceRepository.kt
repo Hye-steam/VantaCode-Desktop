@@ -1,11 +1,11 @@
 package com.vantacode.feature.workspace.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import com.vantacode.R
 import com.vantacode.core.util.FileLogger
@@ -38,7 +38,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.vantacode.core.ui.Strings
 
-private val Context.workspaceDataStore by preferencesDataStore(
+private val DesktopContext.workspaceDataStore by preferencesDataStore(
     name = "workspace_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -56,7 +56,7 @@ private val Context.workspaceDataStore by preferencesDataStore(
  */
 @Singleton
 class WorkspaceRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val executionModeHolder: ExecutionModeHolder,
     private val remoteSshConnection: RemoteSshConnection,
     private val pathHomeResolver: PathHomeResolver,
@@ -175,7 +175,7 @@ class WorkspaceRepository @Inject constructor(
             }
             refreshWorkspaces()
             if (!isLocal() && created == null && remoteSshConnection.isConnected()) {
-                _initError.value = context.Strings.workspace_remote_default_create_failed
+                _initError.value = Strings.workspace_remote_default_create_failed
             }
         }
 
@@ -185,8 +185,8 @@ class WorkspaceRepository @Inject constructor(
             ?: _workspaces.value.firstOrNull { it.available }
         if (saved != null && !saved.available) {
             _initError.value = target?.let {
-                context.Strings.formatted(Strings.workspace_unavailable_fallback, saved.name, it.name)
-            } ?: context.Strings.formatted(Strings.workspace_unavailable_current, saved.name)
+                Strings.formatted(Strings.workspace_unavailable_fallback, saved.name, it.name)
+            } ?: Strings.formatted(Strings.workspace_unavailable_current, saved.name)
             FileLogger.w(TAG, "上次工作区不可用，回退: ${saved.name} -> ${target?.name}")
         }
         _current.value = target
@@ -230,7 +230,7 @@ class WorkspaceRepository @Inject constructor(
         val exit = execRemoteExit("mkdir -p ${shellQuote(wsRoot)}")
         if (exit != 0) {
             FileLogger.w(TAG, "创建远程工作区根目录失败: $wsRoot (exit=$exit)")
-            _initError.value = context.Strings.workspace_remote_root_create_failed
+            _initError.value = Strings.workspace_remote_root_create_failed
             return false
         }
         return true
@@ -265,7 +265,7 @@ class WorkspaceRepository @Inject constructor(
             if (fallback != null) prefs[key] = fallback.name else prefs.remove(key)
         }
         if (fallback != null && fallback.name != current.name) {
-            _initError.value = context.Strings.formatted(Strings.workspace_unavailable_fallback, current.name, fallback.name)
+            _initError.value = Strings.formatted(Strings.workspace_unavailable_fallback, current.name, fallback.name)
         }
         FileLogger.w(TAG, "当前工作区不可用，回退: ${current.name} -> ${fallback?.name}")
     }
@@ -407,14 +407,14 @@ class WorkspaceRepository @Inject constructor(
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         val path = UriPathResolver.toFilePath(context, uri)
         if (path == null) {
-            _addError.value = context.Strings.workspace_external_unresolvable
+            _addError.value = Strings.workspace_external_unresolvable
             FileLogger.w(TAG, "添加本地工作区失败：无法解析 uri")
             releaseUriGrant(uri, uriFlags)
             return@withContext null
         }
         // 实际读写走 targetSdk 28 的 legacy storage + java.io.File；SAF grant 仅记录目录选择授权，不是文件后端。
         if (path.contains(':')) {
-            _addError.value = context.Strings.workspace_external_unsupported_path
+            _addError.value = Strings.workspace_external_unsupported_path
             FileLogger.w(TAG, "添加本地工作区失败：路径包含不支持的冒号 $path")
             releaseUriGrant(uri, uriFlags)
             return@withContext null
@@ -422,12 +422,12 @@ class WorkspaceRepository @Inject constructor(
         val dir = File(path)
         val existing = readExternalWorkspaces()
         if (existing.any { it.path == path }) {
-            _addError.value = context.Strings.workspace_external_exists
+            _addError.value = Strings.workspace_external_exists
             FileLogger.w(TAG, "添加本地工作区失败：目录已是工作区 $path")
             return@withContext null
         }
         if (!dir.isDirectory) {
-            _addError.value = context.Strings.workspace_external_invalid
+            _addError.value = Strings.workspace_external_invalid
             FileLogger.w(TAG, "添加本地工作区失败：不是目录 $path")
             releaseUriGrant(uri, uriFlags)
             return@withContext null
@@ -444,7 +444,7 @@ class WorkspaceRepository @Inject constructor(
             }
         }.getOrDefault(false)
         if (!writable) {
-            _addError.value = context.Strings.workspace_external_unwritable
+            _addError.value = Strings.workspace_external_unwritable
             FileLogger.w(TAG, "添加本地工作区失败：目录不可写 $path")
             releaseUriGrant(uri, uriFlags)
             return@withContext null

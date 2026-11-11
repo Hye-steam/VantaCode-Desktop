@@ -34,8 +34,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -52,6 +52,7 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.vantacode.core.ui.Strings
+import com.vantacode.core.ui.LogoVectors
 
 /**
  * 消息区（DSH 扁平文档流风格）的共用尺寸与色板。
@@ -152,7 +153,7 @@ internal fun ThinkingGlyph(
     iconSize: Dp = 16.dp
 ) {
     Icon(
-        painter = painterResource(R.drawable.ic_thinking),
+        painter = rememberVectorPainter(LogoVectors.Thinking),
         contentDescription = null,
         tint = tint,
         modifier = modifier.size(iconSize)

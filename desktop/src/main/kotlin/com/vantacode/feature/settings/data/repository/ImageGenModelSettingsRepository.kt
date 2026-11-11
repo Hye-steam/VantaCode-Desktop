@@ -1,13 +1,13 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.imageGenModelDataStore by preferencesDataStore(
+private val DesktopContext.imageGenModelDataStore by preferencesDataStore(
     name = "image_gen_model_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -22,7 +22,7 @@ private val Context.imageGenModelDataStore by preferencesDataStore(
  */
 @Singleton
 class ImageGenModelSettingsRepository @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) : ModelSelectionSettingsRepository(
     context.imageGenModelDataStore, "image_gen_provider_id", "image_gen_model"
 ) {

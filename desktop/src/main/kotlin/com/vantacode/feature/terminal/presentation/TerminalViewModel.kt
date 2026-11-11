@@ -1,6 +1,6 @@
 package com.vantacode.feature.terminal.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vantacode.R
@@ -34,7 +34,7 @@ import com.vantacode.core.ui.Strings
  */
 @HiltViewModel
 class TerminalViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val localManager: TerminalSessionManager,
     private val remoteManager: RemoteTerminalSessionManager,
     private val modeHolder: ExecutionModeHolder,
@@ -105,7 +105,7 @@ class TerminalViewModel @Inject constructor(
                 _prepareState.value = PrepareState.Ready
             } catch (e: Exception) {
                 FileLogger.e(TAG, "终端准备失败", e)
-                _prepareState.value = PrepareState.Error(e.message ?: context.Strings.terminal_prepare_error_unknown)
+                _prepareState.value = PrepareState.Error(e.message ?: Strings.terminal_prepare_error_unknown)
             }
         }
     }

@@ -1,8 +1,8 @@
 package com.vantacode.feature.terminal.domain
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.agent.domain.container.RemoteSshConnection
 import com.vantacode.feature.agent.domain.tool.explorer.shellQuote
@@ -47,7 +47,7 @@ class RemoteTerminalSessionManager @Inject constructor(
     private val connection: RemoteSshConnection,
     private val modeHolder: ExecutionModeHolder,
     private val workspaceRepository: WorkspaceRepository,
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) : TerminalSessionProvider {
 
     private val _tabs = MutableStateFlow<List<TerminalTab>>(emptyList())
@@ -338,12 +338,12 @@ class RemoteTerminalSessionManager @Inject constructor(
 
         override fun onCopyTextToClipboard(session: TerminalSession, text: String?) {
             if (text.isNullOrEmpty()) return
-            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val cm = context.getSystemService(DesktopContext.CLIPBOARD_SERVICE) as? ClipboardManager
             cm?.setPrimaryClip(ClipData.newPlainText("terminal", text))
         }
 
         override fun onPasteTextFromClipboard(session: TerminalSession?) {
-            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val cm = context.getSystemService(DesktopContext.CLIPBOARD_SERVICE) as? ClipboardManager
             val text = cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: return
             if (text.isNotEmpty()) {
                 val bytes = text.toByteArray(Charsets.UTF_8)

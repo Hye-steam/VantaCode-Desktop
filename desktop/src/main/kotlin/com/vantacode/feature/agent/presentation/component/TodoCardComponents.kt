@@ -43,7 +43,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.R
 import com.vantacode.core.ui.Strings
 

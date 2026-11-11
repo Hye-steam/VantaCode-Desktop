@@ -1,9 +1,9 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import com.vantacode.feature.agent.domain.subagent.SubagentModelTier
 import com.vantacode.feature.agent.domain.subagent.SubagentTierSelection
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-private val Context.subagentTierDataStore by preferencesDataStore(
+private val DesktopContext.subagentTierDataStore by preferencesDataStore(
     name = "subagent_tier_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -29,7 +29,7 @@ private val Context.subagentTierDataStore by preferencesDataStore(
  */
 @Singleton
 class SubagentTierSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
 
     private val dataStore get() = context.subagentTierDataStore

@@ -38,7 +38,7 @@ import androidx.compose.ui.draw.clip
 import com.vantacode.core.ui.ChevronRotationStyle
 import com.vantacode.core.ui.ExpandableChevronIcon
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -180,8 +180,7 @@ internal fun StorageSection(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
-                    Text(stringResource(
-                        R.string.storage_clean_confirm_selected,
+                    Text(Strings.formatted(Strings.storage_clean_confirm_selected,
                         formatStorageSize(kinds.sumOf { state.cleanableSizes[it] ?: 0L })
                     ))
                     kinds.forEach { kind ->
@@ -244,8 +243,7 @@ private fun OverviewCard(state: StorageUiState) {
             StackedBar(state.entries)
             Spacer(Modifier.height(Spacing.sm))
             Text(
-                text = stringResource(
-                    R.string.storage_device_free,
+                text = Strings.formatted(Strings.storage_device_free,
                     formatStorageSize(state.deviceSpace.availableBytes),
                     formatStorageSize(state.deviceSpace.totalBytes)
                 ),

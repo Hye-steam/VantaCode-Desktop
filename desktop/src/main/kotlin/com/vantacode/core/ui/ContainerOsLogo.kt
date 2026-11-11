@@ -2,8 +2,9 @@ package com.vantacode.core.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import com.vantacode.R
+import com.vantacode.core.ui.LogoVectors
 
 /**
  * 容器系统类型 → 单色 logo；未识别（含 null）返回 null，由调用方回退通用容器图标。
@@ -11,9 +12,9 @@ import com.vantacode.R
  */
 @Composable
 fun containerOsLogo(osId: String?): Painter? = when (osId) {
-    "alpine" -> painterResource(R.drawable.logo_alpine)
-    "centos" -> painterResource(R.drawable.logo_centos)
-    "ubuntu" -> painterResource(R.drawable.logo_ubuntu)
-    "debian" -> painterResource(R.drawable.logo_debian)
+    "alpine" -> rememberVectorPainter(LogoVectors.Alpine)
+    "centos" -> rememberVectorPainter(LogoVectors.Centos)
+    "ubuntu" -> rememberVectorPainter(LogoVectors.Ubuntu)
+    "debian" -> rememberVectorPainter(LogoVectors.Debian)
     else -> null
 }

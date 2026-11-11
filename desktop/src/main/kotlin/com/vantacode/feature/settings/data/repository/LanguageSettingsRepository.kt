@@ -1,9 +1,9 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.languageDataStore by preferencesDataStore(
+private val DesktopContext.languageDataStore by preferencesDataStore(
     name = "language_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -28,13 +28,13 @@ private const val PREFS_KEY = "language_tag"
  */
 @Singleton
 class LanguageSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val LANGUAGE_KEY = stringPreferencesKey("language_tag")
     }
 
-    private val syncPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val syncPrefs = context.getSharedPreferences(PREFS_NAME, DesktopContext.MODE_PRIVATE)
 
     val languageFlow: Flow<String?> = context.languageDataStore.data.map { prefs ->
         prefs[LANGUAGE_KEY]

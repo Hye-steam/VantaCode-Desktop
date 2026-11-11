@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.core.content.edit
 import com.vantacode.feature.settings.domain.model.ProxyType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,15 +30,15 @@ data class ProxyConfig(
 }
 
 /**
- * 全局代理设置。用 SharedPreferences 存储（而非 DataStore）：
+ * 全局代理设置。用 DesktopPrefs 存储（而非 DataStore）：
  * 需要支持 Application.attachBaseContext 阶段的同步读取（见 [AppProxy]），
  * 那里没有任何注入、也等不了异步首帧。
  */
 @Singleton
 class ProxySettingsRepository @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS_NAME, DesktopContext.MODE_PRIVATE)
 
     private val _config = MutableStateFlow(readConfig(prefs))
     val config: StateFlow<ProxyConfig> = _config.asStateFlow()
@@ -79,10 +79,10 @@ class ProxySettingsRepository @Inject constructor(
         private const val LEGACY_DEFAULT_NO_PROXY = "localhost,127.0.0.1,::1"
 
         /** 同步读取当前配置，供非注入场景（如 Application.attachBaseContext）使用。 */
-        fun readConfig(context: Context): ProxyConfig =
-            readConfig(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
+        fun readConfig(context: DesktopContext): ProxyConfig =
+            readConfig(context.getSharedPreferences(PREFS_NAME, DesktopContext.MODE_PRIVATE))
 
-        private fun readConfig(prefs: android.content.SharedPreferences): ProxyConfig = ProxyConfig(
+        private fun readConfig(prefs: android.content.DesktopPrefs): ProxyConfig = ProxyConfig(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
             type = runCatching { ProxyType.valueOf(prefs.getString(KEY_TYPE, ProxyType.HTTP.name)!!) }
                 .getOrDefault(ProxyType.HTTP),

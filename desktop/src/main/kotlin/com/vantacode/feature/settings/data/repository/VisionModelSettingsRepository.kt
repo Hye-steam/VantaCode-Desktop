@@ -1,13 +1,13 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.visionModelDataStore by preferencesDataStore(
+private val DesktopContext.visionModelDataStore by preferencesDataStore(
     name = "vision_model_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -21,7 +21,7 @@ private val Context.visionModelDataStore by preferencesDataStore(
  */
 @Singleton
 class VisionModelSettingsRepository @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) : ModelSelectionSettingsRepository(
     context.visionModelDataStore, "vision_provider_id", "vision_model"
 ) {

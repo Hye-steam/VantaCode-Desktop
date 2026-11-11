@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Shizuku UserService：由 Shizuku 在 shell（uid 2000）进程中实例化，代 App 执行 shell 命令。
  *
- * 本进程不是合法的 Android 应用进程，只能用 Java/系统级 API，不能用 Context 相关能力
+ * 本进程不是合法的 Android 应用进程，只能用 Java/系统级 API，不能用 DesktopContext 相关能力
  * （getContentResolver / registerReceiver 等），故实现只用 [ProcessBuilder]。
  *
  * 类名与构造器会被 Shizuku 反射加载，不可被 R8 混淆（见 proguard-rules.pro）。

@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.vantacode.R
@@ -36,10 +36,10 @@ internal data class PendingUploadAttachment(
 internal val PendingUploadAttachment.isImage: Boolean
     get() = image != null
 
-private fun List<PendingUploadAttachment>.toAttachmentText(context: Context): String {
+private fun List<PendingUploadAttachment>.toAttachmentText(context: DesktopContext): String {
     if (isEmpty()) return ""
     return buildString {
-        append(context.Strings.chat_attachment_prefix)
+        append(Strings.chat_attachment_prefix)
         this@toAttachmentText.forEach { attachment ->
             append('\n')
             append("- ")
@@ -51,7 +51,7 @@ private fun List<PendingUploadAttachment>.toAttachmentText(context: Context): St
 }
 
 internal fun appendAttachmentsToRequest(
-    context: Context,
+    context: DesktopContext,
     request: String,
     attachments: List<PendingUploadAttachment>
 ): String {
@@ -118,14 +118,14 @@ private fun PendingUploadAttachment.toAgentImage(): AgentImage? = image
 internal fun List<PendingUploadAttachment>.toAgentImages(): List<AgentImage> =
     mapNotNull { it.toAgentImage() }
 
-internal fun maxAttachmentMessage(context: Context, max: Int): String =
-    context.Strings.formatted(Strings.chat_attachment_max, max)
+internal fun maxAttachmentMessage(context: DesktopContext, max: Int): String =
+    Strings.formatted(Strings.chat_attachment_max, max)
 
-internal fun uploadSuccessMessage(context: Context, count: Int): String =
-    context.Strings.formatted(Strings.chat_attachment_uploaded, count)
+internal fun uploadSuccessMessage(context: DesktopContext, count: Int): String =
+    Strings.formatted(Strings.chat_attachment_uploaded, count)
 
-internal fun partialUploadMessage(context: Context, count: Int): String =
-    context.Strings.formatted(Strings.chat_attachment_uploaded_partial, count)
+internal fun partialUploadMessage(context: DesktopContext, count: Int): String =
+    Strings.formatted(Strings.chat_attachment_uploaded_partial, count)
 
 internal fun selectedAttachments(
     uris: List<Uri>,
@@ -135,34 +135,34 @@ internal fun selectedAttachments(
 internal fun hasAttachmentSlots(currentCount: Int): Boolean =
     currentCount < MAX_PENDING_ATTACHMENTS
 
-private fun imageLimitError(context: Context, limit: Long): String =
-    context.Strings.formatted(Strings.chat_image_too_large, formatBytes(limit))
+private fun imageLimitError(context: DesktopContext, limit: Long): String =
+    Strings.formatted(Strings.chat_image_too_large, formatBytes(limit))
 
-private fun pickedFileToastPath(context: Context, path: String): String =
-    context.Strings.formatted(Strings.chat_uploaded_to, path)
+private fun pickedFileToastPath(context: DesktopContext, path: String): String =
+    Strings.formatted(Strings.chat_uploaded_to, path)
 
-internal fun emptyWorkspaceMessage(context: Context): String =
-    context.Strings.chat_select_workspace_first
+internal fun emptyWorkspaceMessage(context: DesktopContext): String =
+    Strings.chat_select_workspace_first
 
-internal fun unreadableFileMessage(context: Context): String =
-    context.Strings.chat_read_file_failed
+internal fun unreadableFileMessage(context: DesktopContext): String =
+    Strings.chat_read_file_failed
 
-internal fun uploadFallbackError(context: Context): String =
-    context.Strings.chat_upload_failed
+internal fun uploadFallbackError(context: DesktopContext): String =
+    Strings.chat_upload_failed
 
-private fun unsupportedImageTypeError(context: Context): String =
-    context.Strings.chat_unsupported_image_type
+private fun unsupportedImageTypeError(context: DesktopContext): String =
+    Strings.chat_unsupported_image_type
 
-private fun uploadFileName(context: Context, uri: Uri): String =
+private fun uploadFileName(context: DesktopContext, uri: Uri): String =
     context.displayName(uri).ifBlank { "upload" }
 
-private fun safeUploadFileName(context: Context, uri: Uri): String =
+private fun safeUploadFileName(context: DesktopContext, uri: Uri): String =
     sanitizeUploadFileName(uploadFileName(context, uri))
 
-private fun imageMimeType(context: Context, uri: Uri, fileName: String): String =
+private fun imageMimeType(context: DesktopContext, uri: Uri, fileName: String): String =
     resolveImageMimeType(context, uri, fileName)
 
-private fun fileMimeType(context: Context, uri: Uri, fileName: String): String =
+private fun fileMimeType(context: DesktopContext, uri: Uri, fileName: String): String =
     context.contentResolver.getType(uri)?.lowercase()
         ?: when (fileName.substringAfterLast('.', "").lowercase()) {
             "txt", "md", "kt", "java", "js", "ts", "json", "xml", "html", "css", "py", "sh", "gradle", "kts" -> "text/plain"
@@ -171,7 +171,7 @@ private fun fileMimeType(context: Context, uri: Uri, fileName: String): String =
         }
 
 internal suspend fun copyUriToWorkspace(
-    context: Context,
+    context: DesktopContext,
     uri: Uri,
     fileAccess: FileAccessProvider,
     includeImageData: Boolean = false
@@ -228,14 +228,14 @@ internal suspend fun copyUriToWorkspace(
     )
 }
 
-private fun Context.displayName(uri: Uri): String {
+private fun DesktopContext.displayName(uri: Uri): String {
     return contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
         val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         if (index >= 0 && cursor.moveToFirst()) cursor.getString(index).orEmpty() else ""
     }.orEmpty()
 }
 
-private fun Context.contentSize(uri: Uri): Long? {
+private fun DesktopContext.contentSize(uri: Uri): Long? {
     return contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
         val index = cursor.getColumnIndex(OpenableColumns.SIZE)
         if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) cursor.getLong(index) else null
@@ -264,7 +264,7 @@ private fun uniqueUploadName(fileAccess: FileAccessProvider, dir: String, fileNa
     return "$stem-$index$extension"
 }
 
-private fun resolveImageMimeType(context: Context, uri: Uri, fileName: String): String {
+private fun resolveImageMimeType(context: DesktopContext, uri: Uri, fileName: String): String {
     val mime = context.contentResolver.getType(uri)?.lowercase()
     if (mime != null && mime in SUPPORTED_IMAGE_MIME_TYPES) return mime
 

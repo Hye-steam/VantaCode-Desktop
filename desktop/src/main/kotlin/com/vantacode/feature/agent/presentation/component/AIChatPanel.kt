@@ -71,9 +71,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vantacode.R
@@ -798,7 +798,7 @@ fun AIChatPanel(
     // 正在执行的工具 id 集合：只让集合内容参与 remember key，避免实时输出逐字刷新导致整表重建。
     val runningToolIds by remember { derivedStateOf { runningTool.mapTo(HashSet()) { it.messageId } } }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     // 回滚代码时若有文件因「快照后被改过」被跳过，必须告知用户——静默跳过等于把数据丢失
@@ -810,11 +810,11 @@ fun AIChatPanel(
         val more = skipped.size - shown.size
         val listText = shown.joinToString("\n") + if (more > 0) "\n…另有 $more 个" else ""
         val message = if (skipped.size == 1) {
-            context.Strings.formatted(Strings.checkpoint_skipped_single, listText)
+            Strings.formatted(Strings.checkpoint_skipped_single, listText)
         } else {
-            context.Strings.formatted(Strings.checkpoint_skipped_multiple, skipped.size, listText)
+            Strings.formatted(Strings.checkpoint_skipped_multiple, skipped.size, listText)
         }
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        PlatformToast.show(message, true)
         viewModel.clearRewindConflicts()
     }
 
@@ -1038,11 +1038,11 @@ fun AIChatPanel(
     fun handlePickedAttachments(uris: List<Uri>, images: Boolean) {
         if (uris.isEmpty()) return
         if (projectRoot.isBlank()) {
-            Toast.makeText(context, emptyWorkspaceMessage(context), Toast.LENGTH_SHORT).show()
+            PlatformToast.show(emptyWorkspaceMessage(context))
             return
         }
         if (!hasAttachmentSlots(pendingAttachments.size)) {
-            Toast.makeText(context, maxAttachmentMessage(context, MAX_PENDING_ATTACHMENTS), Toast.LENGTH_SHORT).show()
+            PlatformToast.show(maxAttachmentMessage(context, MAX_PENDING_ATTACHMENTS))
             return
         }
         val selected = selectedAttachments(uris, pendingAttachments.size)
@@ -1068,11 +1068,11 @@ fun AIChatPanel(
             val skipped = uris.size - selected.size
             when {
                 successCount == 0 && failures.isNotEmpty() ->
-                    Toast.makeText(context, failures.first(), Toast.LENGTH_LONG).show()
+                    PlatformToast.show(failures.first(), true)
                 skipped > 0 || failures.isNotEmpty() ->
-                    Toast.makeText(context, partialUploadMessage(context, successCount), Toast.LENGTH_LONG).show()
+                    PlatformToast.show(partialUploadMessage(context, successCount), true)
                 else ->
-                    Toast.makeText(context, uploadSuccessMessage(context, successCount), Toast.LENGTH_SHORT).show()
+                    PlatformToast.show(uploadSuccessMessage(context, successCount))
             }
         }
     }
@@ -1103,7 +1103,7 @@ fun AIChatPanel(
             )
         }.getOrNull()
         if (uri == null) {
-            Toast.makeText(context, context.Strings.chat_camera_file_failed, Toast.LENGTH_SHORT).show()
+            PlatformToast.show(Strings.chat_camera_file_failed)
             return
         }
         cameraPhotoUri = uri

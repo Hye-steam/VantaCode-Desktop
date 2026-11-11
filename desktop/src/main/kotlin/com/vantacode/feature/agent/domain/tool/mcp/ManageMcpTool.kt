@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.mcp
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -26,14 +26,14 @@ import com.vantacode.core.ui.Strings
 
 class ManageMcpTool @Inject constructor(
     private val mcpConfigRepository: McpConfigRepository,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AgentTool() {
     private companion object {
         const val TAG = "ManageMcpTool"
     }
 
     override val name = "manageMcp"
-    override val description = "管理 Model Context Protocol (MCP) 服务器。支持添加、删除与列表查询。添加或删除会修改 Agent 配置，下一次会话生效；不会自动安装 Node/Python 等运行时。"
+    override val description = "管理 Model DesktopContext Protocol (MCP) 服务器。支持添加、删除与列表查询。添加或删除会修改 Agent 配置，下一次会话生效；不会自动安装 Node/Python 等运行时。"
     override val permissionPolicy = ToolPermissionPolicy.ASK
     override val capabilities = setOf(ToolCapability.MODIFY_AGENT_CONFIG)
 
@@ -159,7 +159,7 @@ class ManageMcpTool @Inject constructor(
                     servers.add(newServer)
                     writeServers(servers)
                     
-                    ToolResult.Success(JsonPrimitive(appContext.Strings.formatted(Strings.tool_mcp_stdio_added, scopeLabel, name)))
+                    ToolResult.Success(JsonPrimitive(Strings.formatted(Strings.tool_mcp_stdio_added, scopeLabel, name)))
                 }
                 "add_http" -> {
                     val name = args["server_name"]?.jsonPrimitive?.contentOrNull ?: return ToolResult.Error("add_http 缺少必需参数：server_name")
@@ -189,7 +189,7 @@ class ManageMcpTool @Inject constructor(
     }
 
     private fun invalidNameMessage(name: String): String =
-        appContext.Strings.formatted(Strings.tool_mcp_invalid_name, name)
+        Strings.formatted(Strings.tool_mcp_invalid_name, name)
 
     private fun resolveScope(args: Map<String, JsonElement>): McpScope =
         when (args["scope"]?.jsonPrimitive?.contentOrNull) {

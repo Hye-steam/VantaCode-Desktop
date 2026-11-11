@@ -40,8 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -108,7 +108,7 @@ internal fun TokenStatsSection(
     onSelectFilterModel: (String?) -> Unit = {},
     onClearFilters: () -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val lazyListState = rememberLazyListState()
 
     LazyColumn(
@@ -976,10 +976,9 @@ private fun TableCell(text: String, color: Color, width: Dp, fontWeight: FontWei
 }
 
 /** 与对话页头部一致的 token 缩写格式（见 MarkdownContent.formatTokenCount）：1234 -> 1.2k。 */
-private fun formatCache(context: android.content.Context, cachedRead: Long, cachedWrite: Long): String =
+private fun formatCache(context: DesktopContext, cachedRead: Long, cachedWrite: Long): String =
     if (cachedRead > 0 || cachedWrite > 0) {
-        context.getString(
-            R.string.settings_token_stats_cache_read_write,
+        context.Strings.formatted(Strings.settings_token_stats_cache_read_write,
             formatTokenCount(cachedRead),
             formatTokenCount(cachedWrite)
         )

@@ -14,7 +14,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -283,7 +283,7 @@ fun AIEditorTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val themeColors = remember(darkTheme, preset, dynamicColor, context) {
         if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val dynamicScheme =

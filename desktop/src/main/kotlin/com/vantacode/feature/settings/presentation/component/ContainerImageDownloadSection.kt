@@ -43,9 +43,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +73,7 @@ import compose.icons.feathericons.Trash2
 import java.io.File
 import kotlinx.coroutines.launch
 import com.vantacode.core.ui.Strings
+import com.vantacode.core.ui.LogoVectors
 
 /** 字节数转可读体积；容器镜像下载与更新包下载共用（同包内 internal，避免各写一份）。 */
 internal fun formatBytes(bytes: Long): String = when {
@@ -85,10 +86,10 @@ internal fun formatBytes(bytes: Long): String = when {
 /** 发行版 logo（与容器与镜像页一致的图标风格）；未识别返回 null（调用方回退通用图标）。 */
 @Composable
 private fun distroLogo(distro: String): Painter? = when (distro) {
-    "alpine" -> painterResource(R.drawable.logo_alpine)
-    "ubuntu" -> painterResource(R.drawable.logo_ubuntu)
-    "debian" -> painterResource(R.drawable.logo_debian)
-    "centos" -> painterResource(R.drawable.logo_centos)
+    "alpine" -> rememberVectorPainter(LogoVectors.Alpine)
+    "ubuntu" -> rememberVectorPainter(LogoVectors.Ubuntu)
+    "debian" -> rememberVectorPainter(LogoVectors.Debian)
+    "centos" -> rememberVectorPainter(LogoVectors.Centos)
     else -> null
 }
 
@@ -113,7 +114,7 @@ internal fun ContainerImageDownloadSection(
     onDelete: (String) -> Unit,
     onBatchDelete: (Set<String>) -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     var detailEntry by remember { mutableStateOf<ContainerImageEntry?>(null) }
     var deleteEntry by remember { mutableStateOf<ContainerImageEntry?>(null) }
     var showBatchDeleteConfirm by remember { mutableStateOf(false) }
@@ -231,9 +232,7 @@ internal fun ContainerImageDownloadSection(
             onCancel = onCancel,
             onImport = { fileUri ->
                 onImport(entry.id, fileUri)
-                Toast.makeText(
-                    context,
-                    context.Strings.container_download_imported_toast,
+                PlatformToast.show(Strings.container_download_imported_toast,
                     Toast.LENGTH_SHORT
                 ).show()
             },

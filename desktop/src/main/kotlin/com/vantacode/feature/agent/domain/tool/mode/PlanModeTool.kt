@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool.mode
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vantacode.feature.agent.data.local.dao.ChatSessionDao
@@ -26,7 +26,7 @@ import com.vantacode.core.ui.Strings
  */
 class PlanModeTool @Inject constructor(
     private val chatSessionDao: ChatSessionDao,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AbstractContextualTool() {
 
     override val name = "planMode"
@@ -55,34 +55,34 @@ class PlanModeTool @Inject constructor(
         context: AgentContext
     ): ToolResult {
         val action = args["action"]?.jsonPrimitive?.contentOrNull?.trim()?.lowercase()
-            ?: return ToolResult.Error(appContext.Strings.formatted(Strings.common_tool_missing_argument, "action"), "MISSING_ACTION")
+            ?: return ToolResult.Error(Strings.formatted(Strings.common_tool_missing_argument, "action"), "MISSING_ACTION")
 
         val reason = args["reason"]?.jsonPrimitive?.contentOrNull?.trim()
-            ?: return ToolResult.Error(appContext.Strings.formatted(Strings.common_tool_missing_argument, "reason"), "MISSING_REASON")
+            ?: return ToolResult.Error(Strings.formatted(Strings.common_tool_missing_argument, "reason"), "MISSING_REASON")
 
         val entering = when (action) {
             "enter" -> true
             "exit" -> false
-            else -> return ToolResult.Error(appContext.Strings.formatted(Strings.plan_mode_invalid_action, action), "INVALID_ACTION")
+            else -> return ToolResult.Error(Strings.formatted(Strings.plan_mode_invalid_action, action), "INVALID_ACTION")
         }
 
         if (entering && context.mode == AgentMode.PLAN) {
-            return ToolResult.Success(JsonPrimitive(appContext.Strings.plan_mode_already_active))
+            return ToolResult.Success(JsonPrimitive(Strings.plan_mode_already_active))
         }
         if (!entering && context.mode != AgentMode.PLAN) {
-            return ToolResult.Error(appContext.Strings.plan_mode_not_active, "NOT_IN_PLAN")
+            return ToolResult.Error(Strings.plan_mode_not_active, "NOT_IN_PLAN")
         }
 
         val sessionId = context.sessionId
-            ?: return ToolResult.Error(appContext.Strings.plan_mode_session_required, "NO_SESSION")
+            ?: return ToolResult.Error(Strings.plan_mode_session_required, "NO_SESSION")
 
         val sessionEntity = chatSessionDao.getById(sessionId)
-            ?: return ToolResult.Error(appContext.Strings.plan_mode_session_missing, "SESSION_NOT_FOUND")
+            ?: return ToolResult.Error(Strings.plan_mode_session_missing, "SESSION_NOT_FOUND")
 
         // goal 自主循环进行中禁用 PLAN：该模式的退出需人工审查（[PlanApprovalManager]），与自主循环冲突。
         if (sessionEntity.goalStatus == GoalStatus.ACTIVE.name) {
             return ToolResult.Error(
-                appContext.Strings.plan_mode_goal_active,
+                Strings.plan_mode_goal_active,
                 "GOAL_ACTIVE"
             )
         }
@@ -106,8 +106,8 @@ class PlanModeTool @Inject constructor(
 
         return ToolResult.Success(
             JsonPrimitive(
-                if (entering) appContext.Strings.plan_mode_entered
-                else appContext.Strings.formatted(Strings.plan_mode_exited, effectiveMode.name)
+                if (entering) Strings.plan_mode_entered
+                else Strings.formatted(Strings.plan_mode_exited, effectiveMode.name)
             )
         )
     }
@@ -118,15 +118,15 @@ class PlanModeTool @Inject constructor(
         argsPreview: String
     ): PendingToolPermission {
         val entering = args["action"]?.jsonPrimitive?.contentOrNull?.trim()?.equals("enter", ignoreCase = true) ?: true
-        val reason = args["reason"]?.jsonPrimitive?.contentOrNull ?: appContext.Strings.plan_mode_reason_unspecified
+        val reason = args["reason"]?.jsonPrimitive?.contentOrNull ?: Strings.plan_mode_reason_unspecified
         val label = appContext.getString(if (entering) R.string.plan_mode_enter_action else R.string.plan_mode_exit_action)
 
         return PendingToolPermission(
             id = callId,
             toolName = name,
-            title = appContext.Strings.plan_mode_request_title,
-            summary = appContext.Strings.formatted(Strings.plan_mode_request_summary, label),
-            details = appContext.Strings.formatted(Strings.plan_mode_request_details, label, reason),
+            title = Strings.plan_mode_request_title,
+            summary = Strings.formatted(Strings.plan_mode_request_summary, label),
+            details = Strings.formatted(Strings.plan_mode_request_details, label, reason),
             argsPreview = argsPreview,
             rememberablePatterns = emptyList()
         )

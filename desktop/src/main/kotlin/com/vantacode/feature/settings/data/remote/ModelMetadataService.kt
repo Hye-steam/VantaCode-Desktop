@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.net.RepoDataFetcher
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.settings.data.local.CustomModelMetadataStore
@@ -28,7 +28,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ModelMetadataService @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val customModelMetadataStore: CustomModelMetadataStore
 ) {
     private val json = Json { ignoreUnknownKeys = true }

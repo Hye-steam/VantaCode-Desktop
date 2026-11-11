@@ -1,6 +1,6 @@
 package com.vantacode.feature.workspace.presentation.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
@@ -39,7 +39,7 @@ import com.vantacode.core.ui.Strings
 
 @HiltViewModel
 class RemoteServerViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val repository: RemoteRepository,
     private val workspaceRepository: WorkspaceRepository,
     private val syncSettingsRepository: SyncSettingsRepository,
@@ -127,9 +127,9 @@ class RemoteServerViewModel @Inject constructor(
             val result = repository.forceUploadMount(id)
             _uiState.value = _uiState.value.copy(isLoading = false)
             if (result.isFailure) {
-                _uiState.value = _uiState.value.copy(error = context.Strings.formatted(Strings.remote_upload_failed, result.exceptionOrNull()?.message))
+                _uiState.value = _uiState.value.copy(error = Strings.formatted(Strings.remote_upload_failed, result.exceptionOrNull()?.message))
             } else {
-                _uiState.value = _uiState.value.copy(error = context.Strings.remote_upload_success)
+                _uiState.value = _uiState.value.copy(error = Strings.remote_upload_success)
             }
         }
     }
@@ -141,9 +141,9 @@ class RemoteServerViewModel @Inject constructor(
             val result = repository.forceUploadMountFull(id)
             _uiState.value = _uiState.value.copy(isLoading = false)
             if (result.isFailure) {
-                _uiState.value = _uiState.value.copy(error = context.Strings.formatted(Strings.remote_upload_full_failed, result.exceptionOrNull()?.message))
+                _uiState.value = _uiState.value.copy(error = Strings.formatted(Strings.remote_upload_full_failed, result.exceptionOrNull()?.message))
             } else {
-                _uiState.value = _uiState.value.copy(error = context.Strings.remote_upload_full_success)
+                _uiState.value = _uiState.value.copy(error = Strings.remote_upload_full_success)
             }
         }
     }
@@ -152,7 +152,7 @@ class RemoteServerViewModel @Inject constructor(
     fun clearSyncIndex(id: String) {
         viewModelScope.launch {
             repository.clearSyncIndex(id)
-            _uiState.value = _uiState.value.copy(error = context.Strings.remote_clear_index_done)
+            _uiState.value = _uiState.value.copy(error = Strings.remote_clear_index_done)
         }
     }
 
@@ -162,9 +162,9 @@ class RemoteServerViewModel @Inject constructor(
             val result = repository.forceDownloadMount(id)
             _uiState.value = _uiState.value.copy(isLoading = false)
             if (result.isFailure) {
-                _uiState.value = _uiState.value.copy(error = context.Strings.formatted(Strings.remote_download_all_failed, result.exceptionOrNull()?.message))
+                _uiState.value = _uiState.value.copy(error = Strings.formatted(Strings.remote_download_all_failed, result.exceptionOrNull()?.message))
             } else {
-                _uiState.value = _uiState.value.copy(error = context.Strings.remote_download_all_success)
+                _uiState.value = _uiState.value.copy(error = Strings.remote_download_all_success)
             }
         }
     }
@@ -413,9 +413,9 @@ class RemoteServerViewModel @Inject constructor(
             try {
                 val result = repository.testConnection(host, p, username, auth, protocol)
                 if (result.isSuccess) {
-                    onResult(true, context.Strings.remote_connect_success)
+                    onResult(true, Strings.remote_connect_success)
                 } else {
-                    onResult(false, context.Strings.formatted(Strings.remote_connect_failed, result.exceptionOrNull()?.message))
+                    onResult(false, Strings.formatted(Strings.remote_connect_failed, result.exceptionOrNull()?.message))
                 }
             } catch (e: HostKeyConfirmationRequiredException) {
                 // 首次连接/指纹变化：进入确认状态，由连接配置弹窗展示指纹确认区
@@ -454,7 +454,7 @@ class RemoteServerViewModel @Inject constructor(
             if (result.isSuccess) {
                 onResult(true, result.getOrNull() ?: emptyList(), "")
             } else {
-                onResult(false, emptyList(), result.exceptionOrNull()?.message ?: context.Strings.remote_unknown_error)
+                onResult(false, emptyList(), result.exceptionOrNull()?.message ?: Strings.remote_unknown_error)
             }
         }
     }

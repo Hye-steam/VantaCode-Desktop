@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.core.content.pm.PackageInfoCompat
@@ -37,7 +37,7 @@ sealed interface ApkVerifyResult {
  */
 @Singleton
 class ApkVerifier @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     fun verify(apk: File): ApkVerifyResult {
         val pm = context.packageManager

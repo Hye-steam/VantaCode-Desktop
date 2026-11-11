@@ -1,6 +1,6 @@
 package com.vantacode.feature.terminal.domain
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
  */
 @HiltWorker
 class KeepaliveWorker @AssistedInject constructor(
-    @Assisted context: Context,
+    @Assisted context: DesktopContext,
     @Assisted workerParameters: WorkerParameters,
     private val keepaliveSettings: KeepaliveSettingsRepository
 ) : CoroutineWorker(context, workerParameters) {
@@ -40,7 +40,7 @@ class KeepaliveWorker @AssistedInject constructor(
         private const val PERIOD_MINUTES = 15L
 
         /** 调度周期兜底任务（幂等）。保活开关开启时调用。 */
-        fun schedule(context: Context) {
+        fun schedule(context: DesktopContext) {
             val request =
                 PeriodicWorkRequestBuilder<KeepaliveWorker>(PERIOD_MINUTES, TimeUnit.MINUTES).build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -51,7 +51,7 @@ class KeepaliveWorker @AssistedInject constructor(
         }
 
         /** 取消周期兜底任务。保活开关关闭时调用。 */
-        fun cancel(context: Context) {
+        fun cancel(context: DesktopContext) {
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_NAME)
         }
     }

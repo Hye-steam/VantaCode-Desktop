@@ -1,9 +1,9 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.defaultModelDataStore by preferencesDataStore(
+private val DesktopContext.defaultModelDataStore by preferencesDataStore(
     name = "default_model_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -26,7 +26,7 @@ private val Context.defaultModelDataStore by preferencesDataStore(
  */
 @Singleton
 class DefaultModelSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val PROVIDER_ID_KEY = stringPreferencesKey("default_provider_id")

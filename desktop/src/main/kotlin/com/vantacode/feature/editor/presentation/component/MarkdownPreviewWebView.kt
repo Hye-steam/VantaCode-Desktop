@@ -16,7 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vantacode.R
@@ -39,7 +39,7 @@ internal fun MarkdownPreviewWebView(
     modifier: Modifier = Modifier,
     viewModel: MarkdownPreviewViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val bgColor = if (dark) BG_DARK else BG_LIGHT
     val exitPreview by rememberUpdatedState(onExitPreview)

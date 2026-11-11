@@ -41,8 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +71,7 @@ import compose.icons.feathericons.Key
 import compose.icons.feathericons.Plus
 import compose.icons.feathericons.User
 import com.vantacode.core.ui.Strings
+import com.vantacode.core.ui.LogoVectors
 
 /**
  * 凭据与署名独立页：底部悬浮 tab 切换「署名」与「凭据」两个标签页。
@@ -371,7 +372,7 @@ private fun PlatformIcon(host: String, modifier: Modifier = Modifier) {
         host.contains("github", ignoreCase = true) ->
             Icon(FeatherIcons.Github, contentDescription = null, tint = tint, modifier = modifier)
         host.contains("gitee", ignoreCase = true) ->
-            Icon(painterResource(R.drawable.logo_gitee), contentDescription = null, tint = tint, modifier = modifier)
+            Icon(rememberVectorPainter(LogoVectors.Gitee), contentDescription = null, tint = tint, modifier = modifier)
         else ->
             Icon(FeatherIcons.Key, contentDescription = null, tint = tint, modifier = modifier)
     }

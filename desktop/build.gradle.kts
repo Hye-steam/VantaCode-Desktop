@@ -8,6 +8,56 @@ plugins {
     id("com.google.devtools.ksp") version "2.3.10"
 }
 
+// Build-time asset manifest so DesktopAssets.list() can enumerate packaged
+// resources (classpath resources are not listable at runtime).
+val genAssetManifest = tasks.register("genAssetManifest") {
+    val assetsDir = layout.projectDirectory.dir("src/main/resources/assets")
+    val outDir = layout.buildDirectory.dir("generated/assets")
+    inputs.dir(assetsDir)
+    outputs.dir(outDir)
+    doLast {
+        val base = assetsDir.get().asFile
+        val lines = mutableListOf<String>()
+        base.walkTopDown().filter { it.isFile }.forEach { f ->
+            val rel = f.relativeTo(base).invariantSeparatorsPath
+            val idx = rel.lastIndexOf('/')
+            val dir = if (idx < 0) "" else rel.substring(0, idx)
+            val name = if (idx < 0) rel else rel.substring(idx + 1)
+            lines += "$dir\t$name"
+        }
+        outDir.get().asFile.resolve("assets/manifest.txt").apply {
+            parentFile.mkdirs()
+            writeText(lines.joinToString("\n") + "\n")
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
+}
+
+compose.resources {
+    packageOfResClass = "com.vantacode.resources"
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDir(layout.buildDirectory.dir("generated/assets"))
+        }
+    }
+}
+
+tasks.named("processResources") {
+    dependsOn(genAssetManifest)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -39,6 +89,9 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jsoup:jsoup:1.18.1")
+
+    // Dagger annotations used by the ported @Inject constructors (DI graph is manual/lazy).
+    implementation("javax.inject:javax.inject:1")
 
     // SSH / SFTP / FTP (remote workspaces)
     implementation("com.hierynomus:sshj:0.38.0")

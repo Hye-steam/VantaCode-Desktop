@@ -49,8 +49,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -320,13 +320,13 @@ private fun LogContent(
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
-                val context = LocalContext.current
+                val context = LocalDesktopContext.current
                 val summary = if (searchActive) {
-                    context.Strings.formatted(Strings.log_search_results, entries.size)
+                    Strings.formatted(Strings.log_search_results, entries.size)
                 } else if (state.totalLines > state.shownLines) {
-                    context.Strings.formatted(Strings.log_show_last_lines, entries.size, state.totalLines)
+                    Strings.formatted(Strings.log_show_last_lines, entries.size, state.totalLines)
                 } else {
-                    context.Strings.formatted(Strings.log_show_lines, entries.size)
+                    Strings.formatted(Strings.log_show_lines, entries.size)
                 }
                 Row(
                     modifier = Modifier

@@ -4,7 +4,7 @@ import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vantacode.feature.agreement.data.AgreementRepository
 import kotlinx.coroutines.launch
@@ -15,7 +15,7 @@ fun AgreementGate(repository: AgreementRepository, content: @Composable (Boolean
     content(accepted == true)
     if (accepted == false) {
         val scope = rememberCoroutineScope()
-        val context = LocalContext.current
+        val context = LocalDesktopContext.current
         AgreementDialog(
             onAccept = { scope.launch { repository.accept() } },
             onDecline = { (context as? Activity)?.finish() }

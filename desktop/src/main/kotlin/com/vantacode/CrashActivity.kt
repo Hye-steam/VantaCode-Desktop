@@ -1,8 +1,8 @@
 package com.vantacode
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -44,8 +44,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,9 +96,9 @@ class CrashActivity : ComponentActivity() {
                     device = device,
                     time = time,
                     onCopy = {
-                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val cm = getSystemService(DesktopContext.CLIPBOARD_SERVICE) as ClipboardManager
                         cm.setPrimaryClip(ClipData.newPlainText("crash", report))
-                        Toast.makeText(this, R.string.crash_copied, Toast.LENGTH_SHORT).show()
+                        PlatformToast.show(R.string.crash_copied)
                     },
                     onRestart = {
                         // 用户主动点击重启：清除崩溃标记与计数，允许主进程尝试冷启动
@@ -204,7 +204,7 @@ private fun CrashScreen(
 ) {
     val pageBg = MaterialTheme.semanticColors.pageBackground
     val cardBg = MaterialTheme.semanticColors.cardSurface
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
 
     val screenText = when (screen) {
         "chat" -> Strings.crash_screen_chat

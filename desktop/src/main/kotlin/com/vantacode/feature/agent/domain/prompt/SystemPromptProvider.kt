@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.prompt
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.agent.domain.container.ContainerInstaller
 import com.vantacode.feature.agent.domain.memory.MemoryRepository
@@ -33,7 +33,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SystemPromptProvider @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val skillRepository: SkillRepository,
     private val memoryRepository: MemoryRepository,
     private val promptFragmentCatalog: PromptFragmentCatalog,

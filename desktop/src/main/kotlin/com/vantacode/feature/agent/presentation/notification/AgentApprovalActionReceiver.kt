@@ -1,7 +1,7 @@
 package com.vantacode.feature.agent.presentation.notification
+import com.vantacode.core.platform.DesktopContext
 
 import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import com.vantacode.feature.agent.domain.permission.PermissionChoice
 import com.vantacode.feature.agent.domain.tool.ToolPermissionManager
@@ -25,7 +25,7 @@ class AgentApprovalActionReceiver : BroadcastReceiver() {
     @Inject
     lateinit var planApprovalManager: PlanApprovalManager
 
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(context: DesktopContext, intent: Intent) {
         if (intent.action != ACTION) return
         val kind = intent.getStringExtra(EXTRA_KIND)?.let { value -> ApprovalKind.entries.find { it.name == value } } ?: return
         val choice = intent.getStringExtra(EXTRA_CHOICE) ?: return

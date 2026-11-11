@@ -1,6 +1,5 @@
 package com.vantacode.core.db
 
-import android.content.Context
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.vantacode.core.util.FileLogger
@@ -42,8 +41,8 @@ class FileMigration(
 }
 
 object MigrationLoader {
-    fun loadMigrations(context: Context): Array<Migration> {
-        val assetManager = context.assets
+    fun loadMigrations(): Array<Migration> {
+        val assetManager = com.vantacode.core.platform.DesktopAssets
         val migrationsDir = "migrations"
         val files = runCatching { assetManager.list(migrationsDir) }.getOrNull() ?: emptyArray()
         

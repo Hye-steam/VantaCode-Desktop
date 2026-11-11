@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import com.vantacode.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +28,7 @@ import com.vantacode.core.ui.Strings
  */
 @Singleton
 class ContainerImageDownloader @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val client by lazy {
         OkHttpClient.Builder()
@@ -81,7 +81,7 @@ class ContainerImageDownloader @Inject constructor(
                         if (!expectedSha256.isNullOrBlank()) {
                             val actual = digest.digest().joinToString("") { "%02x".format(it) }
                             if (!actual.equals(expectedSha256, ignoreCase = true)) {
-                                throw IOException(context.Strings.container_download_checksum_failed)
+                                throw IOException(Strings.container_download_checksum_failed)
                             }
                         }
                         cont.resume(Uri.fromFile(dest).toString())

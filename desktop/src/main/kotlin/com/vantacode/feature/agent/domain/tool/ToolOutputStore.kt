@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.tool
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,7 +32,7 @@ class ToolOutputStore @Inject constructor(
     private val containerInstaller: ContainerInstaller,
     private val fileAccess: FileAccessProvider,
     private val pathHomeResolver: PathHomeResolver,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) {
     private companion object {
         const val TAG = "ToolOutputStore"
@@ -135,13 +135,13 @@ class ToolOutputStore @Inject constructor(
     private fun buildPreview(text: String, outputPath: String?): String {
         val omitted = text.length - HEAD_CHARS - TAIL_CHARS
         val storageHint = if (outputPath != null) {
-            appContext.Strings.formatted(Strings.tool_output_saved_hint, outputPath)
+            Strings.formatted(Strings.tool_output_saved_hint, outputPath)
         } else {
-            appContext.Strings.tool_output_unsaved_hint
+            Strings.tool_output_unsaved_hint
         }
         return buildString {
             append(text.take(HEAD_CHARS))
-            append(appContext.Strings.formatted(Strings.tool_output_omitted, omitted, storageHint))
+            append(Strings.formatted(Strings.tool_output_omitted, omitted, storageHint))
             append(text.takeLast(TAIL_CHARS))
         }
     }

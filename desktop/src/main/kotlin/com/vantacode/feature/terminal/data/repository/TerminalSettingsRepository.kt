@@ -1,10 +1,10 @@
 package com.vantacode.feature.terminal.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import com.vantacode.feature.terminal.domain.font.TerminalFontManager
 import com.vantacode.feature.terminal.domain.model.TerminalThemePreset
@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.terminalDataStore by preferencesDataStore(
+private val DesktopContext.terminalDataStore by preferencesDataStore(
     name = "terminal_settings_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -35,7 +35,7 @@ data class TerminalSettings(
 /** 终端个性化配置持久化仓库（DataStore）。 */
 @Singleton
 class TerminalSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val THEME_ID_KEY = stringPreferencesKey("terminal_theme_id")

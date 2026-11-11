@@ -40,7 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -61,7 +61,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import compose.icons.feathericons.ChevronRight
 import compose.icons.feathericons.AlertCircle
 import compose.icons.feathericons.Check
@@ -332,7 +332,7 @@ internal fun ModelTestDetailBottomSheet(
     onDismiss: () -> Unit
 ) {
     val clipboard = LocalClipboard.current
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val scope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
     val bgCardColor = MaterialTheme.semanticColors.mutedSurface
@@ -429,7 +429,7 @@ internal fun ModelTestDetailBottomSheet(
                             clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("debug_log", buildFullDebugLog())))
                         }
                         copied = true
-                        Toast.makeText(context, context.Strings.common_copy_success, Toast.LENGTH_SHORT).show()
+                        PlatformToast.show(Strings.common_copy_success)
                     },
                     modifier = Modifier.size(36.dp)
                 ) {

@@ -1,11 +1,11 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.themeDataStore by preferencesDataStore(
+private val DesktopContext.themeDataStore by preferencesDataStore(
     name = "theme_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -32,7 +32,7 @@ enum class AppThemeMode(val labelRes: Int) {
 /** 持久化 App 外观主题。默认跟随系统，也兼容旧版深色开关。 */
 @Singleton
 class ThemeSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")

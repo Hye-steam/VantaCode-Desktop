@@ -1,7 +1,5 @@
 package com.vantacode.core.util
 
-import android.content.Context
-import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
@@ -66,44 +64,40 @@ object FileLogger {
         if (minLevel != level) {
             minLevel = level
             // 等级变更本身用 logcat 记录，避免被新阈值过滤掉
-            Log.i(TAG, "日志等级切换为 $level")
+            /* console log removed */
         }
     }
 
     private fun shouldLog(level: LogLevel): Boolean = level.ordinal >= minLevel.ordinal
 
     /** 初始化日志目录。重复调用安全。 */
-    fun init(context: Context) {
+    fun init(logDirParam: java.io.File? = null) {
         if (logDir != null) return
-        // 优先外部私有目录，便于用户用文件管理器查看；不可用时回退内部存储。
-        val base = context.getExternalFilesDir(null) ?: context.filesDir
-        val dir = File(base, "logs").apply { mkdirs() }
+        val dir = (logDirParam ?: com.vantacode.core.platform.PlatformPaths.logsDir).apply { mkdirs() }
         logDir = dir
-        // 默认等级按构建类型兜底：release 不开全量 VERBOSE（AI 高频工具日志会持续刷盘）。
-        // 仅当从未设置过时生效——用户/持久化设置随后经 setMinLevel 覆盖，永远优先。
-        val debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        if (minLevel == LogLevel.VERBOSE) {
-            minLevel = if (debuggable) LogLevel.VERBOSE else LogLevel.INFO
+        // 默认 INFO：桌面端无 crashlytics，全量 VERBOSE 会持续刷盘。持久化设置随后经 setMinLevel 覆盖。
+        if (minLevel == LogLevel.VERBOSE && !java.lang.Boolean.getBoolean("vantacode.verboseLogs")) {
+            minLevel = LogLevel.INFO
         }
         ioExecutor.execute { cleanupOldLogs(dir) }
-        i(TAG, "FileLogger 初始化完成，日志目录: ${dir.absolutePath}")
+        i(TAG, "FileLogger 初始化完成，日志目录: " + dir.absolutePath)
     }
 
     fun v(tag: String, message: String) {
         if (!shouldLog(LogLevel.VERBOSE)) return
-        Log.v(tag, message)
+        /* console log removed */
         write("VERBOSE", tag, message, null)
     }
 
     fun d(tag: String, message: String) {
         if (!shouldLog(LogLevel.DEBUG)) return
-        Log.d(tag, message)
+        /* console log removed */
         write("DEBUG", tag, message, null)
     }
 
     fun i(tag: String, message: String) {
         if (!shouldLog(LogLevel.INFO)) return
-        Log.i(tag, message)
+        /* console log removed */
         write("INFO", tag, message, null)
     }
 
@@ -127,13 +121,13 @@ object FileLogger {
 
     fun w(tag: String, message: String, throwable: Throwable? = null) {
         if (!shouldLog(LogLevel.WARN)) return
-        Log.w(tag, message, throwable)
+        /* console log removed */
         write("WARN", tag, message, throwable)
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
         if (!shouldLog(LogLevel.ERROR)) return
-        Log.e(tag, message, throwable)
+        /* console log removed */
         write("ERROR", tag, message, throwable)
     }
 
@@ -168,7 +162,7 @@ object FileLogger {
                     val size = file.length()
                     if (file.delete()) freed.addAndGet(size)
                 }
-            }.onFailure { Log.e(TAG, "清空日志失败", it) }
+            }.onFailure { /* console log removed */ }
             latch.countDown()
         }
         runCatching { latch.await(5, java.util.concurrent.TimeUnit.SECONDS) }
@@ -215,7 +209,7 @@ object FileLogger {
                     ioExecutor.schedule({ runCatching { flushWriter() } }, FLUSH_DELAY_MS, TimeUnit.MILLISECONDS)
                 }
             }.onFailure {
-                Log.e(TAG, "写入日志失败", it)
+                /* console log removed */
             }
         }
     }

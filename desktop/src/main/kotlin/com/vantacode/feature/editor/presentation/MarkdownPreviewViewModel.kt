@@ -1,6 +1,6 @@
 package com.vantacode.feature.editor.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import android.util.Base64
 import android.webkit.WebResourceResponse
@@ -30,7 +30,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class MarkdownPreviewViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val fileAccess: FileAccessProvider
 ) : ViewModel() {
 

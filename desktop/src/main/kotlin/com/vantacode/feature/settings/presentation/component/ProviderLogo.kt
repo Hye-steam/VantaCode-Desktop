@@ -1,4 +1,5 @@
 package com.vantacode.feature.settings.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
@@ -18,8 +19,7 @@ import com.vantacode.feature.settings.domain.model.AIProviderConfig
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Cloud
 import compose.icons.feathericons.Cpu
-import android.content.Context
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.core.ui.Strings
 
 /**
@@ -78,26 +78,26 @@ fun modelBrandKey(modelName: String): String {
 }
 
 /** 品牌 key → 用户可见的显示名称 */
-fun brandDisplayName(context: Context, key: String): String = when (key) {
-    "doubao" -> context.Strings.provider_brand_doubao
+fun brandDisplayName(context: DesktopContext, key: String): String = when (key) {
+    "doubao" -> Strings.provider_brand_doubao
     "minimax" -> "MiniMax"
     "moonshot" -> "Moonshot"
-    "zhipu" -> context.Strings.provider_brand_zhipu
+    "zhipu" -> Strings.provider_brand_zhipu
     "alibaba" -> "Alibaba"
     "deepseek" -> "DeepSeek"
     "grok" -> "Grok"
     "groq" -> "Groq"
     "anthropic" -> "Anthropic"
     "google" -> "Google"
-    "hunyuan" -> context.Strings.provider_brand_hunyuan
+    "hunyuan" -> Strings.provider_brand_hunyuan
     "openrouter" -> "OpenRouter"
     "perplexity" -> "Perplexity"
-    "siliconflow" -> context.Strings.provider_brand_siliconflow
+    "siliconflow" -> Strings.provider_brand_siliconflow
     "ollama" -> "Ollama"
     "meta" -> "Meta"
     "mistral" -> "Mistral"
     "openai" -> "OpenAI"
-    "other" -> context.Strings.common_other
+    "other" -> Strings.common_other
     else -> key.replaceFirstChar { it.uppercase() }
 }
 

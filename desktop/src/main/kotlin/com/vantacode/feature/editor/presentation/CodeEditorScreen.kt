@@ -58,8 +58,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -175,7 +175,7 @@ fun CodeEditorScreen(
         }
     }
 
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val savedText = Strings.editor_save_success
     val saveFailedText = Strings.editor_save_failed
     val conflictDiscardedText = Strings.editor_save_conflict_discarded
@@ -187,7 +187,7 @@ fun CodeEditorScreen(
                 is SaveResult.Success -> {
                     baselineText.value = pendingSaveText
                     dirty = false
-                    Toast.makeText(context, savedText, Toast.LENGTH_SHORT).show()
+                    PlatformToast.show(savedText)
                     pendingLeave?.let { leave ->
                         pendingLeave = null
                         leave.action()
@@ -201,9 +201,7 @@ fun CodeEditorScreen(
                 }
                 is SaveResult.Error -> {
                     pendingLeave = null
-                    Toast.makeText(
-                        context,
-                        result.detail ?: saveFailedText,
+                    PlatformToast.show(result.detail ?: saveFailedText,
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -376,8 +374,7 @@ fun CodeEditorScreen(
             }
             is EditorUiState.TooLarge -> CenterBox(content) {
                 HintText(
-                    stringResource(
-                        R.string.editor_file_too_large,
+                    Strings.formatted(Strings.editor_file_too_large,
                         s.sizeBytes / 1024 / 1024
                     )
                 )
@@ -455,7 +452,7 @@ fun CodeEditorScreen(
                     TextButton(onClick = {
                         saveConflictDiskContent = null
                         viewModel.reloadFromDisk()
-                        Toast.makeText(context, conflictDiscardedText, Toast.LENGTH_SHORT).show()
+                        PlatformToast.show(conflictDiscardedText)
                     }) { Text(Strings.editor_save_conflict_discard) }
                 }
             }
@@ -797,7 +794,7 @@ private fun applyLineNumberBackground(editor: CodeEditor, dark: Boolean) {
 /** 行号 gutter 背景与编辑区拉开一点亮度差便于区分。基于编辑器背景色自适应，随主题走。 */
 
 /** 把 sp 换算为像素，用于行号左边距等需 px 的 sora API。 */
-private fun spToPx(context: android.content.Context, sp: Float): Float =
+private fun spToPx(context: DesktopContext, sp: Float): Float =
     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.resources.displayMetrics)
 
 /** 根据“显示空白符号”与“显示自动换行箭头”开关合成 sora 的非打印字符绘制标志。 */

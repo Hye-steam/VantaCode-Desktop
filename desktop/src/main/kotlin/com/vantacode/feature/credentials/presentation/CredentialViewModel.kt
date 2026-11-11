@@ -1,6 +1,6 @@
 package com.vantacode.feature.credentials.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vantacode.R
@@ -53,7 +53,7 @@ class CredentialViewModel @Inject constructor(
     private val remoteSshConnection: RemoteSshConnection,
     private val workspaceRepository: WorkspaceRepository,
     private val gitHubDeviceFlow: GitHubDeviceFlowClient,
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) : ViewModel() {
 
     private companion object {
@@ -156,10 +156,10 @@ class CredentialViewModel @Inject constructor(
             try {
                 credentialRepository.save(credential)
                 syncInjectionIfEnabled() // 凭据变更后重新同步到已开启注入的远程服务器
-                toast(context.Strings.credential_toast_saved)
+                toast(Strings.credential_toast_saved)
             } catch (e: Exception) {
                 FileLogger.e(TAG, "保存凭据失败", e)
-                toast(context.Strings.formatted(Strings.credential_toast_save_failed, e.message))
+                toast(Strings.formatted(Strings.credential_toast_save_failed, e.message))
             }
         }
     }
@@ -168,7 +168,7 @@ class CredentialViewModel @Inject constructor(
         viewModelScope.launch {
             credentialRepository.delete(id)
             syncInjectionIfEnabled() // 删凭据后从远程注入文件移除，否则远程仍能用旧凭据
-            toast(context.Strings.credential_toast_deleted)
+            toast(Strings.credential_toast_deleted)
         }
     }
 
@@ -239,10 +239,10 @@ class CredentialViewModel @Inject constructor(
                 gitRepository.setUserIdentity(name, email)
                 gitRepository.setRepoUrl(repoUrl)
                 refreshIdentity()
-                toast(context.Strings.credential_toast_identity_saved)
+                toast(Strings.credential_toast_identity_saved)
             } catch (e: Exception) {
                 FileLogger.e(TAG, "保存署名失败", e)
-                toast(context.Strings.formatted(Strings.credential_toast_save_failed, e.message))
+                toast(Strings.formatted(Strings.credential_toast_save_failed, e.message))
             }
         }
     }
@@ -283,11 +283,11 @@ class CredentialViewModel @Inject constructor(
                     GitHubTokenPollResult.Pending -> Unit
                     GitHubTokenPollResult.SlowDown -> interval += SLOW_DOWN_STEP_SECONDS
                     GitHubTokenPollResult.Expired -> {
-                        _quickLogin.value = QuickLoginUiState.Failed(context.Strings.credential_device_expired)
+                        _quickLogin.value = QuickLoginUiState.Failed(Strings.credential_device_expired)
                         return@launch
                     }
                     GitHubTokenPollResult.Denied -> {
-                        _quickLogin.value = QuickLoginUiState.Failed(context.Strings.credential_device_denied)
+                        _quickLogin.value = QuickLoginUiState.Failed(Strings.credential_device_denied)
                         return@launch
                     }
                     is GitHubTokenPollResult.Error -> {
@@ -299,7 +299,7 @@ class CredentialViewModel @Inject constructor(
                     }
                 }
             }
-            _quickLogin.value = QuickLoginUiState.Failed(context.Strings.credential_device_expired)
+            _quickLogin.value = QuickLoginUiState.Failed(Strings.credential_device_expired)
         }
     }
 
@@ -308,7 +308,7 @@ class CredentialViewModel @Inject constructor(
         val login = fetchLoginWithRetry(accessToken)
         if (login == null) {
             FileLogger.e(TAG, "GitHub 登录后拉取用户名失败")
-            _quickLogin.value = QuickLoginUiState.Failed(context.Strings.credential_device_unknown_error)
+            _quickLogin.value = QuickLoginUiState.Failed(Strings.credential_device_unknown_error)
             return
         }
         try {
@@ -317,7 +317,7 @@ class CredentialViewModel @Inject constructor(
             )
         } catch (e: Exception) {
             FileLogger.e(TAG, "GitHub 登录后写入凭据失败", e)
-            _quickLogin.value = QuickLoginUiState.Failed(e.message ?: context.Strings.credential_device_unknown_error)
+            _quickLogin.value = QuickLoginUiState.Failed(e.message ?: Strings.credential_device_unknown_error)
             return
         }
         // 仅授权未安装时令牌无仓库访问权：检测失败时按已安装处理，避免误报打扰。
@@ -349,8 +349,8 @@ class CredentialViewModel @Inject constructor(
 
     /** 把设备码申请阶段返回的错误码映射为用户可读文案。 */
     private fun mapDeviceCodeError(code: String?): String = when (code) {
-        "device_flow_disabled" -> context.Strings.credential_device_flow_disabled
-        "incorrect_client_credentials" -> context.Strings.credential_device_bad_client
-        else -> code ?: context.Strings.credential_device_unknown_error
+        "device_flow_disabled" -> Strings.credential_device_flow_disabled
+        "incorrect_client_credentials" -> Strings.credential_device_bad_client
+        else -> code ?: Strings.credential_device_unknown_error
     }
 }

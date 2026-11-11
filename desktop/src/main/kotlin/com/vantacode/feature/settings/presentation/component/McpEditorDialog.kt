@@ -67,7 +67,7 @@ import compose.icons.feathericons.Search
 import compose.icons.feathericons.Shield
 import compose.icons.feathericons.Tool
 import kotlinx.serialization.json.JsonObject
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.R
 import com.vantacode.core.ui.Strings
 

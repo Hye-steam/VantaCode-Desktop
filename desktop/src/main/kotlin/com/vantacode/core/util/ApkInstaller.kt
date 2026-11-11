@@ -1,6 +1,6 @@
 package com.vantacode.core.util
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -31,14 +31,14 @@ object ApkInstaller {
     }
 
     /** 当前是否已允许安装未知来源应用（minSdk 26，该接口恒可用）。 */
-    fun canInstall(context: Context): Boolean =
+    fun canInstall(context: DesktopContext): Boolean =
         context.packageManager.canRequestPackageInstalls()
 
     /**
      * 跳系统「允许安装未知应用」设置页。返回 false 表示跳转失败（极少数定制 ROM
      * 没有该页面），调用方据此提示用户手动前往。
      */
-    fun openInstallPermissionSettings(context: Context): Boolean = runCatching {
+    fun openInstallPermissionSettings(context: DesktopContext): Boolean = runCatching {
         context.startActivity(
             Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -53,9 +53,9 @@ object ApkInstaller {
      * （`res/xml/file_paths.xml` 覆盖 filesDir / cacheDir / 外部存储），否则取不到授权 URI。
      *
      * 必带 `FLAG_ACTIVITY_NEW_TASK`：调用方可能是 ViewModel 的 ApplicationContext，
-     * 而非 Activity 的 Context 起 Activity 会直接抛异常（安装器本身是独立任务，加该标志无副作用）。
+     * 而非 Activity 的 DesktopContext 起 Activity 会直接抛异常（安装器本身是独立任务，加该标志无副作用）。
      */
-    fun install(context: Context, apk: File): Result {
+    fun install(context: DesktopContext, apk: File): Result {
         if (!apk.isFile) return Result.NO_HANDLER
         if (!canInstall(context)) return Result.NEED_PERMISSION
         val uri = runCatching {

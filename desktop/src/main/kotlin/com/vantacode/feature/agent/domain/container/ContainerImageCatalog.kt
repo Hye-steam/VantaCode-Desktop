@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.container
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.os.Build
 import com.vantacode.core.net.RepoDataFetcher
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -181,7 +181,7 @@ internal fun parseContainerImageCatalog(raw: String?): ContainerImageCatalogData
  */
 @Singleton
 class ContainerImageCatalog @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val _catalog = MutableStateFlow(ContainerImageCatalogData())
 

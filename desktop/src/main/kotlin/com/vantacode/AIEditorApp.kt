@@ -84,8 +84,8 @@ class AIEditorApp : Application(), Configuration.Provider {
         var currentWorkspaceMode: String? = null
 
         /** 重置崩溃状态（主进程健康运行或用户主动从错误页重启时调用）。 */
-        fun resetCrashState(context: android.content.Context) {
-            context.getSharedPreferences(CRASH_PREFS, android.content.Context.MODE_PRIVATE)
+        fun resetCrashState(context: DesktopContext) {
+            context.getSharedPreferences(CRASH_PREFS, DesktopContext.MODE_PRIVATE)
                 .edit()
                 .remove(KEY_CRASH_UI_SHOWING)
                 .remove(KEY_CRASH_COUNT)
@@ -94,12 +94,12 @@ class AIEditorApp : Application(), Configuration.Provider {
         }
 
         /** 向后兼容的旧别名，保留供外部调用。 */
-        fun resetCrashUiFlag(context: android.content.Context) {
+        fun resetCrashUiFlag(context: DesktopContext) {
             resetCrashState(context)
         }
 
         /** 兼容获取当前进程名。 */
-        fun getProcessNameCompat(context: android.content.Context): String {
+        fun getProcessNameCompat(context: DesktopContext): String {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 return Application.getProcessName()
             }
@@ -118,11 +118,11 @@ class AIEditorApp : Application(), Configuration.Provider {
         }
 
         /** 判断当前进程是否为专门渲染崩溃错误页的子进程。 */
-        fun isCrashProcess(context: android.content.Context): Boolean =
+        fun isCrashProcess(context: DesktopContext): Boolean =
             getProcessNameCompat(context).endsWith(":crash")
     }
 
-    override fun attachBaseContext(base: android.content.Context) {
+    override fun attachBaseContext(base: DesktopContext) {
         // 最早入口：在任何 Hilt 注入/业务初始化之前就绪日志与崩溃落盘。
         // 启动早期（如 Hilt 注入链实例化 @Singleton 工具）的崩溃若发生在 FileLogger 初始化之前
         // 会不留任何痕迹，故把日志与全局崩溃处理器提到 attachBaseContext 最前。
@@ -131,9 +131,9 @@ class AIEditorApp : Application(), Configuration.Provider {
         installCrashHandler()
         // 全局代理入口：必须在任何 Hilt 注入 / OkHttpClient 构建之前设置，
         // 使 App 侧全部 HTTP 链路（对话、MCP、更新检查等）按需走全局/提供商代理。
-        // 用 base 而非下文才定义的局部 context：attachBaseContext 阶段 base 即合法 Context。
+        // 用 base 而非下文才定义的局部 context：attachBaseContext 阶段 base 即合法 DesktopContext。
         AppProxy.applyGlobal(base)
-        val tag = base.getSharedPreferences(LANG_PREFS, android.content.Context.MODE_PRIVATE)
+        val tag = base.getSharedPreferences(LANG_PREFS, DesktopContext.MODE_PRIVATE)
             .getString(LANG_KEY, null)
         val context = if (tag.isNullOrBlank()) {
             base
@@ -574,7 +574,7 @@ class AIEditorApp : Application(), Configuration.Provider {
      * 读取历史进程退出原因（ApplicationExitInfo，API 30+），把 Java 未捕获异常处理器覆盖不到的
      * 异常退出（native 崩溃、ANR、低内存被杀、初始化失败、被信号杀死）补记到日志。
      *
-     * 用 SharedPreferences 记录已处理的最大时间戳做增量：首次运行只建立基线，不回捞旧记录；
+     * 用 DesktopPrefs 记录已处理的最大时间戳做增量：首次运行只建立基线，不回捞旧记录；
      * 与最近一次 Java 崩溃时间窗重叠的记录跳过，避免与 CrashActivity 链路重复上报。
      * 低版本（< API 30）无此 API，静默跳过。
      */

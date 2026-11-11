@@ -46,8 +46,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -100,7 +100,7 @@ internal fun BackupScreen(
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val scope = rememberCoroutineScope()
 
     val exportOptions by viewModel.exportOptions.collectAsStateWithLifecycle()
@@ -141,7 +141,7 @@ internal fun BackupScreen(
                 if (os != null) {
                     viewModel.export(pw, opts, os)
                 } else {
-                    Toast.makeText(context, context.Strings.formatted(Strings.backup_write_failed, uri.toString()), Toast.LENGTH_LONG).show()
+                    PlatformToast.show(Strings.formatted(Strings.backup_write_failed, uri.toString()), true)
                     viewModel.reset()
                 }
             }
@@ -361,9 +361,7 @@ internal fun BackupScreen(
     LaunchedEffect(networkState) {
         val done = networkState as? NetworkBackupState.UploadDone
         if (done != null) {
-            Toast.makeText(
-                context,
-                context.Strings.formatted(Strings.backup_net_upload_done, done.targetName),
+            PlatformToast.show(Strings.formatted(Strings.backup_net_upload_done, done.targetName),
                 Toast.LENGTH_SHORT
             ).show()
             viewModel.dismissNetworkState()
@@ -414,7 +412,7 @@ internal fun BackupScreen(
     // 导出完成 → 提示并复位
     LaunchedEffect(state) {
         if (state is BackupState.ExportDone) {
-            Toast.makeText(context, context.Strings.backup_exported, Toast.LENGTH_SHORT).show()
+            PlatformToast.show(Strings.backup_exported)
             viewModel.reset()
         }
     }
@@ -915,16 +913,16 @@ private fun ResultDialog(title: String, message: String, onDismiss: () -> Unit) 
     )
 }
 
-private fun buildImportSummary(context: android.content.Context, stats: RestoreStats): String = buildString {
-    appendLine(context.Strings.backup_restored_data)
-    if (stats.providers > 0) appendLine(context.Strings.formatted(Strings.backup_stat_providers, stats.providers))
-    if (stats.remoteConnections > 0) appendLine(context.Strings.formatted(Strings.backup_stat_remote_connections, stats.remoteConnections))
-    if (stats.remoteMounts > 0) appendLine(context.Strings.formatted(Strings.backup_stat_remote_mounts, stats.remoteMounts))
-    if (stats.chatSessions > 0) appendLine(context.Strings.formatted(Strings.backup_stat_chat_sessions, stats.chatSessions))
-    if (stats.agentMessages > 0) appendLine(context.Strings.formatted(Strings.backup_stat_chat_messages, stats.agentMessages))
-    if (stats.todoItems > 0) appendLine(context.Strings.formatted(Strings.backup_stat_todo_items, stats.todoItems))
-    if (stats.mcpServers > 0) appendLine(context.Strings.formatted(Strings.backup_stat_mcp_servers, stats.mcpServers))
-    if (stats.globalPermissionRules > 0) appendLine(context.Strings.formatted(Strings.backup_stat_permission_rules, stats.globalPermissionRules))
-    if (stats.workspaceFiles > 0) appendLine(context.Strings.formatted(Strings.backup_stat_workspace_files, stats.workspaceFiles))
-    append(context.Strings.backup_settings_covered)
+private fun buildImportSummary(context: DesktopContext, stats: RestoreStats): String = buildString {
+    appendLine(Strings.backup_restored_data)
+    if (stats.providers > 0) appendLine(Strings.formatted(Strings.backup_stat_providers, stats.providers))
+    if (stats.remoteConnections > 0) appendLine(Strings.formatted(Strings.backup_stat_remote_connections, stats.remoteConnections))
+    if (stats.remoteMounts > 0) appendLine(Strings.formatted(Strings.backup_stat_remote_mounts, stats.remoteMounts))
+    if (stats.chatSessions > 0) appendLine(Strings.formatted(Strings.backup_stat_chat_sessions, stats.chatSessions))
+    if (stats.agentMessages > 0) appendLine(Strings.formatted(Strings.backup_stat_chat_messages, stats.agentMessages))
+    if (stats.todoItems > 0) appendLine(Strings.formatted(Strings.backup_stat_todo_items, stats.todoItems))
+    if (stats.mcpServers > 0) appendLine(Strings.formatted(Strings.backup_stat_mcp_servers, stats.mcpServers))
+    if (stats.globalPermissionRules > 0) appendLine(Strings.formatted(Strings.backup_stat_permission_rules, stats.globalPermissionRules))
+    if (stats.workspaceFiles > 0) appendLine(Strings.formatted(Strings.backup_stat_workspace_files, stats.workspaceFiles))
+    append(Strings.backup_settings_covered)
 }

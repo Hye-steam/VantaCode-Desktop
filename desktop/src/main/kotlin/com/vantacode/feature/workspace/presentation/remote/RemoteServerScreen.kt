@@ -46,7 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -351,8 +351,7 @@ fun RemoteServerScreen(
             title = { Text(Strings.common_delete) },
             text = {
                 Text(
-                    stringResource(
-                        R.string.remote_delete_mount_confirm,
+                    Strings.formatted(Strings.remote_delete_mount_confirm,
                         mount.connection?.name ?: mount.localMountPath
                     )
                 )

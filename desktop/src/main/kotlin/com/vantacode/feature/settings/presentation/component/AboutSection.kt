@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
@@ -38,8 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,7 +79,7 @@ internal fun AboutSection(
     onSelectMirror: (String) -> Unit,
     onCheckUpdate: () -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     var showChannelSheet by remember { mutableStateOf(false) }
     var showMirrorDialog by remember { mutableStateOf(false) }
     val termsUrl = Strings.agreement_terms_url
@@ -534,7 +534,7 @@ private data class AppVersion(val name: String, val code: Long)
  * 因解析到 mipmap-anydpi-v26/ic_launcher.xml 而抛 IllegalArgumentException 的问题。
  * 失败返回 null（调用方预留占位）。
  */
-private fun loadAppIconBitmap(context: Context): ImageBitmap? {
+private fun loadAppIconBitmap(context: DesktopContext): ImageBitmap? {
     return runCatching {
         val pm = context.packageManager
         val drawable: Drawable = pm.getApplicationInfo(context.packageName, 0).loadIcon(pm)

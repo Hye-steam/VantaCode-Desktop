@@ -54,7 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -210,7 +210,7 @@ fun AddRemoteConnectionDialog(
     onAdd: (String, String, String, String, RemoteAuth, RemoteProtocol) -> Unit,
     onTestConnection: (String, String, String, RemoteAuth, RemoteProtocol, (Boolean, String) -> Unit) -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalDesktopContext.current
     var name by remember(initialConnection) { mutableStateOf(initialConnection?.name ?: "") }
     var host by remember(initialConnection) { mutableStateOf(initialConnection?.host ?: "") }
     var port by remember(initialConnection) { mutableStateOf(initialConnection?.port?.toString() ?: "22") }
@@ -379,7 +379,7 @@ fun AddRemoteConnectionDialog(
                             isTesting = true
                             onTestConnection(host, port, username, currentAuth, protocol) { success, msg ->
                                 isTesting = false
-                                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                android.widget.PlatformToast.show(msg, android.widget.Toast.LENGTH_LONG).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -432,7 +432,7 @@ fun AddRemoteConnectionDialog(
                                 isTesting = true
                                 onTestConnection(host, port, username, currentAuth, protocol) { success, msg ->
                                     isTesting = false
-                                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                    android.widget.PlatformToast.show(msg, android.widget.Toast.LENGTH_LONG).show()
                                 }
                             }
                         ) {
@@ -461,7 +461,7 @@ fun AddRemoteMountDialog(
     onAdd: (String, String, String, Boolean) -> Unit,
     onListDirectories: (String, String, (Boolean, List<String>, String) -> Unit) -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalDesktopContext.current
     var selectedConnectionId by remember(initialMount) { mutableStateOf(initialMount?.connectionId ?: connections.firstOrNull()?.id ?: "") }
     var remotePath by remember(initialMount) { mutableStateOf(initialMount?.remotePath ?: "/") }
 
@@ -613,9 +613,7 @@ fun AddRemoteMountDialog(
                             it.localMountPath == selectedWorkspacePath
                     }
                     if (duplicate) {
-                        android.widget.Toast.makeText(
-                            context,
-                            context.Strings.remote_mount_already_exists,
+                        android.widget.PlatformToast.show(Strings.remote_mount_already_exists,
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     } else {

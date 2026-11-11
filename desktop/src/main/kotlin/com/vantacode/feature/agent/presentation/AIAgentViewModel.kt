@@ -1,7 +1,7 @@
 package com.vantacode.feature.agent.presentation
+import com.vantacode.core.platform.DesktopContext
 
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
 import androidx.compose.runtime.mutableStateMapOf
@@ -180,7 +180,7 @@ class AIAgentViewModel @Inject constructor(
     private val todoItemDao: TodoItemDao,
     val fileAccess: FileAccessProvider,
     private val fileChangeHub: FileChangeHub,
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) : ViewModel(), SlashCommandContext {
 
     private val sessionJobs = mutableMapOf<String, Job>()
@@ -196,7 +196,7 @@ class AIAgentViewModel @Inject constructor(
      * 不计数（setReferenceCounted(false)），多会话共用一把锁，最后一个任务结束时统一释放。
      */
     private val wakeLock by lazy {
-        (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        (context.getSystemService(DesktopContext.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AiCode:AgentWorkflow")
             .apply { setReferenceCounted(false) }
     }
@@ -257,9 +257,9 @@ class AIAgentViewModel @Inject constructor(
         val localized = when (event.reasonCode) {
             // Gemini 的 finishReason 全大写，这几种与 Anthropic 的 refusal 同义（内容策略拦截）。
             "refusal", "SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII" ->
-                context.Strings.agent_stop_refusal
-            "model_context_window_exceeded" -> context.Strings.agent_stop_context_exceeded
-            "input_budget_exceeded" -> context.Strings.agent_input_budget_exceeded
+                Strings.agent_stop_refusal
+            "model_context_window_exceeded" -> Strings.agent_stop_context_exceeded
+            "input_budget_exceeded" -> Strings.agent_input_budget_exceeded
             else -> null
         } ?: return event.error
         return if (event.error.isBlank()) localized else "$localized\n${event.error}"
@@ -279,7 +279,7 @@ class AIAgentViewModel @Inject constructor(
      * 各会话各自的输入草稿，按会话区分持久化到磁盘：进程重启后草稿依然保留。
      * 以前是全局单一一份，在 A 打了半截话切到 B 那半截话会跟着跑过去。
      */
-    private val draftPrefs = context.getSharedPreferences("agent_input_drafts", Context.MODE_PRIVATE)
+    private val draftPrefs = context.getSharedPreferences("agent_input_drafts", DesktopContext.MODE_PRIVATE)
     private val _inputDrafts = MutableStateFlow<Map<String, String>>(
         draftPrefs.all.mapNotNull { (k, v) ->
             (v as? String)?.takeIf { it.isNotEmpty() }?.let { k to it }
@@ -505,14 +505,14 @@ class AIAgentViewModel @Inject constructor(
     private val _expandedPaths = MutableStateFlow(setOf(WorkspacePathMapper.CONTAINER_ROOT))
 
     /** 文件树展开状态按工作区持久化（重启保留）；key 为工作区路径，值为已展开的容器路径集合。 */
-    private val expansionPrefs = context.getSharedPreferences("file_tree_expansion", Context.MODE_PRIVATE)
+    private val expansionPrefs = context.getSharedPreferences("file_tree_expansion", DesktopContext.MODE_PRIVATE)
 
     /** 读取某工作区持久化的展开集；无记录时默认只展开工作区根。 */
     private fun loadExpansion(workspace: String): Set<String> =
         expansionPrefs.getStringSet(workspace, null)?.toSet()
             ?: setOf(WorkspacePathMapper.CONTAINER_ROOT)
 
-    /** 持久化当前工作区的展开集（传新集合副本，SharedPreferences 禁止复用已存实例）。 */
+    /** 持久化当前工作区的展开集（传新集合副本，DesktopPrefs 禁止复用已存实例）。 */
     private fun saveExpansion(workspace: String, paths: Set<String>) {
         if (workspace.isBlank()) return
         expansionPrefs.edit().putStringSet(workspace, HashSet(paths)).apply()
@@ -1146,7 +1146,7 @@ class AIAgentViewModel @Inject constructor(
         )
         val notification = NotificationCompat.Builder(context, AGENT_COMPLETE_CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .setContentTitle(context.Strings.agent_complete_notification_title)
+            .setContentTitle(Strings.agent_complete_notification_title)
             .setContentText(agentCompleteNotificationBody(userRequest))
             .setContentIntent(openAppIntent)
             .setAutoCancel(true)
@@ -1168,16 +1168,14 @@ class AIAgentViewModel @Inject constructor(
                 .filter { it.isNotBlank() }
                 .toList()
             return when {
-                titles.isEmpty() -> context.Strings.agent_complete_notification_body
-                titles.size == 1 -> context.getString(
-                    R.string.agent_complete_notification_background_body, titles.first()
+                titles.isEmpty() -> Strings.agent_complete_notification_body
+                titles.size == 1 -> context.Strings.formatted(Strings.agent_complete_notification_background_body, titles.first()
                 )
-                else -> context.getString(
-                    R.string.agent_complete_notification_background_multi_body, titles.size
+                else -> context.Strings.formatted(Strings.agent_complete_notification_background_multi_body, titles.size
                 )
             }
         }
-        return userRequest.ifBlank { context.Strings.agent_complete_notification_body }
+        return userRequest.ifBlank { Strings.agent_complete_notification_body }
     }
 
     private companion object {
@@ -1299,7 +1297,7 @@ class AIAgentViewModel @Inject constructor(
                     val session = sessionUseCase.getSessionById(sid) ?: return@mapNotNull null
                     AgentApprovalNotificationManager.PendingApproval(
                         sessionId = sid,
-                        sessionTitle = session.title.ifBlank { context.Strings.chat_new_session_btn },
+                        sessionTitle = session.title.ifBlank { Strings.chat_new_session_btn },
                         label = context.getString(info.first),
                         kind = info.second,
                         requestId = info.third
@@ -1325,10 +1323,10 @@ class AIAgentViewModel @Inject constructor(
                         val toolName = tools[sid]?.values?.lastOrNull()?.toolName?.takeIf { it.isNotBlank() }
                             ?: preparing[sid]
                         when {
-                            sid in approvals -> context.Strings.notification_approval_needed
+                            sid in approvals -> Strings.notification_approval_needed
                             toolName != null -> context.getString(toolRunningLabelRes(toolName))
-                            compacting[sid] == true -> context.Strings.chat_compressing_context
-                            else -> context.Strings.chat_status_thinking
+                            compacting[sid] == true -> Strings.chat_compressing_context
+                            else -> Strings.chat_status_thinking
                         }
                     }
             }.debounce(500)
@@ -1339,7 +1337,7 @@ class AIAgentViewModel @Inject constructor(
                         if (session.parentId != null) return@mapNotNull null
                         AgentLiveNotificationManager.RunningSession(
                             sessionId = sid,
-                            title = session.title.ifBlank { context.Strings.chat_new_session_btn },
+                            title = session.title.ifBlank { Strings.chat_new_session_btn },
                             statusLabel = label
                         )
                     }
@@ -2112,7 +2110,7 @@ class AIAgentViewModel @Inject constructor(
                         messagePersistenceUseCase.persist(
                             sessionId,
                             MessageRole.TOOL,
-                            "${SessionUseCase.PENDING_TOOL_MARKER} ${context.Strings.formatted(Strings.agent_tool_executing, event.toolName)}",
+                            "${SessionUseCase.PENDING_TOOL_MARKER} ${Strings.formatted(Strings.agent_tool_executing, event.toolName)}",
                             id = msgId,
                             toolCallId = event.id,
                             toolName = event.toolName,
@@ -2381,7 +2379,7 @@ class AIAgentViewModel @Inject constructor(
         val streamingText = _streamingTexts.value[sessionId]
         val streamingReasoning = _streamingReasonings.value[sessionId]
         val pendingPermission = toolPermissionManager.pendingForSession(sessionId)
-        val stoppedText = context.Strings.agent_stopped_by_user
+        val stoppedText = Strings.agent_stopped_by_user
         val pendingNotifs = agentNotificationCenter.pendingCount(sessionId)
         FileLogger.d(TAG, "stopAgent: sid=$sessionId runningTools=${runningTools.size} pendingPerm=${pendingPermission?.id} pendingNotifs=$pendingNotifs state=${_agentStates.value[sessionId]}")
         // cancel() 在 Dispatchers.Main.immediate 上可能立即恢复挂起协程
@@ -2867,7 +2865,7 @@ class AIAgentViewModel @Inject constructor(
                     messagePersistenceUseCase.persist(
                         sessionId = sid,
                         role = MessageRole.ASSISTANT,
-                        content = context.Strings.agent_context_no_compaction
+                        content = Strings.agent_context_no_compaction
                     )
                 }
             } catch (e: CancellationException) {
@@ -2877,7 +2875,7 @@ class AIAgentViewModel @Inject constructor(
                 messagePersistenceUseCase.persist(
                     sessionId = sid,
                     role = MessageRole.ASSISTANT,
-                    content = context.Strings.formatted(Strings.agent_compaction_failed, e.message)
+                    content = Strings.formatted(Strings.agent_compaction_failed, e.message)
                 )
             } finally {
                 setCompacting(sid, false)
@@ -3165,7 +3163,7 @@ class AIAgentViewModel @Inject constructor(
             val now = System.currentTimeMillis()
             val fork = source.copy(
                 id = UUID.randomUUID().toString(),
-                title = context.Strings.formatted(Strings.chat_fork_title, source.title),
+                title = Strings.formatted(Strings.chat_fork_title, source.title),
                 createdAt = now,
                 updatedAt = now,
                 goalTurnCount = 0,

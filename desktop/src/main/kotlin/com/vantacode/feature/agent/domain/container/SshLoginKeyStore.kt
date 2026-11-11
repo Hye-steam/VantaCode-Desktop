@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.container
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.security.KeystoreCipher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -27,12 +27,12 @@ interface SshLoginKeyStore {
 
 private const val PREFS_NAME = "ssh_login_keys"
 
-/** 基于应用私有 SharedPreferences 的实现。 */
+/** 基于应用私有 DesktopPrefs 的实现。 */
 @Singleton
 class SharedPrefsSshLoginKeyStore @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) : SshLoginKeyStore {
-    private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(PREFS_NAME, DesktopContext.MODE_PRIVATE)
 
     private fun nameKey(id: String) = "key_${id}_name"
     private fun pathKey(id: String) = "key_${id}_path"

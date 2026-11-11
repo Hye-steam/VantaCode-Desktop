@@ -1,11 +1,11 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +17,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.backgroundDataStore by preferencesDataStore(
+private val DesktopContext.backgroundDataStore by preferencesDataStore(
     name = "background_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -28,7 +28,7 @@ private val Context.backgroundDataStore by preferencesDataStore(
  */
 @Singleton
 class BackgroundSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     companion object {
         const val DEFAULT_ALPHA = 0.15f

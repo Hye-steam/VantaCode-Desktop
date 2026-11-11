@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.command
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.feature.agent.domain.skill.Skill
 import com.vantacode.feature.agent.domain.skill.SkillRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 class SlashCommandRegistry @Inject constructor(
     actionHandlers: Set<@JvmSuppressWildcards ActionCommandHandler>,
     private val skillRepository: SkillRepository,
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val actions: List<ActionCommandHandler> = actionHandlers.sortedBy { it.name.lowercase() }
     private val actionsByName: Map<String, ActionCommandHandler> =

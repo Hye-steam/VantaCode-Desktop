@@ -1,9 +1,9 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.executionModeDataStore by preferencesDataStore(
+private val DesktopContext.executionModeDataStore by preferencesDataStore(
     name = "execution_mode_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -34,7 +34,7 @@ enum class ExecutionMode {
  */
 @Singleton
 class ExecutionModeRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val MODE_KEY = stringPreferencesKey("execution_mode")

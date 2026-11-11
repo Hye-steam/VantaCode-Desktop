@@ -1,6 +1,6 @@
 package com.vantacode.feature.terminal.presentation.component
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.graphics.Typeface
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,8 +56,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,7 +96,7 @@ fun TerminalScreen(
     embedded: Boolean = false
 ) {
     val prepareState by viewModel.prepareState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val containerInit by viewModel.containerInit.collectAsStateWithLifecycle()
     val tabs by viewModel.tabs.collectAsStateWithLifecycle()
     val activeTabId by viewModel.activeTabId.collectAsStateWithLifecycle()
@@ -502,17 +502,17 @@ private fun StatusView(
 }
 
 /** 把容器初始化进度状态映射为 Loading 阶段展示给用户的文案。 */
-private fun containerInitMessage(context: Context, state: ContainerInitState): String = when (state) {
+private fun containerInitMessage(context: DesktopContext, state: ContainerInitState): String = when (state) {
     is ContainerInitState.CleaningOldRootfs ->
-        context.Strings.formatted(Strings.terminal_cleaning_old_container, state.processed)
+        Strings.formatted(Strings.terminal_cleaning_old_container, state.processed)
     is ContainerInitState.ExtractingRootfs ->
-        context.Strings.formatted(Strings.terminal_extracting_env, state.processed)
+        Strings.formatted(Strings.terminal_extracting_env, state.processed)
     is ContainerInitState.InstallingPackages ->
-        context.Strings.formatted(Strings.terminal_installing_packages, state.line ?: "")
+        Strings.formatted(Strings.terminal_installing_packages, state.line ?: "")
     is ContainerInitState.Failed ->
-        context.Strings.formatted(Strings.terminal_preparing_env_failed, state.reason)
+        Strings.formatted(Strings.terminal_preparing_env_failed, state.reason)
     ContainerInitState.Idle, ContainerInitState.Ready ->
-        context.Strings.terminal_preparing_env_first_run
+        Strings.terminal_preparing_env_first_run
 }
 
 /** Termius 风格的现代化极客辅助按键栏。 */

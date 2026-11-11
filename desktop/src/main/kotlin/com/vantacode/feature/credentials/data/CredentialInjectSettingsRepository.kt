@@ -1,6 +1,6 @@
 package com.vantacode.feature.credentials.data
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,7 +13,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class CredentialInjectSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         const val PREFS = "credential_inject_prefs"
@@ -21,7 +21,7 @@ class CredentialInjectSettingsRepository @Inject constructor(
         const val KEY_ASKED = "asked_auto_inject_"
     }
 
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS, DesktopContext.MODE_PRIVATE)
 
     /** 服务器标识哈希：MD5("host:port") 前 8 位，与记忆目录哈希同风格。 */
     fun serverKey(host: String, port: Int): String {

@@ -1,11 +1,11 @@
 package com.vantacode.feature.workspace.domain.remote.ftp
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.R
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import com.vantacode.core.security.KeystoreCipher
@@ -44,14 +44,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.vantacode.core.ui.Strings
 
-private val Context.ftpServerDataStore by preferencesDataStore(
+private val DesktopContext.ftpServerDataStore by preferencesDataStore(
     name = "ftp_server_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
 
 @Singleton
 class FtpServerManager @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         const val TAG = "FtpServerManager"
@@ -206,16 +206,16 @@ class FtpServerManager @Inject constructor(
 
             val legacyUserFile = File(context.cacheDir, "ftp_users.properties")
             check(!legacyUserFile.exists() || legacyUserFile.delete()) {
-                context.Strings.ftp_user_cache_cleanup_failed
+                Strings.ftp_user_cache_cleanup_failed
             }
 
             if (!_isAnonymous.value && _username.value == "anonymous") {
-                _errorMessage.value = context.Strings.ftp_reserved_username
+                _errorMessage.value = Strings.ftp_reserved_username
                 _isRunning.value = false
                 return false
             }
             if (!_isAnonymous.value && (_username.value.isBlank() || _password.value.isBlank())) {
-                _errorMessage.value = context.Strings.ftp_password_required
+                _errorMessage.value = Strings.ftp_password_required
                 _isRunning.value = false
                 return false
             }

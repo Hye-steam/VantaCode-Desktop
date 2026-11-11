@@ -17,7 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.unit.dp
 import com.vantacode.R
 import com.vantacode.core.theme.Spacing
@@ -89,8 +89,7 @@ internal fun UpdateCheckDialog(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(
-                            R.string.about_update_download_size,
+                        text = Strings.formatted(Strings.about_update_download_size,
                             formatBytes(state.downloaded),
                             formatBytes(state.total)
                         ),
@@ -167,7 +166,7 @@ private fun ChangelogText(changelog: String) {
 }
 
 /** 用隐式 Intent 打开浏览器，捕获异常避免崩溃。 */
-internal fun openUrl(context: android.content.Context, url: String) {
+internal fun openUrl(context: DesktopContext, url: String) {
     runCatching {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }

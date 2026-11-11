@@ -1,6 +1,6 @@
 package com.vantacode.feature.workspace.domain
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
@@ -17,7 +17,7 @@ import android.provider.DocumentsContract
 object UriPathResolver {
 
     /** tree uri → 宿主真实目录路径；无法解析返回 null。 */
-    fun toFilePath(context: Context, uri: Uri): String? {
+    fun toFilePath(context: DesktopContext, uri: Uri): String? {
         if (!DocumentsContract.isTreeUri(uri)) return null
         if (uri.authority != "com.android.externalstorage.documents") return null
         val primaryRoot = runCatching { Environment.getExternalStorageDirectory().absolutePath }

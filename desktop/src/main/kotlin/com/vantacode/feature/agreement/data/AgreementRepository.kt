@@ -1,9 +1,9 @@
 package com.vantacode.feature.agreement.data
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.agreementDataStore by preferencesDataStore(
+private val DesktopContext.agreementDataStore by preferencesDataStore(
     name = "agreement_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
 
 @Singleton
 class AgreementRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val ACCEPTED_KEY = booleanPreferencesKey("agreement_accepted")

@@ -1,10 +1,10 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.content.pm.ApplicationInfo
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import com.vantacode.core.util.LogLevel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.logDataStore by preferencesDataStore(
+private val DesktopContext.logDataStore by preferencesDataStore(
     name = "log_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -30,7 +30,7 @@ private val Context.logDataStore by preferencesDataStore(
  */
 @Singleton
 class LogSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val LEVEL_KEY = stringPreferencesKey("log_min_level")
 

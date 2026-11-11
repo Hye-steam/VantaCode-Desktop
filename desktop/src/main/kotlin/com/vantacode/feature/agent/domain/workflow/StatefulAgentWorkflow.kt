@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.workflow
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.os.SystemClock
 import android.util.Base64
 import com.vantacode.R
@@ -122,7 +122,7 @@ class StatefulAgentWorkflow @Inject constructor(
     private val agentNotificationCenter: AgentNotificationCenter,
     private val eventInjector: AgentEventInjector,
     private val fileAccess: FileAccessProvider,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) : AgentWorkflow {
 
     private companion object {
@@ -834,7 +834,7 @@ class StatefulAgentWorkflow @Inject constructor(
                                         // 用户选择继续反馈，回滚到 PLAN 模式，修正工具结果让 AI 知道切换被取消并等待用户反馈
                                         currentContext = currentContext.copy(mode = AgentMode.PLAN)
                                         rawResult = ToolResult.Error(
-                                            appContext.Strings.plan_mode_refinement_requested,
+                                            Strings.plan_mode_refinement_requested,
                                             "MODE_SWITCH_REJECTED"
                                         ).toTransportString()
                                         isError = true
@@ -1314,8 +1314,8 @@ class StatefulAgentWorkflow @Inject constructor(
         AgentMode.PLAN -> promptProvider.resolvePrompt(MODE_REMINDER_PLAN_FILE)
             .replace(LEADING_COMMENT, "")
             .trim()
-        AgentMode.BUILD -> "【模式切换】" + appContext.Strings.plan_mode_approved_build
-        AgentMode.AUTO -> "【模式切换】" + appContext.Strings.plan_mode_approved_auto
+        AgentMode.BUILD -> "【模式切换】" + Strings.plan_mode_approved_build
+        AgentMode.AUTO -> "【模式切换】" + Strings.plan_mode_approved_auto
     }
 
     /** 界面手动切换时写入模式通知 detail 的提示，区分计划审批与用户直接切换。 */
@@ -1323,8 +1323,8 @@ class StatefulAgentWorkflow @Inject constructor(
         AgentMode.PLAN -> promptProvider.resolvePrompt(MODE_REMINDER_PLAN_FILE)
             .replace(LEADING_COMMENT, "")
             .trim()
-        AgentMode.BUILD -> "【模式切换】" + appContext.Strings.plan_mode_external_build
-        AgentMode.AUTO -> "【模式切换】" + appContext.Strings.plan_mode_external_auto
+        AgentMode.BUILD -> "【模式切换】" + Strings.plan_mode_external_build
+        AgentMode.AUTO -> "【模式切换】" + Strings.plan_mode_external_auto
     }
 
     /**

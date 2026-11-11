@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 import kotlin.math.hypot
@@ -24,7 +24,7 @@ import kotlin.math.hypot
  */
 @Composable
 fun BetaWatermark(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val isBeta = remember(context) { context.applicationContext.packageName.endsWith(".beta") }
     if (!isBeta) return
 

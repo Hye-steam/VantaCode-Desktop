@@ -43,7 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -81,7 +81,7 @@ fun SyncSettingsSheet(
 ) {
     var maxBatchSizeText by remember(maxSyncBatchSize) { mutableStateOf(maxSyncBatchSize.toString()) }
     var editUseGitIgnore by remember(useGitIgnore) { mutableStateOf(useGitIgnore) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalDesktopContext.current
 
     AdaptiveModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -154,7 +154,7 @@ fun SyncSettingsSheet(
                 onClick = {
                     onUseGitIgnoreChange(editUseGitIgnore)
                     onMaxSyncBatchSizeChange(maxBatchSizeText.toIntOrNull() ?: 50)
-                    android.widget.Toast.makeText(context, context.Strings.sync_saved, android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.PlatformToast.show(Strings.sync_saved, android.widget.Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 modifier = Modifier

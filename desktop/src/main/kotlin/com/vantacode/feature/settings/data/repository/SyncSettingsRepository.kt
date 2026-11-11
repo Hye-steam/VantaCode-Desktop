@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,9 +11,9 @@ import javax.inject.Singleton
 
 @Singleton
 class SyncSettingsRepository @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) {
-    private val prefs = context.getSharedPreferences("sync_settings", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("sync_settings", DesktopContext.MODE_PRIVATE)
 
     private val _ignoredPatterns = MutableStateFlow(
         prefs.getString("ignored_patterns", ".git,node_modules,build,dist,.gradle,.idea,.cxx,.vscode,tmp")!!

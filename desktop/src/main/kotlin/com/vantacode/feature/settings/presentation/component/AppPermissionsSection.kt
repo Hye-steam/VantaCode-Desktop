@@ -30,8 +30,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.vantacode.R
@@ -65,7 +65,7 @@ internal fun AppPermissionsSection(
     onOpenShizuku: () -> Unit,
     onRefreshShizuku: () -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
 
     var apkInstallAllowed by remember { mutableStateOf(context.packageManager.canRequestPackageInstalls()) }
     var storageGranted by remember { mutableStateOf(checkStorageGranted(context)) }
@@ -214,7 +214,7 @@ internal fun BackgroundRunSection(
     approvalNotificationEnabled: Boolean,
     onToggleApprovalNotification: (Boolean) -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     var showNotificationDeniedDialog by remember { mutableStateOf(false) }
     // 通知权限申请成功后要打开的目标开关回调。
     var pendingNotificationToggle by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
@@ -392,13 +392,13 @@ private fun PermissionDeniedDialog(
 }
 
 /** Android 13+ 需通知权限；更低版本无需。 */
-private fun notificationsGranted(context: android.content.Context): Boolean =
+private fun notificationsGranted(context: DesktopContext): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
         PackageManager.PERMISSION_GRANTED
 
 /** 系统是否还会为权限弹授权框（false 且未授予即永久拒绝）。 */
-private fun shouldShowRationale(context: android.content.Context, permission: String): Boolean =
+private fun shouldShowRationale(context: DesktopContext, permission: String): Boolean =
     (context as? android.app.Activity)?.shouldShowRequestPermissionRationale(permission) ?: false
 
 /** 权限行右侧状态文字：已允许 / 未允许。 */
@@ -413,12 +413,12 @@ private fun PermissionStatusText(allowed: Boolean) {
     )
 }
 
-private fun checkStorageGranted(context: android.content.Context): Boolean =
+private fun checkStorageGranted(context: DesktopContext): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
 
-private fun isIgnoringBatteryOptimizations(context: android.content.Context): Boolean {
-    val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
+private fun isIgnoringBatteryOptimizations(context: DesktopContext): Boolean {
+    val pm = context.getSystemService(DesktopContext.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
 }
 

@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.container
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 @Singleton
 class ContainerOsDetector @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) {
     private val cacheDir = File(context.cacheDir, "container_os")
 

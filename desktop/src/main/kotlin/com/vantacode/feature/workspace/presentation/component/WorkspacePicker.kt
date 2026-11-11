@@ -42,7 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
@@ -59,7 +59,7 @@ import compose.icons.feathericons.HardDrive
 import compose.icons.feathericons.MoreHorizontal
 import compose.icons.feathericons.Plus
 import compose.icons.feathericons.Trash2
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import android.widget.Toast
 import com.vantacode.R
 import com.vantacode.core.ui.Strings
@@ -141,10 +141,10 @@ fun WorkspaceIconButton(
 
     // 远程工作区路径/默认工作区创建失败提示：消费后清除，避免重复弹 Toast
     val initError by viewModel.initError.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     LaunchedEffect(initError) {
         if (initError != null) {
-            Toast.makeText(context, initError, Toast.LENGTH_LONG).show()
+            PlatformToast.show(initError, true)
             viewModel.consumeInitError()
         }
     }
@@ -177,7 +177,7 @@ private fun WorkspaceSelectionHost(
     val addError by viewModel.addError.collectAsStateWithLifecycle()
     val externalWarningDismissed by viewModel.externalWarningDismissed.collectAsStateWithLifecycle()
     val deleteExternalWorkspaceSessions by viewModel.deleteExternalWorkspaceSessions.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     var pendingWorkspaceSelect by remember { mutableStateOf<Workspace?>(null) }
     var showExternalWarning by remember { mutableStateOf(false) }
     var dontShowExternalWarningAgain by remember { mutableStateOf(false) }
@@ -195,7 +195,7 @@ private fun WorkspaceSelectionHost(
     // 添加外部本地工作区失败提示：消费后清除，避免重复弹 Toast
     LaunchedEffect(addError) {
         if (addError != null) {
-            Toast.makeText(context, addError, Toast.LENGTH_LONG).show()
+            PlatformToast.show(addError, true)
             viewModel.consumeAddError()
         }
     }
@@ -213,9 +213,7 @@ private fun WorkspaceSelectionHost(
             }
             viewModel.addExternalWorkspace(uri) { created ->
                 if (created != null) {
-                    Toast.makeText(
-                        context,
-                        context.Strings.formatted(Strings.workspace_external_added, created.name),
+                    PlatformToast.show(Strings.formatted(Strings.workspace_external_added, created.name),
                         Toast.LENGTH_LONG
                     ).show()
                     onDismiss()

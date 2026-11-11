@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.os.Build
 import com.vantacode.R
 import com.vantacode.feature.settings.data.repository.UpdateChannel
@@ -59,7 +59,7 @@ sealed interface UpdateCheckResult {
  */
 @Singleton
 class UpdateCheckService @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     suspend fun checkForUpdate(currentVersion: String, channel: UpdateChannel): UpdateCheckResult =
         withContext(Dispatchers.IO) {
@@ -75,7 +75,7 @@ class UpdateCheckService @Inject constructor(
                     val body = resp.body?.string().orEmpty()
                     val array = runCatching { JsonParser.parseString(body).asJsonArray }
                         .getOrNull()
-                        ?: return@use UpdateCheckResult.Error(context.Strings.about_parse_version_failed)
+                        ?: return@use UpdateCheckResult.Error(Strings.about_parse_version_failed)
 
                     val releases = array.mapNotNull { el ->
                         val obj = el.asJsonObject
@@ -108,7 +108,7 @@ class UpdateCheckService @Inject constructor(
                         )
                     }
                 }
-            }.getOrElse { UpdateCheckResult.Error(it.message ?: context.Strings.about_network_error) }
+            }.getOrElse { UpdateCheckResult.Error(it.message ?: Strings.about_network_error) }
         }
 
     private fun toVersionUpdate(release: ReleaseInfo): VersionUpdate {
@@ -116,7 +116,7 @@ class UpdateCheckService @Inject constructor(
         return VersionUpdate(
             tag = release.rawTag,
             changelog = if (notes.isEmpty()) {
-                context.Strings.about_no_changelog
+                Strings.about_no_changelog
             } else {
                 cleanMarkdown(notes)
             },

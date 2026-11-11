@@ -46,8 +46,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.URI
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.platform.LocalDesktopContext
+import com.vantacode.core.ui.stringResource
 import android.content.Intent
 import android.net.Uri
 import com.vantacode.R
@@ -187,7 +187,7 @@ private fun WebSearchSummary(result: ParsedWebSearchResult) {
 
 @Composable
 private fun WebSearchResultItem(index: Int, item: ParsedWebSearchItem) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
 
     Surface(
         modifier = Modifier.fillMaxWidth(),

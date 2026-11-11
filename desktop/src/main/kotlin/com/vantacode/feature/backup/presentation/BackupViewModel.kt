@@ -1,6 +1,6 @@
 package com.vantacode.feature.backup.presentation
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -68,7 +68,7 @@ private sealed interface ImportSource {
 
 @HiltViewModel
 class BackupViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val backupManager: BackupManager,
     private val targetRepository: BackupTargetRepository
 ) : ViewModel() {
@@ -89,7 +89,7 @@ class BackupViewModel @Inject constructor(
     @Volatile
     private var pendingSource: ImportSource? = null
 
-    private val prefs = context.getSharedPreferences("backup_options", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("backup_options", DesktopContext.MODE_PRIVATE)
 
     private val _exportOptions = MutableStateFlow(loadExportOptions())
     val exportOptions: StateFlow<BackupOptions> = _exportOptions.asStateFlow()
@@ -127,7 +127,7 @@ class BackupViewModel @Inject constructor(
                 backupManager.export(pw, options, output)
                 _state.value = BackupState.ExportDone
             } catch (e: Exception) {
-                _state.value = BackupState.Error(e.message ?: context.Strings.backup_export_failed)
+                _state.value = BackupState.Error(e.message ?: Strings.backup_export_failed)
             } finally {
                 runCatching { output.close() }
             }
@@ -151,8 +151,8 @@ class BackupViewModel @Inject constructor(
                 runCatching { targetRepository.storageFor(target).testConnection().getOrThrow() }
             }
             result
-                .onSuccess { onResult(true, context.Strings.backup_net_test_success) }
-                .onFailure { onResult(false, it.message ?: context.Strings.backup_net_test_failed) }
+                .onSuccess { onResult(true, Strings.backup_net_test_success) }
+                .onFailure { onResult(false, it.message ?: Strings.backup_net_test_failed) }
         }
     }
 
@@ -160,7 +160,7 @@ class BackupViewModel @Inject constructor(
     fun uploadToTarget(target: BackupTarget, password: String) {
         if (password.isEmpty()) {
             _networkState.value = NetworkBackupState.Error(
-                context.Strings.backup_net_upload_password_required
+                Strings.backup_net_upload_password_required
             )
             return
         }
@@ -184,12 +184,12 @@ class BackupViewModel @Inject constructor(
                     .onSuccess { _networkState.value = NetworkBackupState.UploadDone(target.name) }
                     .onFailure {
                         _networkState.value = NetworkBackupState.Error(
-                            it.message ?: context.Strings.backup_net_upload_failed
+                            it.message ?: Strings.backup_net_upload_failed
                         )
                     }
             } catch (e: Exception) {
                 FileLogger.e(TAG, "网络备份上传失败", e)
-                _networkState.value = NetworkBackupState.Error(e.message ?: context.Strings.backup_net_upload_failed)
+                _networkState.value = NetworkBackupState.Error(e.message ?: Strings.backup_net_upload_failed)
             } finally {
                 pw?.fill('\u0000')
                 val file = temp
@@ -211,7 +211,7 @@ class BackupViewModel @Inject constructor(
                 }
                 .onFailure {
                     _networkState.value = NetworkBackupState.Error(
-                        it.message ?: context.Strings.backup_net_list_failed
+                        it.message ?: Strings.backup_net_list_failed
                     )
                 }
         }
@@ -228,7 +228,7 @@ class BackupViewModel @Inject constructor(
                 .onSuccess { loadRemoteBackups(target) }
                 .onFailure {
                     _networkState.value = NetworkBackupState.Error(
-                        it.message ?: context.Strings.backup_net_delete_failed
+                        it.message ?: Strings.backup_net_delete_failed
                     )
                 }
         }
@@ -282,7 +282,7 @@ class BackupViewModel @Inject constructor(
             try {
                 val preview = withContext(Dispatchers.IO + NonCancellable) {
                     val input = openStream(source)
-                        ?: throw IllegalArgumentException(context.Strings.backup_read_failed)
+                        ?: throw IllegalArgumentException(Strings.backup_read_failed)
                     input.use {
                         if (pw == null) {
                             backupManager.previewImport(it, null)
@@ -322,7 +322,7 @@ class BackupViewModel @Inject constructor(
             if (source != null) {
                 restoreFromSource(source, selected)
             } else {
-                _state.value = BackupState.Error(context.Strings.backup_read_failed)
+                _state.value = BackupState.Error(Strings.backup_read_failed)
             }
         }
     }
@@ -346,7 +346,7 @@ class BackupViewModel @Inject constructor(
             FileLogger.i(TAG, "开始还原：${describeSource(source)}${if (selected != null) "，勾选工作区=${selected.size}个" else "，全量"}")
             val result = withContext(Dispatchers.IO) {
                 val input = preparedImport?.inputStream() ?: openStream(source)
-                    ?: throw IllegalArgumentException(context.Strings.backup_read_failed)
+                    ?: throw IllegalArgumentException(Strings.backup_read_failed)
                 input.use { backupManager.import(it, null, selected) }
             }
             result.onSuccess {
@@ -406,9 +406,9 @@ class BackupViewModel @Inject constructor(
     }
 
     private fun describeImportError(e: Throwable): String = when (e) {
-        is BackupDecryptionException -> e.message ?: context.Strings.backup_wrong_password
+        is BackupDecryptionException -> e.message ?: Strings.backup_wrong_password
         else -> buildString {
-            append(e.message ?: e::class.simpleName ?: context.Strings.backup_import_failed)
+            append(e.message ?: e::class.simpleName ?: Strings.backup_import_failed)
             // 诊断期附上 cause 链（最多两层），方便定位真实异常
             var cause = e.cause
             var depth = 0

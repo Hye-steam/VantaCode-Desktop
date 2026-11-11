@@ -1,10 +1,10 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import com.vantacode.feature.agent.domain.container.ContainerProfile
 import com.vantacode.feature.agent.domain.container.versionFromDownloadFileName
@@ -18,7 +18,7 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.containerDataStore by preferencesDataStore(
+private val DesktopContext.containerDataStore by preferencesDataStore(
     name = "container_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -53,7 +53,7 @@ fun DownloadedImageRecord.effectiveVersion(): String =
  */
 @Singleton
 class ContainerSettingsRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private companion object {
         val ACTIVE_PROFILE_ID_KEY = stringPreferencesKey("active_profile_id")

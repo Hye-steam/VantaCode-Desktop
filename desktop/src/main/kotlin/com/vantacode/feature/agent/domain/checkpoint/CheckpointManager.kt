@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.checkpoint
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.util.FileLogger
 import com.vantacode.feature.agent.data.local.dao.CheckpointDao
 import com.vantacode.feature.agent.data.local.entity.CheckpointEntity
@@ -31,7 +31,7 @@ data class CheckpointRestoreResult(
 
 @Singleton
 class CheckpointManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val checkpointDao: CheckpointDao,
     private val fileAccess: FileAccessProvider,
     private val fileLock: WorkspaceFileLock,

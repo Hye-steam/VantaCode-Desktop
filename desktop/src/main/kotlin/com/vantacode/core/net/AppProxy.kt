@@ -1,6 +1,6 @@
 package com.vantacode.core.net
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.feature.settings.data.repository.DEFAULT_NO_PROXY
 import com.vantacode.feature.settings.data.repository.ProviderProxyEntry
 import com.vantacode.feature.settings.data.repository.ProviderProxyRegistry
@@ -19,9 +19,10 @@ import java.net.ProxySelector
 import java.net.SocketAddress
 import java.net.URI
 import java.net.URLEncoder
+import com.vantacode.core.ui.Strings
 
 /**
- * 全局 HTTP 代理接入点（无状态单例，每次读取 SharedPreferences 最新值，改设置即对新连接生效）。
+ * 全局 HTTP 代理接入点（无状态单例，每次读取 DesktopPrefs 最新值，改设置即对新连接生效）。
  *
  * 接入方式：
  * - [applyGlobal] 在 Application.attachBaseContext（任何 Hilt 注入之前）调用：把动态
@@ -36,16 +37,16 @@ import java.net.URLEncoder
 object AppProxy {
 
     @Volatile
-    private var appContext: Context? = null
+    private var appContext: DesktopContext? = null
 
     /** 提供商级代理注册表（DI 注入后注册）：按目标 host 分派 provider 专属代理。 */
     @Volatile
     private var providerRegistry: ProviderProxyRegistry? = null
 
     /** 在 Application.attachBaseContext 中调用（早于 OkHttpClient 首次构建）。 */
-    fun applyGlobal(context: Context) {
+    fun applyGlobal(context: DesktopContext) {
         // attachBaseContext 阶段 getApplicationContext() 可能为 null（Application 尚未完全
-        // 绑定），此时直接用传入的 base（Application 本身就是合法 Context）——否则后续
+        // 绑定），此时直接用传入的 base（Application 本身就是合法 DesktopContext）——否则后续
         // config() 读不到代理设置，所有请求静默直连（表现为容器内代理生效而 App 侧不生效）。
         appContext = context.applicationContext ?: context
         ProxySelector.setDefault(selector)
@@ -163,7 +164,7 @@ object AppProxy {
         }
 
     /** 容器内进程的代理环境变量；未启用或配置不完整时返回空 map（直连）。 */
-    fun proxyEnv(context: Context): Map<String, String> {
+    fun proxyEnv(context: DesktopContext): Map<String, String> {
         val cfg = ProxySettingsRepository.readConfig(context)
         if (!cfg.enabled || !cfg.valid) return emptyMap()
         val noProxy = cfg.noProxy.ifBlank { DEFAULT_NO_PROXY }
@@ -305,15 +306,15 @@ object AppProxy {
      * [probeUrl] 为测试目标 URL，留空回退默认值；
      * HTTP 代理认证走 407 Basic；SOCKS5 认证经全局 Authenticator 按 host 分派（见上）。
      */
-    suspend fun testProxy(context: Context, cfg: ProxyConfig, probeUrl: String = PROBE_URL): ProxyTestResult =
+    suspend fun testProxy(context: DesktopContext, cfg: ProxyConfig, probeUrl: String = PROBE_URL): ProxyTestResult =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             if (cfg.host.isBlank() || cfg.port !in 1..65535) {
-                return@withContext ProxyTestResult(false, context.getString(com.vantacode.R.string.proxy_test_invalid_config))
+                return@withContext ProxyTestResult(false, context.Strings.proxy_test_invalid_config)
             }
             probe(context, SelectedProxy(cfg.type, cfg.host, cfg.port, cfg.username, cfg.password), probeUrl)
         }
 
-    private suspend fun probe(context: Context, sel: SelectedProxy, probeUrl: String): ProxyTestResult {
+    private suspend fun probe(context: DesktopContext, sel: SelectedProxy, probeUrl: String): ProxyTestResult {
         val client = okhttp3.OkHttpClient.Builder()
             .connectTimeout(TEST_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(TEST_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
@@ -325,13 +326,13 @@ object AppProxy {
             client.newCall(okhttp3.Request.Builder().url(probeUrl.ifBlank { PROBE_URL }).build()).execute().use { resp ->
                 val body = resp.body?.string().orEmpty().trim()
                 if (resp.isSuccessful) {
-                    ProxyTestResult(true, context.getString(com.vantacode.R.string.proxy_test_ok, resp.code))
+                    ProxyTestResult(true, context.Strings.formatted(Strings.proxy_test_ok, resp.code))
                 } else {
-                    ProxyTestResult(false, context.getString(com.vantacode.R.string.proxy_test_http_error, resp.code, body.take(120)))
+                    ProxyTestResult(false, context.Strings.formatted(Strings.proxy_test_http_error, resp.code, body.take(120)))
                 }
             }
         } catch (e: Exception) {
-            ProxyTestResult(false, context.getString(com.vantacode.R.string.proxy_test_connect_failed, e.message ?: ""))
+            ProxyTestResult(false, context.Strings.formatted(Strings.proxy_test_connect_failed, e.message ?: ""))
         }
     }
 }

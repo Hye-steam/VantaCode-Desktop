@@ -1,6 +1,6 @@
 package com.vantacode.feature.settings.data.remote
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.core.net.AppProxy
 import com.vantacode.feature.settings.data.repository.buildDownloadUrl
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,7 +41,7 @@ sealed interface ApkDownloadResult {
  */
 @Singleton
 class ApkDownloader @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: DesktopContext
 ) {
     private val client by lazy {
         OkHttpClient.Builder()

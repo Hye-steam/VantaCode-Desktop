@@ -1,13 +1,13 @@
 package com.vantacode.feature.settings.data.repository
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
-import androidx.datastore.preferences.preferencesDataStore
+import com.vantacode.core.datastore.preferencesDataStore
 import com.vantacode.core.datastore.preferencesCorruptionHandler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.titleModelDataStore by preferencesDataStore(
+private val DesktopContext.titleModelDataStore by preferencesDataStore(
     name = "title_model_prefs",
     corruptionHandler = preferencesCorruptionHandler
 )
@@ -20,7 +20,7 @@ private val Context.titleModelDataStore by preferencesDataStore(
  */
 @Singleton
 class TitleModelSettingsRepository @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: DesktopContext
 ) : ModelSelectionSettingsRepository(
     context.titleModelDataStore, "title_provider_id", "title_model"
 ) {

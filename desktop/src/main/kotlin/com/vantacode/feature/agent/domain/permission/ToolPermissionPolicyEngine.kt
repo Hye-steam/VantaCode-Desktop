@@ -1,6 +1,6 @@
 package com.vantacode.feature.agent.domain.permission
+import com.vantacode.core.platform.DesktopContext
 
-import android.content.Context
 import com.vantacode.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vantacode.feature.agent.domain.tool.AgentTool
@@ -32,7 +32,7 @@ import com.vantacode.core.ui.Strings
 class ToolPermissionPolicyEngine @Inject constructor(
     private val rulesRepo: PermissionRulesRepository,
     private val toolSafetySettings: ToolSafetySettingsRepository,
-    @param:ApplicationContext private val appContext: Context
+    @param:ApplicationContext private val appContext: DesktopContext
 ) {
     private companion object {
         /** 以 `command` 参数承载 shell 命令、按命令前缀做指令级匹配的工具。 */
@@ -129,7 +129,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
     suspend fun evaluate(tool: AgentTool?, toolName: String, args: Map<String, JsonElement>, mode: com.vantacode.feature.agent.domain.model.AgentMode): EvalResult {
         val capabilities = tool?.effectiveCapabilities(args).orEmpty()
         if (mode == com.vantacode.feature.agent.domain.model.AgentMode.PLAN && isDangerousTool(toolName, args, capabilities)) {
-            return EvalResult(Verdict.DENY, emptyList(), denyReason = appContext.Strings.tool_plan_mode_denied)
+            return EvalResult(Verdict.DENY, emptyList(), denyReason = Strings.tool_plan_mode_denied)
         }
 
         if (mode == com.vantacode.feature.agent.domain.model.AgentMode.AUTO) {
@@ -150,7 +150,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
             }
             // Shizuku 直接操作宿主系统，AUTO 下也不自动放行，仍需逐次确认（除非已开启「禁用安全拦截」）。
             if (toolName == SHIZUKU_TOOL && !safetyDisabled) {
-                return EvalResult(Verdict.ASK, emptyList(), rememberDisabledReason = appContext.Strings.tool_shizuku_confirmation_reason)
+                return EvalResult(Verdict.ASK, emptyList(), rememberDisabledReason = Strings.tool_shizuku_confirmation_reason)
             }
             return EvalResult(Verdict.ALLOW, emptyList())
         }
@@ -165,7 +165,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
             if (action in TASK_AUTO_ACTIONS) {
                 val rules = rulesRepo.loadEffectiveForCurrentProject().filter { it.toolName == toolName }
                 if (rules.any { it.pattern == PermissionRule.WHOLE_TOOL && it.decision == PermissionDecision.DENY }) {
-                    return EvalResult(Verdict.DENY, emptyList(), denyReason = appContext.Strings.tool_permission_rule_denied)
+                    return EvalResult(Verdict.DENY, emptyList(), denyReason = Strings.tool_permission_rule_denied)
                 }
                 return EvalResult(Verdict.ALLOW, emptyList())
             }
@@ -174,7 +174,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
                 // 「始终允许」——create/stop 落下的 ALWAYS 记忆不得连带放行删除。
                 val rules = rulesRepo.loadEffectiveForCurrentProject().filter { it.toolName == toolName }
                 if (rules.any { it.pattern == PermissionRule.WHOLE_TOOL && it.decision == PermissionDecision.DENY }) {
-                    return EvalResult(Verdict.DENY, emptyList(), denyReason = appContext.Strings.tool_permission_rule_denied)
+                    return EvalResult(Verdict.DENY, emptyList(), denyReason = Strings.tool_permission_rule_denied)
                 }
                 return EvalResult(
                     Verdict.ASK,
@@ -283,7 +283,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
 
     private fun evaluateGeneric(rules: List<PermissionRule>, capabilities: Set<ToolCapability>): EvalResult {
         val whole = rules.filter { it.pattern == PermissionRule.WHOLE_TOOL }
-        if (whole.any { it.decision == PermissionDecision.DENY }) return EvalResult(Verdict.DENY, emptyList(), denyReason = appContext.Strings.tool_permission_rule_denied)
+        if (whole.any { it.decision == PermissionDecision.DENY }) return EvalResult(Verdict.DENY, emptyList(), denyReason = Strings.tool_permission_rule_denied)
         if (whole.any { it.decision == PermissionDecision.ALLOW }) return EvalResult(Verdict.ALLOW, emptyList())
         if (capabilities.any { it in NON_REMEMBERABLE_CAPABILITIES }) {
             return EvalResult(
@@ -384,8 +384,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
             return EvalResult(
                 Verdict.DENY,
                 emptyList(),
-                denyReason = appContext.getString(
-                    R.string.tool_command_rule_denied_detail,
+                denyReason = appContext.Strings.formatted(Strings.tool_command_rule_denied_detail,
                     deniedByPattern.toCompact(),
                     segment.joinToString(" ")
                 )
@@ -394,7 +393,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
 
         // 2) Shizuku 高危工具：无论内置白名单或已记忆规则，一律弹窗且不可记忆。
         if (forceAsk) {
-            return EvalResult(Verdict.ASK, emptyList(), rememberDisabledReason = appContext.Strings.tool_shizuku_confirmation_reason)
+            return EvalResult(Verdict.ASK, emptyList(), rememberDisabledReason = Strings.tool_shizuku_confirmation_reason)
         }
 
         // 3) 不可静态判定 → 必须弹窗、不可记忆（内置白名单也不适用）。
@@ -403,8 +402,7 @@ class ToolPermissionPolicyEngine @Inject constructor(
                 Verdict.ASK,
                 emptyList(),
                 // 把触发构造写进弹窗说明：用户与 AI 都能看出这条命令为什么没法自动判定。
-                rememberDisabledReason = appContext.getString(
-                    R.string.tool_command_unanalyzable_reason,
+                rememberDisabledReason = appContext.Strings.formatted(Strings.tool_command_unanalyzable_reason,
                     analysis.blockers.joinToString("、")
                 )
             )

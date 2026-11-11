@@ -94,7 +94,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -168,7 +168,7 @@ import com.vantacode.feature.agent.domain.model.ReasoningEffort
 import com.vantacode.feature.agent.presentation.component.AdaptiveCardView
 import com.vantacode.feature.settings.domain.model.ProviderDashboardResult
 import com.vantacode.feature.settings.domain.model.ProviderDashboardState
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import com.vantacode.R
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -192,7 +192,7 @@ fun ProviderEditorScreen(
     onOnboardingModelAdded: (() -> Unit)? = null,
     onOnboardingDismissFetchDialog: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val focusManager = LocalFocusManager.current
     val presetType by remember {
         mutableStateOf(presetPrefill?.type?.let { runCatching { ProviderType.valueOf(it) }.getOrNull() })
@@ -307,7 +307,7 @@ fun ProviderEditorScreen(
 
     fun currentConfig() = AIProviderConfig(
         id = providerId,
-        name = name.ifEmpty { context.Strings.provider_new },
+        name = name.ifEmpty { Strings.provider_new },
         type = type,
         apiKey = apiKey,
         multiKeyEnabled = multiKeyEnabled,
@@ -373,9 +373,7 @@ fun ProviderEditorScreen(
         if (stale.isNotEmpty()) {
             models.removeAll(stale)
             saveCurrent()
-            Toast.makeText(
-                context,
-                context.Strings.formatted(Strings.provider_models_aligned_removed, stale.size),
+            PlatformToast.show(Strings.formatted(Strings.provider_models_aligned_removed, stale.size),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -623,8 +621,7 @@ fun ProviderEditorScreen(
                                 onClick = { showKeysPage = true },
                                 trailing = {
                                     Text(
-                                        text = stringResource(
-                                            R.string.provider_multi_key_summary,
+                                        text = Strings.formatted(Strings.provider_multi_key_summary,
                                             apiKeys.count { it.value.isNotBlank() },
                                             keyRotationStrategyLabel(keyRotationStrategy)
                                         ),
@@ -1585,7 +1582,7 @@ private fun FetchModelsDialog(
     onOnboardingModelAdded: (() -> Unit)? = null,
     onOnboardingDismissFetchDialog: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val sheetState = rememberModalBottomSheetState()
     var searchQuery by remember { mutableStateOf("") }
     var showDebugSheet by remember { mutableStateOf(false) }
@@ -2574,7 +2571,7 @@ private fun RawOutputBottomSheet(
     onDismiss: () -> Unit
 ) {
     val clipboard = LocalClipboard.current
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val scope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
 
@@ -2608,7 +2605,7 @@ private fun RawOutputBottomSheet(
                             clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("rawOutput", rawOutput)))
                         }
                         copied = true
-                        Toast.makeText(context, context.Strings.common_copy_success, Toast.LENGTH_SHORT).show()
+                        PlatformToast.show(Strings.common_copy_success)
                     },
                     modifier = Modifier.size(36.dp)
                 ) {

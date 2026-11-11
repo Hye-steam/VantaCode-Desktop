@@ -28,9 +28,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import com.vantacode.core.platform.LocalDesktopContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.stringResource
+import com.vantacode.core.ui.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vantacode.R
@@ -52,7 +52,7 @@ internal fun ProviderPresetSheet(
     onSelectCustom: () -> Unit,
     onSelectOfficial: (ProviderPreset) -> Unit
 ) {
-    val context = LocalContext.current
+    val context = LocalDesktopContext.current
     val uriHandler = LocalUriHandler.current
     // 纯本地内存/磁盘/assets 同步直读，零延迟零等待，绝无任何网络加载与转圈
     val officialPresets = remember { ProviderPresetLibrary.loadOfficial(context) }

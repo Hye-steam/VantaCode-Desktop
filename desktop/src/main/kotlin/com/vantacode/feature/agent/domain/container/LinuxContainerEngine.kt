@@ -74,7 +74,7 @@ data class ProotInvocation(
 
 @Singleton
 class LinuxContainerEngine @Inject constructor(
-    @param:ApplicationContext private val context: android.content.Context,
+    @param:ApplicationContext private val context: DesktopContext,
     private val containerInstaller: ContainerInstaller,
     private val containerOsDetector: ContainerOsDetector,
     private val containerSettingsRepository: com.vantacode.feature.settings.data.repository.ContainerSettingsRepository,
@@ -493,7 +493,7 @@ class LinuxContainerEngine @Inject constructor(
     /** 按指定 profile 判断容器是否就绪（MCP 按运行时容器启动前检查用）。 */
     fun notReadyHintFor(profile: ContainerProfile): String? {
         if (containerInstaller.isInstalledFor(profile)) return null
-        return context.Strings.container_not_ready_hint
+        return Strings.container_not_ready_hint
     }
 
     /**
