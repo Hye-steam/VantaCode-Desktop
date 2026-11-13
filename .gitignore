@@ -53,3 +53,9 @@ backbone-region.kt
 err-*.txt
 tasks.txt
 
+
+compile4-errors.txt
+err16.txt
+err17.txt
+excision-log.txt
+

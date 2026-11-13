@@ -1,147 +1,114 @@
 <p align="center">
-  <img src="docs/icon.webp" width="112" alt="AiCode" />
-  <h1 align="center">AiCode</h1>
+  <img src="desktop/src/jvmMain/resources/icon.png" width="112" alt="VantaCode" />
+  <h1 align="center">VantaCode Desktop</h1>
   <p align="center">
-    Android 上的通用 AI Coding Agent · Linux 开发环境 · 支持本地与远程 SSH
+    AiCode 的 Windows 桌面移植 · Kotlin + Compose Multiplatform
     <br />
-    <a href="README.md">中文</a> · <a href="README.en.md">English</a>
+    通用 AI Coding Agent：对话 · 终端 · Git · 代理会话
   </p>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License GPL-3.0" /></a>
-  <img src="https://img.shields.io/badge/Platform-Android-green.svg" alt="Android Platform" />
-  <a href="https://github.com/jieapi/aicode/releases"><img src="https://img.shields.io/github/v/release/jieapi/aicode?display_name=tag&include_prereleases" alt="Latest Release" /></a>
+  <img src="https://img.shields.io/badge/Platform-Windows%20x64-blue" alt="Platform Windows x64" />
+  <img src="https://img.shields.io/badge/Version-1.2.0-green" alt="Version 1.2.0" />
 </p>
 
-## 关于开源协议的声明
+## 这是什么
 
-近期发现，某闭源商业 App 大量使用了 AiCode 的代码及静态资源，甚至保留了本项目的类名与相关标识，却未遵守本项目的开源协议。与此同时，其开发者声称从未听说过 AiCode。
+**VantaCode Desktop** 是 [AiCode](https://github.com/jieapi/AiCode)（Android 上的通用 AI Coding Agent，GPL-3.0）的桌面端独立移植与复刻，使用 **Kotlin + Compose Multiplatform Desktop** 构建，**Windows 优先**。
 
-**AiCode 允许在遵守 [GPL-3.0](LICENSE) 的前提下进行商业使用。** 我们反对的不是商业化，而是使用本项目代码后，以闭源形式分发衍生作品，且未履行保留版权与许可声明、按 GPL-3.0 授权及提供对应源代码等义务的行为。开源不等于放弃版权，请尊重开源协议与开发者的劳动成果。
+它不是把 Android 版换个壳跑在电脑上，而是把 AI 编程代理的能力整体重构并下移到桌面：AI 对话与代理会话、Git 集成、内置终端（PTY）、工作区 / 远程 SSH、模型与 MCP 配置、主题与背景、备份与还原等，都以原生桌面应用的形式提供。
 
-<p align="center">
-  <table>
-    <tr>
-      <td align="center"><img src="docs/screenshots/home.png" alt="AiCode 主页 - AI 对话界面，支持代码生成与 Markdown 渲染" width="270"/></td>
-      <td align="center"><img src="docs/screenshots/git.png" alt="AiCode Git 集成 - 可视化提交记录与分支管理" width="270"/></td>
-    </tr>
-    <tr>
-      <td align="center">主页 · AI 对话</td>
-      <td align="center">Git · 提交历史</td>
-    </tr>
-    <tr>
-      <td align="center"><img src="docs/screenshots/container.png" alt="AiCode 容器设置 - 容器镜像管理" width="270"/></td>
-      <td align="center"><img src="docs/screenshots/models.png" alt="AiCode 模型列表 - 多供应商模型管理" width="270"/></td>
-    </tr>
-    <tr>
-      <td align="center">容器 · 镜像管理</td>
-      <td align="center">模型 · 列表配置</td>
-    </tr>
-  </table>
-</p>
+- 上游项目：**[AiCode](https://github.com/jieapi/AiCode)**（Android 上的通用 AI Coding Agent）
+- 本仓库是 AiCode 的桌面移植与复刻，许可证完全一致：**GPL-3.0**（见 [LICENSE](LICENSE)）
+- 版权声明与第三方组件说明：[NOTICE](NOTICE)
+- 上游原 README（含上游声明）：[docs/upstream-README.md](docs/upstream-README.md) / [English](docs/upstream-README.en.md)
+
+## 下载与安装
+
+前往 **[Releases](https://github.com/Hye-steam/VantaCode-Desktop/releases)** 下载最新版：
+
+- **VantaCode-1.2.0.exe**（233.4 MB，Windows x64 安装包，安装时会弹出 GPL 许可接受页）
+- 运行后首次启动会自动解包内置 ffmpeg 到 `%USERPROFILE%\.vantacode\tools\ffmpeg\`（约 100 MB，仅一次），用于 MP4 动态背景高帧率解码，**无需手动安装 ffmpeg**
+- 应用数据目录：`%USERPROFILE%\.vantacode`（日志、数据库、缓存）
+- 代理配置目录：`%USERPROFILE%\.aicode`（agents、prompts、scripts 等）
+
+构建校验信息（v1.2.0）：
+
+| 项 | 值 |
+|---|---|
+| 文件名 | `VantaCode-1.2.0.exe` |
+| 大小 | 244,697,600 字节（233.4 MB） |
+| SHA-256 | `6C3364C51F02A90A9C2CD22BF73339878FD2D26DE2A46D113215ACD8F2E1AA10` |
+
+## 功能一览
+
+- AI 对话与代理会话主界面（多模型、多供应商）
+- 内置终端（PTY，pty4j）与代码编辑场景
+- Git 视图（提交历史、分支管理）
+- 工作区 / 远程 SSH（sshj）连接你自己的服务器
+- 模型、MCP、主题、背景设置（支持 GIF / MP4 动态背景）
+- 备份与还原（本地 / S3 / WebDAV / SSH 目标）、凭据管理
+- LaTeX 数学渲染
+- Teams：多成员 AI 团队协作（定义 / 聊天 / 编辑器）
+- 桌宠：可拖动、会表情，拖动时自动隐藏防残影
+- 内置 ffmpeg（essentials 构建），随应用自动解包，开箱即用
+
+## 已移植与未移植
+
+已移植：AI 对话主界面、代理会话、Git 视图、工作区 / 远程 SSH、设置（模型、MCP、主题、背景）、备份 / 还原、凭据管理、LaTeX 渲染、终端（PTY）。
+
+未移植 / 受限：
+
+- Android 专属能力（Proot、Shizuku、APK 内升级、唤醒锁、通知栏）已删除，不计划回移植
+- 移动端布局相关设置已裁剪
+- 安装包仅提供 EXE（MSI 暂不提供）
+
+## 从源码构建（Windows x64，JDK 21）
+
+要求：JDK 21、Git、8 GB 以上内存（关闭占用内存的应用可显著加快构建）。
+
+```powershell
+# 仓库根目录 .jdk 为示例构建 JDK 21
+$env:JAVA_HOME = "$PWD\.jdk"
+
+# 编译并生成 app image（免 WiX；便携目录）
+.\gradlew.bat :desktop:createDistributable --console=plain
+# 产物：desktop\build\compose\binaries\main\app\VantaCode\VantaCode.exe
+
+# 生成 EXE 安装包（需先安装 WiX 3.11，或配置 wix311.zip 缓存）
+.\gradlew.bat :desktop:packageExe --console=plain
+# 产物：desktop\build\compose\binaries\main\exe\VantaCode-<version>.exe
+```
+
+若网络环境受限，可将 `wix311-binaries.zip` 放到 `%USERPROFILE%\.gradle\compose-jb\wix311.zip`，Gradle 任务会跳过下载直接解包。
+
+版本号维护（`VERSION_NAME` / `VERSION_CODE` / `packageVersion` 三处同步）：
+
+```powershell
+node scripts\bump-version.js
+```
+
+## 许可与源代码获取（GPL-3.0）
+
+本程序是自由软件：你可以重新分发和修改它，条件是遵守 GPL-3.0 的全部条款。分发本程序必须保留 LICENSE 与 NOTICE 文件，并以 GPL-3.0 向接收者提供对应源代码。
+
+- 完整许可证文本：[LICENSE](LICENSE)
+- 第三方组件、字体、库及其许可：[NOTICE](NOTICE)
+- **对应源代码**：本仓库即 VantaCode Desktop 的源代码树；Release 中的 EXE 与本仓库的源代码同源（构建标签见 Release 说明）
+- 本仓库复用了 AiCode 上游代码并以 GPL-3.0 发布，任何分发衍生作品必须同样遵守 GPL-3.0，并保留版权与许可声明
+
+## 社区
+
+QQ 群：**1094669183**
 
 ---
 
-## 简介
+## English
 
-AiCode 是运行在 Android 上的通用 AI Coding Agent，把一套完整的 Linux 开发环境装进手机：内置 Alpine Linux 容器与终端，AI Agent 能读写文件、执行 Shell 命令、运行构建工具，写代码、调试到构建都在手机本地完成；也可改用远程 SSH 服务器作为执行后端，把手机变成远程项目的移动工作站。
+**VantaCode Desktop** is an independent desktop port of [AiCode](https://github.com/jieapi/AiCode) (a general-purpose AI coding agent for Android, GPL-3.0), built with Kotlin + Compose Multiplatform Desktop, primarily for Windows. It brings the agent experience to the desktop: AI chat, agent sessions, Git view, embedded PTY terminal, workspaces / remote SSH, model & MCP settings, GIF/MP4 animated backgrounds (bundled ffmpeg, auto-extracted on first run), Teams collaboration, and a draggable desktop pet.
 
-上手无需任何准备：装上 App、在「AI 供应商」配好模型即可直接开发，不用电脑，也不用自己搭建环境。AiCode 不内置模型、不绑定供应商，支持 OpenAI / Anthropic / Gemini 三类协议与自定义供应商，模型、密钥与端点都由你自行配置。
-
-## 赞助商
-
-| 图标 | 描述 |
-|------|------|
-| <img src="https://www.rainyun.com/favicon.ico" width="24" alt="RainYun" /> | **[雨云](https://www.rainyun.com/logins_)** — 本项目服务器赞助商，国产云服务商，主营云服务器与游戏云（Minecraft 等预装服务端一键开服），兼有裸金属物理机与对象存储，新用户优惠 |
-
-## 广告
-
-| 图标 | 描述 |
-|------|------|
-| <img src="https://www.qiniu.com/favicon.ico" width="24" alt="Qiniu" /> | **[七牛云 AI](https://s.qiniu.com/vUryau)** — 新用户注册赠 300 万 Token（2 年有效），支持 50+ 热门大模型 |
-
-## 功能特性
-
-### AI Agent
-
-- **AI Agent** — 内置文件读写与编辑、Shell 执行、后台终端、代码与网页搜索、图片识别、待办清单等工具；流式输出并实时渲染 Markdown，长对话自动压缩上下文
-- **内置浏览器** — 内置多标签 WebView 浏览器，AI 可导航、点击、填表与截图，直接在网页上完成操作；支持夜间模式与本地文件预览
-- **子代理并行** — 主会话可派生独立上下文的子代理在后台并行调研、审查或对比方案，不阻塞当前对话；内置只读的 Explore 子代理，也可自定义模型、工具集与提示词
-- **三种运行模式** — BUILD 正常开发、PLAN 只读规划（工具层拦截写操作）、AUTO 免授权全放行，按信任程度切换 AI 权限
-- **检查点与撤销** — Agent 改代码前自动记录文件快照，对话中可一键回滚代码、对话或两者
-- **技能与自动记忆** — 支持全局/项目级技能（Skills）与长期记忆，AI 可跨会话复用经验与项目约定
-- **MCP 协议** — 支持连接本地（stdio）与远程（HTTP）MCP 服务器，动态扩展 AI 工具能力
-- **工具授权与自定义提示词** — 逐工具配置授权规则，系统提示词支持用户覆盖且 App 升级不丢失
-
-### 模型与供应商
-
-- **模型无关** — 不内置模型、不绑定供应商，模型、密钥与端点自行配置
-- **协议兼容** — 兼容 OpenAI / Anthropic / Gemini 三类协议，内置多家官方预设，也支持自定义供应商，模型列表与单价可自定义
-- **多 Key 轮换** — 同一供应商可配多个 Key，按顺序或轮询自动轮换，思考强度可调
-
-### 开发环境
-
-- **内置终端与容器** — 基于 Termux 与 PRoot 的本地 Linux 容器，内置 Alpine 镜像，支持导入自定义 rootfs、挂载宿主目录；终端多标签、可后台常驻
-- **远程 SSH 模式** — 把远程服务器作为执行后端，命令、文件与终端都作用于远端项目
-- **Shizuku 执行后端** — 借助 Shizuku，AI 可在宿主 Android 系统上执行 shell 与 adb 命令，用于调试或操作其他设备（需逐次授权确认）
-- **文件树与代码编辑器** — 缩进式文件树点开即进全屏编辑器，支持主流语言语法高亮与 Markdown 预览；AI 回复里的 `文件:行号` 链接可直接跳转到对应行，本地与远程 SSH 工作区都支持
-- **Git 集成** — 可视化管理状态、分支、提交历史、差异与标签，支持暂存与回退改动、署名与凭据配置
-- **工作区同步** — 支持 SFTP / FTP 同步，内置 FTP 服务端方便电脑端管理文件
-
-### 使用体验
-
-- **平板与大屏适配** — 按窗口宽度自适应：宽屏常驻侧边栏，聊天旁并排显示代码或终端；变窄时退回单栏
-- **Token 统计** — 按渠道与模型统计用量、估算费用，可下钻查看调用明细
-- **外观与语言** — 主题明暗、预设配色、莫奈取色、自定义背景图，中英双语界面
-- **网络代理** — 支持全局代理与供应商级代理分别配置
-- **备份与还原** — 加密导出/导入供应商配置、凭据、聊天历史与工作区文件
-
-## 快速开始
-
-| 项目 | 说明 |
-|------|------|
-| 系统要求 | Android 8.0+（API 26），arm64-v8a / x86_64 |
-| 下载地址 | [GitHub Releases](https://github.com/jieapi/aicode/releases/latest)：真机选 `armsolo`、模拟器选 `x86solo`、通用选 `universal` 包 |
-| 快速上手 | 「设置 → AI 供应商」配模型 →「容器与镜像」选本地或 SSH → 新建会话开始对话 |
-| 更新记录 | [Releases](https://github.com/jieapi/aicode/releases)（历史版本与更新说明） |
-| 使用指南 | [在线文档](https://aicode.murk.top)：快速上手、使用手册与进阶教程（与 App 内置文档同源） |
-
-## Star
-
-如果 AiCode 对你有帮助，欢迎 [Star](https://github.com/jieapi/aicode) 支持，让更多开发者看到这个项目。
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=jieapi%2Faicode&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=jieapi/aicode&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=jieapi/aicode&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=jieapi/aicode&type=date&legend=top-left" />
- </picture>
-</a>
-
-## 反馈与贡献
-
-- **交流群**：加入 [AiCode QQ 交流群](https://qm.qq.com/q/ByvqODJdIs)（群号：1107110698），交流使用心得、反馈问题
-- **Bug 反馈**：到 [Issues](https://github.com/jieapi/aicode/issues) 提交，附上复现步骤、设备型号与系统版本，便于定位
-- **功能建议**：想加新功能或改进，欢迎先在 [Issues](https://github.com/jieapi/aicode/issues) 讨论
-- **贡献代码**：欢迎提交 [Pull Request](https://github.com/jieapi/aicode/pulls)
-
-## 致谢
-
-- [OpenCode](https://github.com/anomalyco/opencode) — 终端 AI 编码工具，本项目的核心灵感来源
-- [Termux](https://github.com/termux/termux-app) — Android 终端模拟器，提供了终端组件与 PRoot 方案
-- [Kelivo](https://github.com/Chevey339/kelivo) — 跨平台 LLM 聊天客户端，AI 对话界面设计参考
-
-## 免责声明
-
-AiCode 按「现状」提供，仅供学习、研究与合法的软件开发用途。严禁将本软件用于任何违法或侵权用途，包括但不限于未经授权入侵、破解、逆向工程他人软件或系统，绕过技术保护措施，窃取或泄露他人数据，传播恶意代码等侵害他人合法权益的行为。
-
-使用者应自行承担使用本软件的全部风险与责任；对于使用者因使用或无法使用本软件而产生的任何损失，以及其利用本软件实施的任何行为及后果，作者与贡献者均不承担任何责任。
-
-若不同意上述声明，请立即停止使用并卸载本软件。
-
-## 开源协议
-
-本项目基于 [GPL-3.0](LICENSE) 协议开源。
+- License: GPL-3.0 (see [LICENSE](LICENSE) / [NOTICE](NOTICE))
+- Corresponding source: this repository; the EXE in [Releases](https://github.com/Hye-steam/VantaCode-Desktop/releases) is built from this source
+- Upstream project: [jieapi/AiCode](https://github.com/jieapi/AiCode)
