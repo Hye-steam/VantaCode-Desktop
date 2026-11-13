@@ -38,3 +38,18 @@ __pycache__/
 # 内置兜底快照另存于 app/src/main/assets/container-images.json
 /data/container-images.json
 .jdk/
+
+# Debug debris (one-shot analysis artifacts)
+*.hprof
+*.log
+log-*.txt
+hs_err_pid*.log
+replay_pid*.log
+appgraph*.txt
+svm*.txt
+survey2.txt
+selector-helper.txt
+backbone-region.kt
+err-*.txt
+tasks.txt
+

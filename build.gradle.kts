@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.3.10" apply false
+    kotlin("multiplatform") version "2.3.10" apply false
     kotlin("plugin.compose") version "2.3.10" apply false
     id("org.jetbrains.compose") version "1.12.2" apply false
 }
