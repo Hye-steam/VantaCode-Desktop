@@ -888,7 +888,6 @@ fun AIChatPanel(
     }
     val activeModel = activeProvider?.effectiveModel.orEmpty()
     val activeModelMetadata = activeProvider?.let { modelMetadata[modelMetadataKey(it.id, activeModel)] }
-    val canUploadFiles = projectRoot.isNotBlank() && activeModelMetadata?.supportsTools == true
     val canUploadImages = projectRoot.isNotBlank()
     val reasoningEffort by viewModel.currentSessionReasoningEffort.collectAsStateWithLifecycle()
 
@@ -1073,11 +1072,14 @@ fun AIChatPanel(
         }
     }
 
-    fun pickUploadFiles() {
-        com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择文件")?.let { handlePickedAttachments(it, images = false) }
-    }
     fun pickUploadImages() {
         com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择图片", filter = "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp")?.let { handlePickedAttachments(it, images = true) }
+    }
+    fun pickUploadVideos() {
+        com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择视频", filter = "*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm;*.m4v;*.3gp;*.ts")?.let { handlePickedAttachments(it, images = false) }
+    }
+    fun pickUploadPackages() {
+        com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择应用安装包", filter = "*.apk;*.apks;*.xapk;*.aab;*.ipa;*.exe;*.msi;*.msix;*.appx;*.appxbundle;*.dmg;*.pkg;*.deb;*.rpm;*.appimage;*.jar")?.let { handlePickedAttachments(it, images = false) }
     }
 
     // 缓冲流式文本与思考过程：流式期间跟随 streamingText / streamingReasoning；流式刚结束而数据库尚未完成派发期间（messages 末尾仍是 USER/TOOL 消息），
@@ -1795,10 +1797,10 @@ fun AIChatPanel(
                 onReasoningEffortChange = { viewModel.setSessionReasoningEffort(it) },
                 pendingAttachments = pendingAttachments,
                 onRemoveAttachment = ::removePendingAttachment,
-                canUploadFiles = canUploadFiles,
                 canUploadImages = canUploadImages,
-                onUploadFile = ::pickUploadFiles,
                 onUploadImage = ::pickUploadImages,
+                onUploadVideo = ::pickUploadVideos,
+                onUploadPackage = ::pickUploadPackages,
                 slashCommands = slashCommands,
                 fileMentionState = fileMentionState,
                 onFileMentionOpen = viewModel::requestFileMention,

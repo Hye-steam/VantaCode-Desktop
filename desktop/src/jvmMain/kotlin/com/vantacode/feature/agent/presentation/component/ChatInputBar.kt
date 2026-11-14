@@ -192,10 +192,10 @@ internal fun ChatInputBar(
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     pendingAttachments: List<PendingUploadAttachment>,
     onRemoveAttachment: (Int) -> Unit,
-    canUploadFiles: Boolean,
     canUploadImages: Boolean,
-    onUploadFile: () -> Unit,
     onUploadImage: () -> Unit,
+    onUploadVideo: () -> Unit,
+    onUploadPackage: () -> Unit,
     slashCommands: List<SlashCommand> = emptyList(),
     fileMentionState: FileMentionState = FileMentionState.Idle,
     onFileMentionOpen: () -> Unit = {},
@@ -673,15 +673,18 @@ internal fun ChatInputBar(
 
     if (showAttachmentSheet) {
         AttachmentSheet(
-            canUploadFiles = canUploadFiles && !isBusy,
-            canUploadImages = canUploadImages && !isBusy,
-            onUploadFile = {
-                showAttachmentSheet = false
-                onUploadFile()
-            },
+            canUpload = canUploadImages && !isBusy,
             onUploadImage = {
                 showAttachmentSheet = false
                 onUploadImage()
+            },
+            onUploadVideo = {
+                showAttachmentSheet = false
+                onUploadVideo()
+            },
+            onUploadPackage = {
+                showAttachmentSheet = false
+                onUploadPackage()
             },
             onDismiss = { showAttachmentSheet = false }
         )

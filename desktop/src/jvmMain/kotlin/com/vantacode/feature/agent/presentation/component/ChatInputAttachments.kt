@@ -77,6 +77,8 @@ import compose.icons.feathericons.Edit2
 import compose.icons.feathericons.FileText
 import compose.icons.feathericons.Image
 import compose.icons.feathericons.Menu
+import compose.icons.feathericons.Package
+import compose.icons.feathericons.Video
 import compose.icons.feathericons.X
 import compose.icons.feathericons.Zap
 import java.util.Base64
@@ -456,10 +458,10 @@ internal fun UploadingBanner(count: Int) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AttachmentSheet(
-    canUploadFiles: Boolean,
-    canUploadImages: Boolean,
-    onUploadFile: () -> Unit,
+    canUpload: Boolean,
     onUploadImage: () -> Unit,
+    onUploadVideo: () -> Unit,
+    onUploadPackage: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -482,16 +484,22 @@ internal fun AttachmentSheet(
                 modifier = Modifier.padding(bottom = Spacing.sm)
             )
             AttachmentSheetItem(
-                icon = FeatherIcons.FileText,
-                title = Strings.chat_upload_file,
-                enabled = canUploadFiles,
-                onClick = onUploadFile
-            )
-            AttachmentSheetItem(
                 icon = FeatherIcons.Image,
                 title = Strings.chat_upload_image,
-                enabled = canUploadImages,
+                enabled = canUpload,
                 onClick = onUploadImage
+            )
+            AttachmentSheetItem(
+                icon = FeatherIcons.Video,
+                title = Strings.chat_upload_video,
+                enabled = canUpload,
+                onClick = onUploadVideo
+            )
+            AttachmentSheetItem(
+                icon = FeatherIcons.Package,
+                title = Strings.chat_upload_package,
+                enabled = canUpload,
+                onClick = onUploadPackage
             )
         }
     }
