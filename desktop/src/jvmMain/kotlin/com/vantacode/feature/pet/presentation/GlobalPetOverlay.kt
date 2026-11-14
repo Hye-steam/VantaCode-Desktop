@@ -468,7 +468,7 @@ object GlobalPetOverlay {
                 val imgH = frameImage.height
                 val drawW = petSize
                 val drawH = (petSize * imgH.toFloat() / imgW).roundToInt()
-                val drawY = (petY + petSize - drawH + (bobPx + hopPx + dropPx).toInt())
+                val drawY = strip + (contentH - drawH) + (bobPx + hopPx + dropPx).toInt()
                 spriteG.drawImage(frameImage, petX, drawY, drawW, drawH, null)
                 spriteG.dispose()
             }
