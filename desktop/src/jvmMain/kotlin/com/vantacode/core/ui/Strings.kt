@@ -1951,6 +1951,44 @@ object Strings {
     val workspace_unavailable_current: String get() = catalog().getValue("workspace_unavailable_current")
     val workspace_unavailable_fallback: String get() = catalog().getValue("workspace_unavailable_fallback")
 
+    val settings_dsh: String get() = catalog().getValue("settings_dsh")
+    val dsh_intro: String get() = catalog().getValue("dsh_intro")
+    val dsh_node_missing: String get() = catalog().getValue("dsh_node_missing")
+    val dsh_node_system: String get() = catalog().getValue("dsh_node_system")
+    val dsh_node_bundled: String get() = catalog().getValue("dsh_node_bundled")
+    val dsh_install_node: String get() = catalog().getValue("dsh_install_node")
+    val dsh_runtime_missing: String get() = catalog().getValue("dsh_runtime_missing")
+    val dsh_runtime_installed: String get() = catalog().getValue("dsh_runtime_installed")
+    val dsh_install_runtime: String get() = catalog().getValue("dsh_install_runtime")
+    val dsh_update_runtime: String get() = catalog().getValue("dsh_update_runtime")
+    val dsh_uninstall_runtime: String get() = catalog().getValue("dsh_uninstall_runtime")
+    val dsh_installing: String get() = catalog().getValue("dsh_installing")
+    val dsh_install_failed: String get() = catalog().getValue("dsh_install_failed")
+    val dsh_uninstalled: String get() = catalog().getValue("dsh_uninstalled")
+    val dsh_plugins_title: String get() = catalog().getValue("dsh_plugins_title")
+    val dsh_plugins_empty: String get() = catalog().getValue("dsh_plugins_empty")
+    val dsh_plugin_remove: String get() = catalog().getValue("dsh_plugin_remove")
+    val dsh_plugin_install_failed: String get() = catalog().getValue("dsh_plugin_install_failed")
+    val dsh_add_title: String get() = catalog().getValue("dsh_add_title")
+    val dsh_add_hint: String get() = catalog().getValue("dsh_add_hint")
+    val dsh_add_button: String get() = catalog().getValue("dsh_add_button")
+    val dsh_add_input: String get() = catalog().getValue("dsh_add_input")
+    val dsh_market_title: String get() = catalog().getValue("dsh_market_title")
+    val dsh_market_search: String get() = catalog().getValue("dsh_market_search")
+    val dsh_market_install: String get() = catalog().getValue("dsh_market_install")
+    val dsh_market_error: String get() = catalog().getValue("dsh_market_error")
+    val dsh_market_retry: String get() = catalog().getValue("dsh_market_retry")
+    val dsh_market_loading: String get() = catalog().getValue("dsh_market_loading")
+    val dsh_config_title: String get() = catalog().getValue("dsh_config_title")
+    val dsh_config_body: String get() = catalog().getValue("dsh_config_body")
+    val dsh_open_config: String get() = catalog().getValue("dsh_open_config")
+    val dsh_open_config_failed: String get() = catalog().getValue("dsh_open_config_failed")
+    val dsh_slash_desc: String get() = catalog().getValue("dsh_slash_desc")
+    val dsh_running_placeholder: String get() = catalog().getValue("dsh_running_placeholder")
+    val dsh_output_title: String get() = catalog().getValue("dsh_output_title")
+    val dsh_failed: String get() = catalog().getValue("dsh_failed")
+    val dsh_usage: String get() = catalog().getValue("dsh_usage")
+    val dsh_not_ready: String get() = catalog().getValue("dsh_not_ready")
     private val zh: Map<String, String> by lazy { parseTable(ZH_TABLE) }
     private val en: Map<String, String> by lazy { parseTable(EN_TABLE) }
 
@@ -3917,6 +3955,44 @@ browser_ua_custom_desc	手动指定 User-Agent 字符串
 browser_ua_custom_dialog_title	自定义 User-Agent
 browser_ua_custom_input_hint	输入完整的 User-Agent 字符串
 browser_ua_applied_toast	已切换浏览器标识并刷新页面
+settings_dsh	DSH 插件
+dsh_intro	把 DeepSeek Harness（DSH）插件接入 VantaCode：安装运行时、管理插件，并用 `/dsh <任务>` 委托任务到会话。需 Node.js ≥ 20，运行时约 738MB。
+dsh_node_missing	缺少 Node.js ≥ 20
+dsh_node_system	系统 Node.js %1${'$'}s
+dsh_node_bundled	内置 Node.js %1${'$'}s 已就绪
+dsh_install_node	安装 Node.js（约 30MB）
+dsh_runtime_missing	DSH 运行时未安装（约 738MB）
+dsh_runtime_installed	DSH 运行时 %1${'$'}s 已安装
+dsh_install_runtime	安装 DSH 运行时
+dsh_update_runtime	更新到最新版
+dsh_uninstall_runtime	卸载运行时
+dsh_installing	正在安装，可能需要几分钟…
+dsh_install_failed	安装失败：%1${'$'}s
+dsh_uninstalled	已卸载
+dsh_plugins_title	已安装插件
+dsh_plugins_empty	还没有安装任何插件
+dsh_plugin_remove	卸载
+dsh_plugin_install_failed	插件安装失败：%1${'$'}s
+dsh_add_title	添加插件
+dsh_add_hint	支持 npm 包名、git 仓库地址或 link: 本地路径（如 dsh-model-master）
+dsh_add_button	安装
+dsh_add_input	插件来源
+dsh_market_title	DSH 插件市场
+dsh_market_search	搜索（名称 / 描述 / 作者）
+dsh_market_install	安装
+dsh_market_error	市场加载失败，可稍后重试
+dsh_market_retry	重试
+dsh_market_loading	正在加载插件市场…
+dsh_config_title	模型配置
+dsh_config_body	DSH 使用独立的模型配置（DeepSeek API key 或兼容端点），与 VantaCode 的供应商互不影响。首次使用请打开 DSH 配置页填写。
+dsh_open_config	打开 DSH 配置页
+dsh_open_config_failed	无法启动 DSH：%1${'$'}s
+dsh_slash_desc	把任务委托给 DSH（headless）执行，输出回填到会话
+dsh_running_placeholder	**DSH（headless）正在执行…**
+dsh_output_title	**DSH 结果**
+dsh_failed	**DSH 失败**：%1${'$'}s
+dsh_usage	用法：/dsh <任务>
+dsh_not_ready	DSH 未就绪：%1${'$'}s（请先到设置 → DSH 插件安装运行时）
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -5849,6 +5925,44 @@ browser_ua_custom_desc	Specify custom User-Agent string
 browser_ua_custom_dialog_title	Custom User-Agent
 browser_ua_custom_input_hint	Enter full User-Agent string
 browser_ua_applied_toast	User-Agent updated, page reloaded
+settings_dsh	DSH Plugins
+dsh_intro	Bring DeepSeek Harness (DSH) plugins into VantaCode: install the runtime, manage plugins, and delegate with `/dsh <task>`. Requires Node.js ≥ 20; the runtime is ~738 MB.
+dsh_node_missing	Node.js ≥ 20 not found
+dsh_node_system	System Node.js %1${'$'}s
+dsh_node_bundled	Bundled Node.js %1${'$'}s ready
+dsh_install_node	Install Node.js (~30 MB)
+dsh_runtime_missing	DSH runtime not installed (~738 MB)
+dsh_runtime_installed	DSH runtime %1${'$'}s installed
+dsh_install_runtime	Install DSH runtime
+dsh_update_runtime	Update to latest
+dsh_uninstall_runtime	Uninstall runtime
+dsh_installing	Installing, this can take a few minutes…
+dsh_install_failed	Install failed: %1${'$'}s
+dsh_uninstalled	Uninstalled
+dsh_plugins_title	Installed plugins
+dsh_plugins_empty	No plugins installed yet
+dsh_plugin_remove	Remove
+dsh_plugin_install_failed	Plugin install failed: %1${'$'}s
+dsh_add_title	Add plugin
+dsh_add_hint	npm package name, git URL or link: local path (e.g. dsh-model-master)
+dsh_add_button	Install
+dsh_add_input	Plugin source
+dsh_market_title	DSH plugin market
+dsh_market_search	Search (name / description / author)
+dsh_market_install	Install
+dsh_market_error	Failed to load the market; please retry later
+dsh_market_retry	Retry
+dsh_market_loading	Loading the market…
+dsh_config_title	Model configuration
+dsh_config_body	DSH keeps its own model configuration (DeepSeek API key or a compatible endpoint), independent of VantaCode providers. Open the DSH settings page to set it up.
+dsh_open_config	Open DSH settings
+dsh_open_config_failed	Cannot start DSH: %1${'$'}s
+dsh_slash_desc	Delegate a task to DSH (headless) and post the result here
+dsh_running_placeholder	**DSH (headless) is working…**
+dsh_output_title	**DSH result**
+dsh_failed	**DSH failed**: %1${'$'}s
+dsh_usage	Usage: /dsh <task>
+dsh_not_ready	DSH is not ready: %1${'$'}s (install the runtime in Settings → DSH first)
 """.trimIndent()
 
 /**
@@ -7787,6 +7901,44 @@ object R {
         const val workspace_switch_confirm: Int = 1863
         const val workspace_unavailable_current: Int = 1864
         const val workspace_unavailable_fallback: Int = 1865
+        const val settings_dsh: Int = 1930
+        const val dsh_intro: Int = 1931
+        const val dsh_node_missing: Int = 1932
+        const val dsh_node_system: Int = 1933
+        const val dsh_node_bundled: Int = 1934
+        const val dsh_install_node: Int = 1935
+        const val dsh_runtime_missing: Int = 1936
+        const val dsh_runtime_installed: Int = 1937
+        const val dsh_install_runtime: Int = 1938
+        const val dsh_update_runtime: Int = 1939
+        const val dsh_uninstall_runtime: Int = 1940
+        const val dsh_installing: Int = 1941
+        const val dsh_install_failed: Int = 1942
+        const val dsh_uninstalled: Int = 1943
+        const val dsh_plugins_title: Int = 1944
+        const val dsh_plugins_empty: Int = 1945
+        const val dsh_plugin_remove: Int = 1946
+        const val dsh_plugin_install_failed: Int = 1947
+        const val dsh_add_title: Int = 1948
+        const val dsh_add_hint: Int = 1949
+        const val dsh_add_button: Int = 1950
+        const val dsh_add_input: Int = 1951
+        const val dsh_market_title: Int = 1952
+        const val dsh_market_search: Int = 1953
+        const val dsh_market_install: Int = 1954
+        const val dsh_market_error: Int = 1955
+        const val dsh_market_retry: Int = 1956
+        const val dsh_market_loading: Int = 1957
+        const val dsh_config_title: Int = 1958
+        const val dsh_config_body: Int = 1959
+        const val dsh_open_config: Int = 1960
+        const val dsh_open_config_failed: Int = 1961
+        const val dsh_slash_desc: Int = 1962
+        const val dsh_running_placeholder: Int = 1963
+        const val dsh_output_title: Int = 1964
+        const val dsh_failed: Int = 1965
+        const val dsh_usage: Int = 1966
+        const val dsh_not_ready: Int = 1967
     }
 }
 
@@ -9720,6 +9872,44 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     1869 to "window_minimize",
     1870 to "window_maximize",
     1871 to "window_close",
+    1930 to "settings_dsh",
+    1931 to "dsh_intro",
+    1932 to "dsh_node_missing",
+    1933 to "dsh_node_system",
+    1934 to "dsh_node_bundled",
+    1935 to "dsh_install_node",
+    1936 to "dsh_runtime_missing",
+    1937 to "dsh_runtime_installed",
+    1938 to "dsh_install_runtime",
+    1939 to "dsh_update_runtime",
+    1940 to "dsh_uninstall_runtime",
+    1941 to "dsh_installing",
+    1942 to "dsh_install_failed",
+    1943 to "dsh_uninstalled",
+    1944 to "dsh_plugins_title",
+    1945 to "dsh_plugins_empty",
+    1946 to "dsh_plugin_remove",
+    1947 to "dsh_plugin_install_failed",
+    1948 to "dsh_add_title",
+    1949 to "dsh_add_hint",
+    1950 to "dsh_add_button",
+    1951 to "dsh_add_input",
+    1952 to "dsh_market_title",
+    1953 to "dsh_market_search",
+    1954 to "dsh_market_install",
+    1955 to "dsh_market_error",
+    1956 to "dsh_market_retry",
+    1957 to "dsh_market_loading",
+    1958 to "dsh_config_title",
+    1959 to "dsh_config_body",
+    1960 to "dsh_open_config",
+    1961 to "dsh_open_config_failed",
+    1962 to "dsh_slash_desc",
+    1963 to "dsh_running_placeholder",
+    1964 to "dsh_output_title",
+    1965 to "dsh_failed",
+    1966 to "dsh_usage",
+    1967 to "dsh_not_ready",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */

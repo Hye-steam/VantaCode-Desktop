@@ -90,6 +90,7 @@ import com.vantacode.feature.agent.domain.skill.SkillScope
 import com.vantacode.feature.settings.presentation.SubAgentUiEntry
 import com.vantacode.core.ui.AppSwitch
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Package
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.BarChart2
 import compose.icons.feathericons.Book
@@ -148,6 +149,7 @@ internal enum class SettingsSection(@param:StringRes val titleRes: Int) {
     Prompts(R.string.prompts_title),
     PromptDetail(R.string.prompts_title),
     PromptEditor(R.string.prompts_title),
+    Dsh(R.string.settings_dsh),
     SkillDetail(R.string.settings_skills),
     SkillEditor(R.string.settings_skills),
     SubAgents(R.string.settings_subagents),
@@ -845,6 +847,8 @@ fun SettingsScreen(
                         viewModel.setSkillsEnabled(targets.map { it.name to it.scope }, enabled)
                     }
                 )
+                SettingsSection.Dsh ->
+                    DshSettingsSection()
                 SettingsSection.Prompts -> {
                     val promptsViewModel: com.vantacode.feature.settings.presentation.PromptsViewModel =
                         androidx.lifecycle.viewmodel.compose.viewModel(factory = com.vantacode.di.AppGraph.viewModelFactory)
@@ -1441,6 +1445,12 @@ internal fun SettingsMenu(
                 icon = FeatherIcons.MessageSquare,
                 title = stringResource(SettingsSection.Prompts.titleRes),
                 onClick = { onOpen(SettingsSection.Prompts) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Package,
+                title = stringResource(SettingsSection.Dsh.titleRes),
+                onClick = { onOpen(SettingsSection.Dsh) }
             )
         }
 

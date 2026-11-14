@@ -149,6 +149,7 @@ import com.vantacode.feature.agent.domain.mention.FileMentionRepository
 import com.vantacode.feature.agent.domain.command.SlashCommandRegistry
 import com.vantacode.feature.agent.domain.command.InitCommandHandler
 import com.vantacode.feature.agent.domain.command.CompressCommandHandler
+import com.vantacode.feature.agent.domain.command.DshCommandHandler
 import com.vantacode.feature.agent.domain.command.GoalCommandHandler
 import com.vantacode.feature.agent.domain.command.UsageCommandHandler
 import com.vantacode.feature.agent.domain.permission.PermissionRulesRepository
@@ -537,9 +538,10 @@ object AppGraph {
     val compressCommandHandler: CompressCommandHandler by lazy { CompressCommandHandler() }
     val goalCommandHandler: GoalCommandHandler by lazy { GoalCommandHandler() }
     val usageCommandHandler: UsageCommandHandler by lazy { UsageCommandHandler() }
+    val dshCommandHandler: DshCommandHandler by lazy { DshCommandHandler() }
     val slashCommandRegistry: SlashCommandRegistry by lazy {
         SlashCommandRegistry(
-            setOf(initCommandHandler, compressCommandHandler, goalCommandHandler, usageCommandHandler),
+            setOf(initCommandHandler, compressCommandHandler, goalCommandHandler, usageCommandHandler, dshCommandHandler),
             skillRepository,
             context
         )

@@ -74,7 +74,12 @@ interface SlashCommandContext {
     fun runSkill(skill: Skill, args: String)
 
     /**
-     * /goal —— 管理当前会话的持续目标。[rawArgs] 为命令名之后的原始文本：
+     * /dsh —— 把任务委托给 DSH（headless）执行；[args] 为任务正文，结果作为 AI 气泡回填到会话
+     * （isContextExcluded，不进后续上下文）。空参数时提示用法。
+     */
+    fun runDshTask(args: String)
+
+    /** /goal —— 管理当前会话的持续目标。[rawArgs] 为命令名之后的原始文本：
      * 非空则设定/覆盖目标；空则查看当前目标；`pause`/`resume`/`clear` 为对应子命令。
      */
     fun setSessionGoal(rawArgs: String)
