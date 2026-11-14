@@ -154,7 +154,7 @@ compose.desktop {
             // 安装时显示许可证接受对话框（GPL 分发必须）：LICENSE 全文。
             licenseFile.set(rootProject.file("LICENSE"))
             packageName = "VantaCode"
-            packageVersion = "1.2.0"
+            packageVersion = "1.3.0"
             description = "VantaCode — AI coding agent for desktop (GPL-3.0)"
             copyright = "GPL-3.0. Contains code from AiCode (https://github.com/jieapi/AiCode)."
             vendor = "VantaCode"
