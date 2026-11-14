@@ -183,12 +183,17 @@ object GlobalPetOverlay {
         bubbleVisible = false
         lastActivityAt = System.currentTimeMillis()
         timer?.stop()
+        // 每帧自动校正：窗口 strip 高度 = 当前气泡状态应有的高度（出现/消失无缝衔接）
         timer = Timer(16) {
             if (bubbleVisible && System.currentTimeMillis() >= bubbleUntil) {
                 bubbleVisible = false
-                applyBounds()
             }
-            window?.panel?.repaint()
+            val w = window ?: return@Timer
+            val wantStrip = if (bubbleActive()) bubbleStripPx() else 0
+            if (w.lastBubbleStrip != wantStrip) {
+                applyBoundsTo(w)
+            }
+            w.panel.repaint()
         }.apply { start() }
         applyBoundsTo(w)
         w.isVisible = true

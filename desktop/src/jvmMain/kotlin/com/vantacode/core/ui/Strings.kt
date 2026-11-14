@@ -1994,6 +1994,9 @@ object Strings {
     val pet_chatter_1: String get() = catalog().getValue("pet_chatter_1")
     val pet_chatter_2: String get() = catalog().getValue("pet_chatter_2")
     val pet_chatter_3: String get() = catalog().getValue("pet_chatter_3")
+    val about_upstream: String get() = catalog().getValue("about_upstream")
+    val about_releases: String get() = catalog().getValue("about_releases")
+    val about_feedback: String get() = catalog().getValue("about_feedback")
     private val zh: Map<String, String> by lazy { parseTable(ZH_TABLE) }
     private val en: Map<String, String> by lazy { parseTable(EN_TABLE) }
 
@@ -4003,6 +4006,9 @@ chat_upload_package	上传应用安装包
 pet_chatter_1	喵。
 pet_chatter_2	盯。
 pet_chatter_3	在干嘛？
+about_upstream	上游项目 AiCode
+about_releases	更新日志
+about_feedback	反馈问题
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -5978,6 +5984,9 @@ chat_upload_package	Upload app package
 pet_chatter_1	meow.
 pet_chatter_2	staring.
 pet_chatter_3	what's up?
+about_upstream	Upstream: AiCode
+about_releases	Release notes
+about_feedback	Report an issue
 """.trimIndent()
 
 /**
@@ -7959,6 +7968,9 @@ object R {
         const val pet_chatter_1: Int = 1971
         const val pet_chatter_2: Int = 1972
         const val pet_chatter_3: Int = 1973
+        const val about_upstream: Int = 1974
+        const val about_releases: Int = 1975
+        const val about_feedback: Int = 1976
     }
 }
 
@@ -9935,6 +9947,9 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     1971 to "pet_chatter_1",
     1972 to "pet_chatter_2",
     1973 to "pet_chatter_3",
+    1974 to "about_upstream",
+    1975 to "about_releases",
+    1976 to "about_feedback",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */
