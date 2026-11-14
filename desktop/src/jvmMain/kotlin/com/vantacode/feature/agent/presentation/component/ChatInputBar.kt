@@ -193,6 +193,7 @@ internal fun ChatInputBar(
     pendingAttachments: List<PendingUploadAttachment>,
     onRemoveAttachment: (Int) -> Unit,
     canUploadImages: Boolean,
+    onUploadFile: () -> Unit,
     onUploadImage: () -> Unit,
     onUploadVideo: () -> Unit,
     onUploadPackage: () -> Unit,
@@ -674,6 +675,10 @@ internal fun ChatInputBar(
     if (showAttachmentSheet) {
         AttachmentSheet(
             canUpload = canUploadImages && !isBusy,
+            onUploadFile = {
+                showAttachmentSheet = false
+                onUploadFile()
+            },
             onUploadImage = {
                 showAttachmentSheet = false
                 onUploadImage()

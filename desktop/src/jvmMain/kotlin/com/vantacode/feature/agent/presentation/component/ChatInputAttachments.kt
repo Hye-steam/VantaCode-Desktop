@@ -459,6 +459,7 @@ internal fun UploadingBanner(count: Int) {
 @Composable
 internal fun AttachmentSheet(
     canUpload: Boolean,
+    onUploadFile: () -> Unit,
     onUploadImage: () -> Unit,
     onUploadVideo: () -> Unit,
     onUploadPackage: () -> Unit,
@@ -482,6 +483,12 @@ internal fun AttachmentSheet(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = Spacing.sm)
+            )
+            AttachmentSheetItem(
+                icon = FeatherIcons.FileText,
+                title = Strings.chat_upload_file,
+                enabled = canUpload,
+                onClick = onUploadFile
             )
             AttachmentSheetItem(
                 icon = FeatherIcons.Image,

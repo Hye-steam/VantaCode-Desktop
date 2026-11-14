@@ -1075,6 +1075,9 @@ fun AIChatPanel(
     fun pickUploadImages() {
         com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择图片", filter = "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp")?.let { handlePickedAttachments(it, images = true) }
     }
+    fun pickUploadFiles() {
+        com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择文件")?.let { handlePickedAttachments(it, images = false) }
+    }
     fun pickUploadVideos() {
         com.vantacode.core.platform.DesktopFilePicker.pickFiles(title = "选择视频", filter = "*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.flv;*.webm;*.m4v;*.3gp;*.ts")?.let { handlePickedAttachments(it, images = false) }
     }
@@ -1798,6 +1801,7 @@ fun AIChatPanel(
                 pendingAttachments = pendingAttachments,
                 onRemoveAttachment = ::removePendingAttachment,
                 canUploadImages = canUploadImages,
+                onUploadFile = ::pickUploadFiles,
                 onUploadImage = ::pickUploadImages,
                 onUploadVideo = ::pickUploadVideos,
                 onUploadPackage = ::pickUploadPackages,
