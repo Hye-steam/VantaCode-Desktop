@@ -10,6 +10,7 @@ package com.vantacode.feature.pet.presentation
 
 import com.vantacode.core.platform.DesktopAssets
 import com.vantacode.core.util.FileLogger
+import com.vantacode.core.ui.Strings
 import com.vantacode.feature.agent.presentation.AgentUIState
 import com.vantacode.feature.pet.data.PetRuntimeState
 import com.vantacode.feature.pet.data.PetSettingsRepository
@@ -49,7 +50,7 @@ import kotlinx.coroutines.launch
 object GlobalPetOverlay {
     private const val TAG = "GlobalPetOverlay"
     private const val PET_SIZE_DP = 116
-    private const val BUBBLE_DP = 32
+    private const val BUBBLE_DP = 38
     private const val SPRITE_MAX_EDGE = 384
     private const val DRAG_TAP_SLOP_PX = 6
 
@@ -79,6 +80,9 @@ object GlobalPetOverlay {
     @Volatile private var bubbleUntil = 0L
     @Volatile private var tapWaveUntil = 0L
     @Volatile private var lastActivityAt = System.currentTimeMillis()
+    @Volatile private var chatterUntil = 0L
+    private var nextChatterRollAt = System.currentTimeMillis() + 7000L
+    @Volatile private var chatterText: String = ""
 
     /** 启动 overlay（幂等）。 */
     fun start() {
@@ -291,7 +295,26 @@ object GlobalPetOverlay {
     private fun bubbleActive(): Boolean {
         val now = System.currentTimeMillis()
         if (bubbleVisible && now < bubbleUntil) return true
-        return currentExpression() != PetExpression.IDLE
+        if (currentExpression() != PetExpression.IDLE) return true
+        // 待机也随机碎碎念
+        if (now < chatterUntil) return true
+        // 到了碎碎念抽选点，这一帧也让气泡出来一次
+        return false
+    }
+
+    /** 当前该显示的气泡文案（状态驱动 + 待机随机）。 */
+    private fun bubbleTextNow(): String? {
+        val now = System.currentTimeMillis()
+        if (bubbleVisible && now < bubbleUntil) {
+            return when (currentExpression()) {
+                PetExpression.IDLE -> if (now < chatterUntil) chatterText else Strings.pet_bubble_idle
+                else -> bubbleOf(currentExpression())
+            }
+        }
+        val expression = currentExpression()
+        if (expression != PetExpression.IDLE) return bubbleOf(expression)
+        if (now < chatterUntil) return chatterText
+        return null
     }
 
     /** 窗口：无边框透明 always-on-top，不占任务栏/Alt-Tab。 */
@@ -337,17 +360,27 @@ object GlobalPetOverlay {
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
             g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
 
+            val now = System.currentTimeMillis()
             val dpi = dpiScale()
             val petSize = petSizePx()
+            val expression = currentExpression()
+            // 待机随机碎碎念：不必点她，偶尔自己说话
+            if (expression == PetExpression.IDLE && now >= nextChatterRollAt) {
+                if (Math.random() < 0.62) {
+                    chatterText = listOf(
+                        com.vantacode.core.ui.Strings.pet_chatter_1,
+                        com.vantacode.core.ui.Strings.pet_chatter_2,
+                        com.vantacode.core.ui.Strings.pet_chatter_3
+                    ).random()
+                    chatterUntil = now + 2100L
+                }
+                nextChatterRollAt = now + 21000L + (Math.random() * 16000).toLong()
+            }
             val bubble = bubbleActive()
             val strip = if (bubble) bubbleStripPx() else 0
             val petX = (width - petSize) / 2
             val petY = strip + (height - strip - petSize) / 2
-
-            val now = System.currentTimeMillis()
-            val expression = currentExpression()
             val phase = (now % 2600L) / 2600.0
-            val phaseSlow = (now % 4600L) / 4600.0
 
             // 待机交替帧
             if (now >= nextIdleToggleAt) {
@@ -420,8 +453,9 @@ object GlobalPetOverlay {
                 spriteG.dispose()
             }
 
-            if (bubble) {
-                drawBubble(g2, bubbleOf(expression), 5, 1, width - 10, strip - 4)
+            val bText = bubbleTextNow()
+            if (bubble && bText != null) {
+                drawBubble(g2, bText, 6, 2, width - 12, strip - 6)
             }
 
             lastExpression = expression

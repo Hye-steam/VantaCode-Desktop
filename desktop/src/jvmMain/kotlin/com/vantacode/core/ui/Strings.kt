@@ -1991,6 +1991,9 @@ object Strings {
     val dsh_not_ready: String get() = catalog().getValue("dsh_not_ready")
     val chat_upload_video: String get() = catalog().getValue("chat_upload_video")
     val chat_upload_package: String get() = catalog().getValue("chat_upload_package")
+    val pet_chatter_1: String get() = catalog().getValue("pet_chatter_1")
+    val pet_chatter_2: String get() = catalog().getValue("pet_chatter_2")
+    val pet_chatter_3: String get() = catalog().getValue("pet_chatter_3")
     private val zh: Map<String, String> by lazy { parseTable(ZH_TABLE) }
     private val en: Map<String, String> by lazy { parseTable(EN_TABLE) }
 
@@ -3997,6 +4000,9 @@ dsh_usage	用法：/dsh <任务>
 dsh_not_ready	DSH 未就绪：%1${'$'}s（请先到设置 → DSH 插件安装运行时）
 chat_upload_video	上传视频
 chat_upload_package	上传应用安装包
+pet_chatter_1	喵。
+pet_chatter_2	盯。
+pet_chatter_3	在干嘛？
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -5969,6 +5975,9 @@ dsh_usage	Usage: /dsh <task>
 dsh_not_ready	DSH is not ready: %1${'$'}s (install the runtime in Settings → DSH first)
 chat_upload_video	Upload video
 chat_upload_package	Upload app package
+pet_chatter_1	meow.
+pet_chatter_2	staring.
+pet_chatter_3	what's up?
 """.trimIndent()
 
 /**
@@ -7947,6 +7956,9 @@ object R {
         const val dsh_not_ready: Int = 1967
         const val chat_upload_video: Int = 1968
         const val chat_upload_package: Int = 1969
+        const val pet_chatter_1: Int = 1971
+        const val pet_chatter_2: Int = 1972
+        const val pet_chatter_3: Int = 1973
     }
 }
 
@@ -9920,6 +9932,9 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     1967 to "dsh_not_ready",
     1968 to "chat_upload_video",
     1969 to "chat_upload_package",
+    1971 to "pet_chatter_1",
+    1972 to "pet_chatter_2",
+    1973 to "pet_chatter_3",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */
