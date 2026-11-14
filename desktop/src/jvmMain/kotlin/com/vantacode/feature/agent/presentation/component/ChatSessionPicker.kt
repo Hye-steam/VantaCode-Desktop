@@ -5,9 +5,11 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,13 +39,14 @@ import com.vantacode.core.theme.Spacing
 import com.vantacode.core.theme.semanticColors
 import com.vantacode.feature.agent.domain.model.ChatSession
 import compose.icons.FeatherIcons
+import androidx.compose.ui.ExperimentalComposeUiApi
 
 /**
- * 单条会话行：短按选中，长按弹出功能菜单（置顶/重命名/导出/删除）。供侧边栏历史记录列表复用。
+ * 单条会话行：短按选中，右键弹出功能菜单（置顶/重命名/导出/删除）。供侧边栏历史记录列表复用。
  * 置顶会话显示浅蓝背景（primaryContainer）。
  * [trailing] 用于行尾额外控件（如子代理展开箭头），它自己的点击不应触发整行选中。
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ChatSessionRow(
     session: ChatSession,
@@ -64,10 +67,18 @@ fun ChatSessionRow(
             .heightIn(min = 40.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (pinned) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+            .clickable(onClick = onClick)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type == PointerEventType.Press && event.button == PointerButton.Secondary) {
+                            onLongClick()
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
             .padding(horizontal = Spacing.lg, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
