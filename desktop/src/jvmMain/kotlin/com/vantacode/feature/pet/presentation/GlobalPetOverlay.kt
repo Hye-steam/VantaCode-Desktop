@@ -286,6 +286,13 @@ object GlobalPetOverlay {
     internal class PetPanel : JPanel() {
         @Volatile var sprite: BufferedImage? = null
 
+        // 闲置动作调度：随机来事，让她活着
+        private enum class IdleEvent { NONE, DOUBLE_BLINK, BOB_HOP, WOBBLE_TILT, STRETCH }
+        private var idleEvent = IdleEvent.NONE
+        private var idleEventStart = 0L
+        private var nextIdleRollAt = System.currentTimeMillis() + 1400
+        private var leanTilt = 0f
+
         init {
             isOpaque = false
             background = Color(0, 0, 0, 0)
@@ -310,12 +317,47 @@ object GlobalPetOverlay {
             val expression = currentExpression()
             val phase = (now % 2600L) / 2600.0
             val phaseSlow = (now % 4600L) / 4600.0
+
+            // 闲置动作：到点随机抽一个，动作按时间包络施加
+            if (now >= nextIdleRollAt) {
+                idleEvent = if (Math.random() < 0.62) {
+                    IdleEvent.entries.filter { it != IdleEvent.NONE }.random()
+                } else IdleEvent.NONE
+                idleEventStart = now
+                nextIdleRollAt = now + 2800L + (Math.random() * 4200).toLong()
+            }
+            val elapsedIdle = now - idleEventStart
+
+            // 眼光：宠物会跟着你的鼠标轻轻歪头（垂直方向不跟，只左右晃）
+            val pointerX = runCatching { java.awt.MouseInfo.getPointerInfo()?.location?.x }.getOrNull()
+            val petScreenX = runCatching { locationOnScreen.x }.getOrNull()?.plus(width / 2)
+            val leanTarget = if (pointerX != null && petScreenX != null) {
+                ((pointerX - petScreenX) / 420f).coerceIn(-9f, 9f)
+            } else 0f
+            leanTilt += (leanTarget - leanTilt) * 0.12f
+
             val bobPx = (sin(phase * 2 * PI) * 2.6f * dpi).toFloat()
             val breathe = 1f + 0.018f * sin(phase * 2 * PI).toFloat()
             val blink = if (phaseSlow > 0.9f) {
                 1f - 0.16f * sin((phaseSlow - 0.9f) / 0.1f * PI).toFloat()
             } else 1f
-            val tiltDeg = if (expression == PetExpression.LOOKING) sin(phase * 2 * PI).toFloat() * 3.2f else 0f
+            // 闲置动作的附加包络
+            val doubleBlink = if (idleEvent == IdleEvent.DOUBLE_BLINK && elapsedIdle < 760) {
+                if ((elapsedIdle % 350) < 175) {
+                    1f - 0.30f * sin(PI * (elapsedIdle % 350) / 175f).toFloat()
+                } else 1f
+            } else 1f
+            val eventHop = if (idleEvent == IdleEvent.BOB_HOP && elapsedIdle < 950) {
+                (-abs(sin(elapsedIdle / 360.0 * PI)) * 14f * dpi).toFloat()
+            } else 0f
+            val eventTilt = if (idleEvent == IdleEvent.WOBBLE_TILT && elapsedIdle < 800) {
+                val env = sin(PI * (elapsedIdle / 800.0)).toFloat()            // 用进用出
+                sin(elapsedIdle / 96.0 * PI).toFloat() * 7f * env
+            } else 0f
+            val stretch = if (idleEvent == IdleEvent.STRETCH && elapsedIdle < 900) {
+                1f + 0.10f * sin(PI * (elapsedIdle / 900.0)).toFloat()
+            } else 1f
+            val tiltDeg = (if (expression == PetExpression.LOOKING) sin(phase * 2 * PI).toFloat() * 3.2f else 0f) + leanTilt + eventTilt
             val droopRot = if (expression == PetExpression.DOWNCAST) 4f else 0f
             val hopPx = if (expression == PetExpression.PLEASED && transientSince > 0L) {
                 val elapsed = (now - transientSince) / 1000.0
@@ -325,7 +367,7 @@ object GlobalPetOverlay {
             val dim = if (expression == PetExpression.DOWNCAST) 0.78f else 1f
 
             val cx = petX + petSize / 2f
-            val cy = petY + petSize / 2f + bobPx + hopPx + dropPx
+            val cy = petY + petSize / 2f + bobPx + hopPx + eventHop + dropPx
 
             // STREAMING：宠物身后一圈紫光脉冲
             if (expression == PetExpression.STREAMING) {
@@ -352,12 +394,12 @@ object GlobalPetOverlay {
             spriteG.composite = AlphaComposite.SrcOver.derive(dim)
             spriteG.translate(cx.toDouble(), cy.toDouble())
             spriteG.rotate(Math.toRadians((tiltDeg + droopRot).toDouble()))
-            spriteG.scale(breathe.toDouble(), (breathe * blink).toDouble())
+            spriteG.scale(breathe.toDouble(), (breathe * blink * doubleBlink * stretch).toDouble())
             spriteG.translate(-cx.toDouble(), -cy.toDouble())
             spriteG.drawImage(
                 img,
                 petX,
-                (petY + bobPx + hopPx + dropPx).toInt(),
+                (petY + bobPx + hopPx + eventHop + dropPx).toInt(),
                 petSize,
                 petSize,
                 null
