@@ -69,6 +69,15 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -141,12 +150,29 @@ private val INPUT_FIELD_MAX_HEIGHT = 140.dp
  */
 private val INPUT_FIELD_CONTENT_PADDING = 16.dp
 
+/**
+ * 桌面物理键盘：开启「回车发送」时，裸 Enter（含小键盘回车）直接发送；
+ * Shift/Ctrl/Alt/Meta+Enter 保持换行。软键盘走 ImeAction.Send（keyboardOptions/Actions），两条路径互补。
+ * 在父修饰符阶段预拦截（onPreviewKeyEvent，父级先拿到事件），消费后 TextField 内部不再插入换行。
+ */
+private fun Modifier.enterToSend(enabled: Boolean, onSend: () -> Unit): Modifier =
+    this.onPreviewKeyEvent { event ->
+        if (!enabled) return@onPreviewKeyEvent false
+        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+        if (event.key != Key.Enter && event.key != Key.NumPadEnter) return@onPreviewKeyEvent false
+        if (event.isShiftPressed || event.isCtrlPressed || event.isAltPressed || event.isMetaPressed) {
+            return@onPreviewKeyEvent false
+        }
+        onSend()
+        true
+    }
+
 @Composable
 internal fun ChatInputBar(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    /** 回车键是否直接发送：开启后 IME 回车键变为「发送」，关闭则回车换行（默认）。 */
+    /** 回车键是否直接发送：开启后 IME/物理键盘回车变为「发送」（Shift+Enter 换行），关闭则回车换行（默认）。 */
     enterToSend: Boolean = false,
     onStop: () -> Unit,
     isBusy: Boolean,
@@ -500,7 +526,8 @@ internal fun ChatInputBar(
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = INPUT_FIELD_MIN_HEIGHT, max = INPUT_FIELD_MAX_HEIGHT)
-                            .onSizeChanged { inputFieldWidthPx = it.width },
+                            .onSizeChanged { inputFieldWidthPx = it.width }
+                            .enterToSend(enabled = enterToSend, onSend = onSend),
                         placeholder = {
                             Text(
                                 stringResource(if (isBusy) R.string.chat_queue_hint else R.string.chat_input_placeholder),
