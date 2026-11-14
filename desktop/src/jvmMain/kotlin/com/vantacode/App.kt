@@ -668,10 +668,14 @@ fun AppNavigation(
                 modifier = Modifier.fillMaxSize()
             )
 
-            com.vantacode.feature.pet.presentation.VantaPetOverlay(
-                agentState = agentState,
-                modifier = Modifier.fillMaxSize()
-            )
+            // 推送 agent 状态给全局桌宠（应用内的旧 overlay 已移除）
+            LaunchedEffect(agentState) {
+                com.vantacode.feature.pet.data.PetRuntimeState.update(agentState)
+            }
+            // 全局桌宠：独立透明窗口显示在所有应用之上，设置 → 通用 → 桌宠 控制开关
+            LaunchedEffect(Unit) {
+                com.vantacode.feature.pet.presentation.GlobalPetOverlay.start()
+            }
 
             // 首次启动引导覆层（覆盖所有路由之上，全程常驻顶层）。
             if (agreementAccepted && onboardingUiState.active) {
