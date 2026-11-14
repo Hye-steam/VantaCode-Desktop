@@ -83,6 +83,8 @@ object GlobalPetOverlay {
     @Volatile private var chatterUntil = 0L
     private var nextChatterRollAt = System.currentTimeMillis() + 7000L
     @Volatile private var chatterText: String = ""
+    private var lastPushFront = 0L
+    private val PUSH_FRONT_INTERVAL_MS = 10_000L
 
     /** 启动 overlay（幂等）。 */
     fun start() {
@@ -124,6 +126,9 @@ object GlobalPetOverlay {
         (java.awt.Toolkit.getDefaultToolkit().screenResolution / 96f).coerceIn(1f, 2.5f)
 
     private fun petSizePx(): Int = (PET_SIZE_DP * dpiScale()).roundToInt()
+
+    /** 内容带高度（贴纸本体只占 2/3，窗口按内容收窄，气泡不必再显得很远）。 */
+    private fun contentHeightPx(): Int = (petSizePx() * 72 / 100)
 
     private fun bubbleStripPx(): Int = (BUBBLE_DP * dpiScale()).roundToInt()
 
@@ -185,10 +190,31 @@ object GlobalPetOverlay {
         timer?.stop()
         // 每帧自动校正：窗口 strip 高度 = 当前气泡状态应有的高度（出现/消失无缝衔接）
         timer = Timer(16) {
-            if (bubbleVisible && System.currentTimeMillis() >= bubbleUntil) {
+            val nowMs = System.currentTimeMillis()
+            // 防止被全屏 Word/Excel/视频这类 topmost 窗口长期压住：定期把她推到最前
+            if (nowMs - lastPushFront > PUSH_FRONT_INTERVAL_MS) {
+                lastPushFront = nowMs
+                window?.toFront()
+            }
+            val now = System.currentTimeMillis()
+            val w = window ?: return@Timer
+            // 待机随机碎碎念（先抽选再决定窗口，保证气泡与窗口同步、不掉落）
+            val expression = currentExpression()
+            if (expression == PetExpression.IDLE && now >= nextChatterRollAt) {
+                if (Math.random() < 0.62) {
+                    chatterText = listOf(
+                        Strings.pet_chatter_1,
+                        Strings.pet_chatter_2,
+                        Strings.pet_chatter_3
+                    ).random()
+                    chatterUntil = now + 2100L
+                    applyBoundsTo(w)
+                }
+                nextChatterRollAt = now + 21000L + (Math.random() * 16000).toLong()
+            }
+            if (bubbleVisible && now >= bubbleUntil) {
                 bubbleVisible = false
             }
-            val w = window ?: return@Timer
             val wantStrip = if (bubbleActive()) bubbleStripPx() else 0
             if (w.lastBubbleStrip != wantStrip) {
                 applyBoundsTo(w)
@@ -256,8 +282,10 @@ object GlobalPetOverlay {
     private fun persistPosition(w: PetOverlayWindow) {
         val b = virtualBounds()
         val size = petSizePx()
-        val strip = if (bubbleVisible) bubbleStripPx() else 0
-        val fy = if (b.height - size - strip > 0) ((w.y - b.y).toFloat() / (b.height - size - strip)).coerceIn(0f, 1f) else DEFAULT_Y
+        // 以内容带（不含气泡条）为基准：fraction 在气泡开合状态间保持一致，位置不漂移
+        val height = contentHeightPx()
+        val petY = w.y + (w.lastBubbleStrip ?: 0)
+        val fy = if (b.height - height > 0) ((petY - b.y).toFloat() / (b.height - height)).coerceIn(0f, 1f) else DEFAULT_Y
         val fx = if (b.width - size > 0) ((w.x - b.x).toFloat() / (b.width - size)).coerceIn(0f, 1f) else DEFAULT_X
         fractionX = fx
         fractionY = fy
@@ -272,15 +300,15 @@ object GlobalPetOverlay {
 
     private fun applyBoundsTo(w: PetOverlayWindow) {
         val size = petSizePx()
-        val strip = if (bubbleVisible) bubbleStripPx() else 0
+        val strip = if (bubbleActive()) bubbleStripPx() else 0
         val petScreenYBefore = w.y + (if (w.lastBubbleStrip != null) w.lastBubbleStrip!! else 0)
-        val height = size + strip
+        val height = contentHeightPx() + strip
         val b = virtualBounds()
         val x = (b.x + fractionX * (b.width - size)).roundToInt()
             .coerceIn(b.x, maxOf(b.x, b.x + b.width - size))
         var y: Int
         if (w.lastBubbleStrip == null) {
-            y = (b.y + fractionY * (b.height - height)).roundToInt()
+            y = (b.y + fractionY * (b.height - contentHeightPx())).roundToInt()
         } else {
             y = petScreenYBefore - strip
         }
@@ -302,9 +330,7 @@ object GlobalPetOverlay {
         if (bubbleVisible && now < bubbleUntil) return true
         if (currentExpression() != PetExpression.IDLE) return true
         // 待机也随机碎碎念
-        if (now < chatterUntil) return true
-        // 到了碎碎念抽选点，这一帧也让气泡出来一次
-        return false
+        return now < chatterUntil
     }
 
     /** 当前该显示的气泡文案（状态驱动 + 待机随机）。 */
@@ -369,22 +395,11 @@ object GlobalPetOverlay {
             val dpi = dpiScale()
             val petSize = petSizePx()
             val expression = currentExpression()
-            // 待机随机碎碎念：不必点她，偶尔自己说话
-            if (expression == PetExpression.IDLE && now >= nextChatterRollAt) {
-                if (Math.random() < 0.62) {
-                    chatterText = listOf(
-                        com.vantacode.core.ui.Strings.pet_chatter_1,
-                        com.vantacode.core.ui.Strings.pet_chatter_2,
-                        com.vantacode.core.ui.Strings.pet_chatter_3
-                    ).random()
-                    chatterUntil = now + 2100L
-                }
-                nextChatterRollAt = now + 21000L + (Math.random() * 16000).toLong()
-            }
             val bubble = bubbleActive()
             val strip = if (bubble) bubbleStripPx() else 0
+            val contentH = contentHeightPx()
             val petX = (width - petSize) / 2
-            val petY = strip + (height - strip - petSize) / 2
+            val petY = strip
             val phase = (now % 2600L) / 2600.0
 
             // 待机交替帧
@@ -420,7 +435,7 @@ object GlobalPetOverlay {
             val dim = if (expression == PetExpression.DOWNCAST) 0.82f else 1f
 
             val cx = petX + petSize / 2f
-            val cy = petY + petSize / 2f + bobPx + hopPx + dropPx
+            val cy = petY + contentH / 2f + bobPx + hopPx + dropPx
 
             // STREAMING：紫光脉冲
             if (expression == PetExpression.STREAMING) {
