@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-14",
+  "plugins": [
+    {
+      "name": "dsh-coding-workflow",
+      "displayName": "DSH 编程工作流",
+      "description": "需求→计划→实施三阶段编程工作流，约束 LLM 按规划推进任务。",
+      "author": "dpwgc",
+      "stars": 74903,
+      "packageName": "dsh-coding-workflow",
+      "tags": [
+        "DSH",
+        "编程",
+        "工作流"
+      ],
+      "downloadUrl": "https://github.com/dpwgc/dsh-coding-workflow/archive/refs/heads/main.zip",
+      "category": "plugin",
+      "version": "1.0.0"
+    },
+    {
+      "name": "dsh-tui",
+      "displayName": "DSH-TUI",
+      "description": "DeepSeek Harness 交互式终端界面：像素鲑鱼、实时状态、流式思考与会话管理。",
+      "author": "chimney",
+      "stars": 765,
+      "packageName": "deepseek-harness-tui/dsh-tui",
+      "tags": [
+        "DSH",
+        "TUI",
+        "终端"
+      ],
+      "downloadUrl": "https://github.com/chimney/deepseek-harness-tui/archive/refs/heads/main.zip",
+      "category": "plugin",
+      "version": "1.0.0"
+    },
+    {
+      "name": "dsh-plugin-developer",
+      "displayName": "DSH 插件开发指南",
+      "description": "指导 AI 从 0 到 1 开发、构建、安装、测试 DSH 插件。",
+      "author": "liangdabiao",
+      "stars": 156,
+      "packageName": "dsh-plugin-developer",
+      "tags": [
+        "DSH",
+        "开发",
+        "插件"
+      ],
+      "downloadUrl": "https://github.com/liangdabiao/dsh-plugin-developer/archive/refs/heads/main.zip",
+      "category": "plugin",
+      "version": "1.0.0"
+    },
+    {
+      "name": "ds-bot",
+      "displayName": "DS Bot",
+      "description": "DS Bot: a team of long-lived Bots for DeepSeek Harness, with Main Bots, Bot-to-Bot messages and group chats.",
+      "author": "deepseek",
+      "stars": 760,
+      "packageName": "ds-bot",
+      "tags": [
+        "DSH",
+        "bot",
+        "chat"
+      ],
+      "downloadUrl": "https://github.com/deepseek/ds-bot/archive/refs/heads/main.zip",
+      "category": "plugin",
+      "version": "1.0.0"
+    },
+    {
+      "name": "dsh-plugin-wallpaper-engine",
+      "displayName": "DSH 壁纸引擎",
+      "description": "Wallpaper Engine backgrounds for the DSH web GUI: render your local wallpapers behind the chat with iOS-style liquid glass.",
+      "author": "deepseek",
+      "stars": 678,
+      "packageName": "dsh-plugin-wallpaper-engine",
+      "tags": [
+        "DSH",
+        "壁纸",
+        "美化"
+      ],
+      "downloadUrl": "https://github.com/deepseek/dsh-plugin-wallpaper-engine/archive/refs/heads/main.zip",
+      "category": "plugin",
+      "version": "1.0.0"
+    },
+    {
+      "name": "deepseek-bot-engine",
+      "displayName": "DeepSeek Bot Engine",
+      "description": "The engine layer of the DeepSeek Bot desktop app profile: transport, host services and the Bot agent preset over dsh-base.",
+      "author": "deepseek",
+      "stars": 760,
+      "packageName": "deepseek-bot-engine",
+      "tags": [
+        "DSH",
+        "engine",
+        "bot"
+      ],
+      "downloadUrl": "https://github.com/deepseek/deepseek-bot-engine/archive/refs/heads/main.zip",
+      "category": "plugin",
+      "version": "1.0.0"
+    }
+  ],
+  "skills": [
+    {
+      "name": "code-review",
+      "displayName": "代码审查",
+      "description": "五步代码审查流程：安全、性能、可维护性、测试覆盖率、文档完整性。",
+      "author": "7DGroup",
+      "stars": 234,
+      "packageName": "dsh-code-review",
+      "tags": [
+        "审查",
+        "代码质量"
+      ],
+      "downloadUrl": "https://github.com/7DGroup/dsh-code-review/archive/refs/heads/main.zip",
+      "category": "skill",
+      "version": "1.0.0"
+    },
+    {
+      "name": "git-workflow",
+      "displayName": "Git 工作流",
+      "description": "规范化 Git 提交信息、自动生成 CHANGELOG、分支管理建议。",
+      "author": "VantaCode",
+      "stars": 189,
+      "packageName": "dsh-git-workflow",
+      "tags": [
+        "Git",
+        "协作"
+      ],
+      "downloadUrl": "https://github.com/vantacode/dsh-git-workflow/archive/refs/heads/main.zip",
+      "category": "skill",
+      "version": "1.0.0"
+    },
+    {
+      "name": "api-design",
+      "displayName": "API 设计规范",
+      "description": "RESTful API 设计指南：资源命名、状态码、分页、版本控制、错误处理。",
+      "author": "community",
+      "stars": 312,
+      "packageName": "dsh-api-design",
+      "tags": [
+        "API",
+        "设计",
+        "规范"
+      ],
+      "downloadUrl": "https://github.com/community/dsh-api-design/archive/refs/heads/main.zip",
+      "category": "skill",
+      "version": "1.0.0"
+    },
+    {
+      "name": "docker-deploy",
+      "displayName": "Docker 部署",
+      "description": "Docker 容器化部署指南：Dockerfile 编写、compose 编排、镜像优化、多阶段构建。",
+      "author": "community",
+      "stars": 278,
+      "packageName": "dsh-docker-deploy",
+      "tags": [
+        "Docker",
+        "部署",
+        "运维"
+      ],
+      "downloadUrl": "https://github.com/community/dsh-docker-deploy/archive/refs/heads/main.zip",
+      "category": "skill",
+      "version": "1.0.0"
+    }
+  ]
+}

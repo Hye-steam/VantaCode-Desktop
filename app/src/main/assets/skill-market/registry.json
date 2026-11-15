@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "id": "code-review",
+      "name": "代码审查",
+      "description": "五步代码审查流程：安全、性能、可维护性、测试覆盖率、文档完整性。输出结构化审查报告。",
+      "author": "VantaCode",
+      "tags": ["代码", "审查", "质量"],
+      "downloadUrl": "",
+      "version": "1.0.0"
+    },
+    {
+      "id": "api-doc",
+      "name": "API 文档生成",
+      "description": "从代码注释和函数签名自动生成 REST API 文档，支持 OpenAPI 3.0 格式输出。",
+      "author": "VantaCode",
+      "tags": ["文档", "API", "自动化"],
+      "downloadUrl": "",
+      "version": "1.0.0"
+    },
+    {
+      "id": "git-workflow",
+      "name": "Git 工作流助手",
+      "description": "规范化 Git 提交信息、自动生成 CHANGELOG、分支管理建议、PR 模板生成。",
+      "author": "VantaCode",
+      "tags": ["Git", "工作流", "协作"],
+      "downloadUrl": "",
+      "version": "1.0.0"
+    },
+    {
+      "id": "unit-test",
+      "name": "单元测试生成",
+      "description": "分析函数签名和边界条件，自动生成单元测试用例，支持 JUnit、pytest、Jest 等框架。",
+      "author": "VantaCode",
+      "tags": ["测试", "自动化", "质量"],
+      "downloadUrl": "",
+      "version": "1.0.0"
+    },
+    {
+      "id": "refactor",
+      "name": "代码重构建议",
+      "description": "识别代码坏味道（重复、过长、耦合），给出具体重构方案和步骤，保持行为不变。",
+      "author": "VantaCode",
+      "tags": ["重构", "代码", "质量"],
+      "downloadUrl": "",
+      "version": "1.0.0"
+    }
+  ]
+}
