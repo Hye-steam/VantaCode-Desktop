@@ -1,5 +1,6 @@
 package com.vantacode.feature.agent.presentation.component
 
+import com.vantacode.core.ui.LocalImageViewer
 import com.vantacode.feature.agent.presentation.isVideo
 import com.vantacode.feature.agent.presentation.isHtml
 import androidx.compose.runtime.setValue
@@ -93,6 +94,11 @@ private fun MessageAttachmentRow(
             .filter { it.isNotBlank() }
             .joinToString(" · ")
     }
+    // 图片在应用内全屏查看（可缩放），其余类型仍交给系统 app，
+    // 与 AI 发来的文件行保持同一套交互。
+    val viewer = LocalImageViewer.current
+    val opensInViewer = attachment.isImage
+    val clickable = opensInViewer || onClick != null
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -100,8 +106,11 @@ private fun MessageAttachmentRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .then(
-                if (onClick != null) {
-                    Modifier.clickable(onClickLabel = actionLabel, onClick = { onClick(attachment) })
+                if (clickable) {
+                    Modifier.clickable(onClickLabel = actionLabel) {
+                        if (opensInViewer) viewer.show(attachment.toViewerRequest())
+                        else onClick?.invoke(attachment)
+                    }
                 } else {
                     Modifier
                 }
@@ -131,7 +140,7 @@ private fun MessageAttachmentRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (onClick != null) {
+            if (clickable) {
                 Icon(
                     FeatherIcons.ChevronRight,
                     contentDescription = null,

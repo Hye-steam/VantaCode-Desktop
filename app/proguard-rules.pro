@@ -129,3 +129,21 @@
 # MacroInfo.macro 保持 null，渲染时 Method.invoke NPE——release 包上所有带 \begin / 自定义宏的
 # 公式空白，debug 不混淆故正常。整包保留类名与方法名，避免再被 interface 去虚化等优化破坏。
 -keep class org.scilab.forge.jlatexmath.** { *; }
+
+# ---- WebView JS 接口 ----
+# JS 按方法名字符串调用，混淆后名字变了会静默失效（不报错，功能就是不工作）。
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepclasseswithmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+# 桥对象本身也被 JS 侧按注入名引用，类名保留便于排查。
+-keep class com.vantacode.feature.agent.domain.tool.browser.BrowserManager$BrowserJsBridge { *; }
+
+# ---- 反射/序列化入口 ----
+# kotlinx.serialization 通过 Companion.serializer() 反射查找，枚举 valueOf 也走名字。
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}

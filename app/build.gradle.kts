@@ -1,3 +1,6 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -13,10 +16,23 @@ plugins {
 
 // 从本地 keystore.properties 读取 release 签名密钥（已 gitignore，不入库）。
 // 若文件不存在（如 CI 环境）则跳过，release 产出 unsigned 包。
-val keystorePropertiesFile = file("keystore.properties")
+// 签名文件不入库，工作区被清过一次直接丢失过。这里再查一份放在
+// ~/.aicode/keys 下的备份（该目录不会被 App 重置），两处任一可用即可。
+val keystoreBackupDir = File(System.getProperty("user.home"), ".aicode/keys")
+val keystorePropertiesFile = listOf(
+    file("keystore.properties"),
+    File(keystoreBackupDir, "keystore.properties")
+).firstOrNull { it.exists() }
 val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
+if (keystorePropertiesFile != null) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+/** storeFile 按相对路径找；找不到就去备份目录按文件名找。 */
+fun resolveStoreFile(raw: String): File {
+    val direct = file(raw)
+    if (direct.exists()) return direct
+    return File(keystoreBackupDir, direct.name)
 }
 
 // gitVersionName 从 git tag 动态解析，彻底解决“发版时手改 build.gradle.kts 与 tag 双向不同步”问题。
@@ -71,6 +87,29 @@ fun gitCommitCount(): Int = try {
     1
 }
 
+// git 历史被重写或 .git 丢失时提交数会归零，导致用户无法升级。
+// 这里再记一份持久化计数，取两者较大值，保证 versionCode 单调不减。
+val versionCodeFile = rootProject.file("version-code.txt")
+val persistedVersionCode = versionCodeFile
+    .takeIf { it.isFile }
+    ?.readText()?.trim()?.toIntOrNull() ?: 0
+val resolvedVersionCode = maxOf(gitCommitCount(), persistedVersionCode + 1)
+
+// 测试版/正式版开关：默认测试版（com.vantacode.test，与自用版共存）；
+// 出正式包传 -PtestBuild=false（脚本见 build-release.sh）。
+val testBuild = (findProperty("testBuild") as String?)?.toBoolean() ?: true
+
+// 测试版版本名带构建时间，装完能一眼看出是哪一次构建。
+val buildStamp = SimpleDateFormat("MMdd-HHmm", Locale.US).format(Date())
+val appVersionName = if (testBuild) "5.2-test.$buildStamp" else "5.3"
+
+// 构建后把本次用到的 versionCode 落盘，供下次取 max 兜底。
+val persistVersionCode = tasks.register("persistVersionCode") {
+    val code = resolvedVersionCode
+    val target = versionCodeFile
+    doLast { target.writeText(code.toString()) }
+}
+
 // AI 内置文档（~/.aicode/docs）的源在仓库根的 docs-site/docs：同一份 Markdown 既构建 VitePress
 // 文档站，也在这里复制进 assets/docs 打进 APK，保证「站上看到的」与「AI 读到的」永远一致。
 // 用纯 Gradle Copy 实现，APK 构建不依赖 Node —— CI 与 F-Droid 只装 JDK+Gradle 即可。
@@ -92,8 +131,8 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
+            if (keystorePropertiesFile != null) {
+                storeFile = resolveStoreFile(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
@@ -102,7 +141,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.vantacode"
+        applicationId = if (testBuild) "com.vantacode.test" else "com.vantacode"
         minSdk = 26
         // 仍锁 targetSdk 28，但阻塞项已不是 PRoot：proot 全套改由 jniLibs 装到 nativeLibraryDir
         // （见 sourceSets 与 packaging.jniLibs 注释），W^X 不再挡容器启动。升级前待解决：
@@ -112,8 +151,9 @@ android {
         //      保活需换 specialUse。
         // 代价：不能上 Google Play。
         targetSdk = 28
-        versionCode = 41
-        versionName = "5.2"
+        versionCode = resolvedVersionCode
+        versionName = appVersionName
+        resValue("string", "app_name", if (testBuild) "VantaCode 测试" else "VantaCode")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -176,9 +216,11 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
-            if (keystorePropertiesFile.exists()) {
+            // R8：体积从 ~58MB 降到 30MB 上下。敏感点已在 proguard-rules.pro 里逐个保留
+            // （JS 接口、序列化器、Room/Hilt/Media3、反射入口），改这里前先跑一遍冒烟测试。
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (keystorePropertiesFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -432,3 +474,17 @@ tasks.register<Exec>("checkMigrations") {
 
 // assets 合并前必须先生成文档，否则首次构建（或 clean 后）APK 里会没有 docs/。
 tasks.named("preBuild") { dependsOn(syncAiDocs) }
+
+// 每次构建把用到的 versionCode 落盘，供下次取 max 兜底（.git 丢失时不会回退）。
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(persistVersionCode) }
+
+// release 产物必须已签名：缺 keystore 时直接失败，避免误发 unsigned 包。
+if (keystorePropertiesFile == null) {
+    tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+        doFirst {
+            throw GradleException(
+                "缺少 keystore.properties（app/ 或 ~/.aicode/keys/），release 包会无签名，已中止构建"
+            )
+        }
+    }
+}

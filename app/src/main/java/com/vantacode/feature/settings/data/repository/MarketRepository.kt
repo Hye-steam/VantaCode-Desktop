@@ -6,20 +6,26 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * DSH 插件/技能市场仓库：从真实在线目录拉取、搜索、安装。
+ * 技能市场仓库：在线拉取技能清单、搜索、安装。
  *
- * 插件源：cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json（format 1，数千条真实 DSH 插件）
- * 技能源：本地 assets 注册表（可换远程 URL）
+ * 条目来源三级兜底：自托管注册表 → GitHub 话题聚合 → 内置 assets 清单。
+ * 安装动作统一为「下载 ZIP → 扫描其中所有 SKILL.md → 落到 aicode/skills/<名字>/」。
  */
 @Singleton
 class MarketRepository @Inject constructor(
@@ -32,78 +38,69 @@ class MarketRepository @Inject constructor(
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    companion object {
-        /** DSH 插件目录（format 1）。 */
-        const val DSH_CATALOG_URL = "https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json"
-        /** 备用镜像。 */
-        const val DSH_CATALOG_MIRROR = "https://awesome-dsh-plugin.com/index.json"
-        /** DSH Go 插件市场。 */
-        const val DSHGO_MARKET_URL = "https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json"
-        /** DSH Go 插件格式文件名。 */
-        const val DSHGO_MANIFEST = ".dshgo.json"
-    }
-
     private val skillsRoot: File get() = File(context.filesDir, "aicode/skills")
 
-    // ─── DSH 插件目录 ───
+    companion object {
+        /** 自托管注册表：优先读它，便于随时增删条目而不用发版。 */
+        const val SKILL_REGISTRY_URL =
+            "https://raw.githubusercontent.com/Hye-steam/VantaCode-Desktop/vantacode-android/skills-registry.json"
 
-    /** 加载 DSH 插件目录。 */
-    suspend fun loadDshCatalog(): List<DshCatalogEntry> = withContext(Dispatchers.IO) {
-        for (url in listOf(DSH_CATALOG_URL, DSH_CATALOG_MIRROR)) {
-            try {
-                val body = fetchUrl(url)
-                val catalog = json.decodeFromString<DshCatalog>(body)
-                if (catalog.plugins.isNotEmpty()) return@withContext catalog.plugins
-            } catch (e: Exception) {
-                FileLogger.w("MarketRepo", "Catalog $url failed: ${e.message}")
-            }
-        }
-        emptyList()
-    }
-
-    /** 按分类过滤。 */
-    fun filterByCategory(entries: List<DshCatalogEntry>, category: String): List<DshCatalogEntry> {
-        if (category.isBlank()) return entries
-        return entries.filter { it.category.equals(category, ignoreCase = true) }
-    }
-
-    /** 搜索 DSH 插件。 */
-    fun searchDsh(entries: List<DshCatalogEntry>, query: String): List<DshCatalogEntry> {
-        if (query.isBlank()) return entries
-        val q = query.lowercase()
-        return entries.filter {
-            it.name.lowercase().contains(q) ||
-                it.title.lowercase().contains(q) ||
-                it.descriptionZh.lowercase().contains(q) ||
-                (it.description?.en ?: "").lowercase().contains(q) ||
-                it.category.lowercase().contains(q)
-        }
+        /** 注册表不可用时的在线兜底：按 GitHub 话题聚合社区技能仓库。 */
+        private const val GITHUB_SKILL_SEARCH =
+            "https://api.github.com/search/repositories?q=topic:claude-skills&sort=stars&order=desc&per_page=60"
     }
 
     // ─── 技能注册表 ───
 
-    /** 加载技能注册表。 */
-    suspend fun loadSkillRegistry(url: String): List<MarketEntry> = withContext(Dispatchers.IO) {
-        if (url.isBlank()) return@withContext loadLocalSkillRegistry()
-        try {
-            val body = fetchUrl(url)
-            json.decodeFromString<MarketRegistry>(body).skills
-        } catch (e: Exception) {
-            FileLogger.w("MarketRepo", "Skill registry failed: ${e.message}")
+    /**
+     * 加载技能注册表：自托管注册表 → GitHub 话题聚合 → 内置清单，逐级兜底。
+     */
+    suspend fun loadSkillRegistry(url: String = SKILL_REGISTRY_URL): List<MarketEntry> =
+        withContext(Dispatchers.IO) {
+            if (url.isNotBlank()) {
+                runCatching {
+                    json.decodeFromString<MarketRegistry>(fetchUrl(url)).entries
+                }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return@withContext it }
+            }
+            runCatching { fetchGithubSkills() }.getOrNull()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { return@withContext it }
             loadLocalSkillRegistry()
         }
+
+    /**
+     * 在线搜索技能：直接查 GitHub 仓库搜索接口，支持关键词与分页。
+     * 空关键词等价于按 claude-skills 话题按星数浏览。
+     */
+    suspend fun searchSkillsOnline(
+        query: String,
+        page: Int = 1,
+        perPage: Int = 50
+    ): List<MarketEntry> = withContext(Dispatchers.IO) {
+        val q = if (query.isBlank()) "topic:claude-skills" else "$query topic:claude-skills"
+        val encoded = URLEncoder.encode(q, "UTF-8")
+        val url = "https://api.github.com/search/repositories" +
+            "?q=$encoded&sort=stars&order=desc&per_page=$perPage&page=$page"
+        runCatching { parseGithubRepos(fetchUrl(url)) }.getOrDefault(emptyList())
     }
+
+    /** 按 GitHub 的 claude-skills 话题聚合社区仓库，作为注册表不可用时的在线来源。 */
+    private fun fetchGithubSkills(): List<MarketEntry> =
+        runCatching { parseGithubRepos(fetchUrl(GITHUB_SKILL_SEARCH)) }.getOrDefault(emptyList())
+
+    private fun parseGithubRepos(body: String): List<MarketEntry> =
+        parseGithubReposJson(json, body)
 
     private fun loadLocalSkillRegistry(): List<MarketEntry> {
         return try {
             val text = context.assets.open("market/registry.json").bufferedReader().readText()
-            json.decodeFromString<MarketRegistry>(text).skills
+            json.decodeFromString<MarketRegistry>(text).entries
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    /** 搜索技能。 */
+    /** 搜索技能（本地过滤）。 */
     fun searchSkills(entries: List<MarketEntry>, query: String): List<MarketEntry> {
         if (query.isBlank()) return entries
         val q = query.lowercase()
@@ -121,249 +118,67 @@ class MarketRepository @Inject constructor(
     /** 从 URL 下载 ZIP 并安装技能。 */
     suspend fun installFromUrl(url: String): SkillInstallResult = withContext(Dispatchers.IO) {
         try {
-            val bytes = fetchUrlBytes(url)
-            installFromZipBytes(bytes)
+            installFromZipBytes(fetchUrlBytes(url))
         } catch (e: Exception) {
             SkillInstallResult.Failure("下载失败: ${e.message}")
         }
     }
 
     /** 从 ZIP 安装（扫描 SKILL.md）。 */
-    suspend fun installFromZipBytes(zipBytes: ByteArray): SkillInstallResult = withContext(Dispatchers.IO) {
-        try {
-            val entries = mutableMapOf<String, ByteArray>()
-            ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    if (!entry.isDirectory) entries[entry.name] = zip.readBytes()
-                    zip.closeEntry()
-                    entry = zip.nextEntry
-                }
-            }
-
-            // 扫描技能目录（含 DSH 的 .dsh/skills/）
-            val skillDirs = mutableMapOf<String, MutableMap<String, ByteArray>>()
-            for ((path, bytes) in entries) {
-                val parts = path.split("/").filter { it.isNotBlank() }
-                if (parts.size >= 2 && (parts.last() == "SKILL.md" || parts.last() == "CLAUDE.md")) {
-                    val skillName = parts[parts.size - 2]
-                    skillDirs.getOrPut(skillName) { mutableMapOf() }["SKILL.md"] = bytes
-                }
-            }
-            for ((path, bytes) in entries) {
-                val parts = path.split("/").filter { it.isNotBlank() }
-                if (parts.size >= 3) {
-                    val skillName = parts[parts.size - 3]
-                    if (skillDirs.containsKey(skillName)) {
-                        val relPath = parts.drop(parts.size - 2).joinToString("/")
-                        skillDirs[skillName]?.putIfAbsent(relPath, bytes)
+    suspend fun installFromZipBytes(zipBytes: ByteArray): SkillInstallResult =
+        withContext(Dispatchers.IO) {
+            try {
+                val entries = mutableMapOf<String, ByteArray>()
+                ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        if (!entry.isDirectory) entries[entry.name] = zip.readBytes()
+                        zip.closeEntry()
+                        entry = zip.nextEntry
                     }
                 }
-            }
 
-            if (skillDirs.isEmpty()) {
-                return@withContext SkillInstallResult.Failure("压缩包中没有找到 SKILL.md")
-            }
-
-            val installed = mutableListOf<String>()
-            for ((name, files) in skillDirs) {
-                val targetDir = File(skillsRoot, name)
-                targetDir.mkdirs()
-                for ((relPath, bytes) in files) {
-                    val targetFile = File(targetDir, relPath)
-                    targetFile.parentFile?.mkdirs()
-                    targetFile.writeBytes(bytes)
+                val skillDirs = mutableMapOf<String, MutableMap<String, ByteArray>>()
+                for ((path, bytes) in entries) {
+                    val parts = path.split("/").filter { it.isNotBlank() }
+                    if (parts.size >= 2 && (parts.last() == "SKILL.md" || parts.last() == "CLAUDE.md")) {
+                        val skillName = parts[parts.size - 2]
+                        skillDirs.getOrPut(skillName) { mutableMapOf() }["SKILL.md"] = bytes
+                    }
                 }
-                installed.add(name)
-            }
+                for ((path, bytes) in entries) {
+                    val parts = path.split("/").filter { it.isNotBlank() }
+                    if (parts.size >= 3) {
+                        val skillName = parts[parts.size - 3]
+                        if (skillDirs.containsKey(skillName)) {
+                            val relPath = parts.drop(parts.size - 2).joinToString("/")
+                            skillDirs[skillName]?.putIfAbsent(relPath, bytes)
+                        }
+                    }
+                }
 
-            if (installed.isEmpty()) SkillInstallResult.Failure("安装失败")
-            else SkillInstallResult.Success(installed)
-        } catch (e: Exception) {
-            SkillInstallResult.Failure("安装失败: ${e.message}")
-        }
-    }
+                if (skillDirs.isEmpty()) {
+                    return@withContext SkillInstallResult.Failure("压缩包中没有找到 SKILL.md")
+                }
 
-    /**
-     * 从 GitHub 安装 DSH 插件：下载 ZIP → 提取 SKILL.md / 工具定义 / MCP 配置。
-     * 返回安装结果和提取到的内容类型。
-     */
-    suspend fun installDshPluginFromGithub(repoUrl: String): DshPluginInstallResult = withContext(Dispatchers.IO) {
-        try {
-            val ownerRepo = repoUrl.removePrefix("https://github.com/").trimEnd('/')
-            val zipUrl = "https://github.com/$ownerRepo/archive/refs/heads/main.zip"
-            val bytes = try {
-                fetchUrlBytes(zipUrl)
+                val installed = mutableListOf<String>()
+                for ((name, files) in skillDirs) {
+                    val targetDir = File(skillsRoot, name)
+                    targetDir.mkdirs()
+                    for ((relPath, data) in files) {
+                        val targetFile = File(targetDir, relPath)
+                        targetFile.parentFile?.mkdirs()
+                        targetFile.writeBytes(data)
+                    }
+                    installed.add(name)
+                }
+
+                if (installed.isEmpty()) SkillInstallResult.Failure("安装失败")
+                else SkillInstallResult.Success(installed)
             } catch (e: Exception) {
-                // 尝试 master 分支
-                fetchUrlBytes("https://github.com/$ownerRepo/archive/refs/heads/master.zip")
+                SkillInstallResult.Failure("安装失败: ${e.message}")
             }
-
-            val entries = mutableMapOf<String, ByteArray>()
-            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    if (!entry.isDirectory) entries[entry.name] = zip.readBytes()
-                    zip.closeEntry()
-                    entry = zip.nextEntry
-                }
-            }
-
-            val installed = mutableListOf<String>()
-            val skipped = mutableListOf<String>()
-
-            // 1) 提取技能（SKILL.md / CLAUDE.md）
-            val skillDirs = mutableMapOf<String, MutableMap<String, ByteArray>>()
-            for ((path, bytes) in entries) {
-                val parts = path.split("/").filter { it.isNotBlank() }
-                if (parts.size >= 2 && (parts.last() == "SKILL.md" || parts.last() == "CLAUDE.md")) {
-                    val skillName = parts[parts.size - 2]
-                    skillDirs.getOrPut(skillName) { mutableMapOf() }["SKILL.md"] = bytes
-                }
-            }
-            for ((path, bytes) in entries) {
-                val parts = path.split("/").filter { it.isNotBlank() }
-                if (parts.size >= 3) {
-                    val skillName = parts[parts.size - 3]
-                    if (skillDirs.containsKey(skillName)) {
-                        val relPath = parts.drop(parts.size - 2).joinToString("/")
-                        skillDirs[skillName]?.putIfAbsent(relPath, bytes)
-                    }
-                }
-            }
-            for ((name, files) in skillDirs) {
-                val targetDir = File(skillsRoot, name)
-                targetDir.mkdirs()
-                for ((relPath, data) in files) {
-                    val targetFile = File(targetDir, relPath)
-                    targetFile.parentFile?.mkdirs()
-                    targetFile.writeBytes(data)
-                }
-                installed.add("技能: $name")
-            }
-
-            // 2) 提取 MCP 配置（mcp.json / mcp/*.json）
-            val mcpDir = File(context.filesDir, "aicode/mcp")
-            for ((path, data) in entries) {
-                if (path.endsWith("mcp.json") || path.contains("/mcp/") && path.endsWith(".json")) {
-                    mcpDir.mkdirs()
-                    val fileName = path.split("/").last()
-                    File(mcpDir, fileName).writeBytes(data)
-                    installed.add("MCP: $fileName")
-                }
-            }
-
-            // 3) 提取 package.json 里的 dsh.profile.bundles / cordis.patch.yml
-            val pkgEntry = entries.entries
-                .firstOrNull { it.key.endsWith("package.json") && !it.key.contains("node_modules") }
-            if (pkgEntry != null) {
-                val pluginDir = File(context.filesDir, "aicode/dshgo/${ownerRepo.replace("/", "_")}")
-                pluginDir.mkdirs()
-                File(pluginDir, "package.json").writeBytes(pkgEntry.value)
-                installed.add("配置: package.json")
-            }
-
-            // 4) cordis.patch.yml
-            for ((path, data) in entries) {
-                if (path.endsWith("cordis.patch.yml") || path.endsWith("dsh.json")) {
-                    val pluginDir = File(context.filesDir, "aicode/dshgo/${ownerRepo.replace("/", "_")}")
-                    pluginDir.mkdirs()
-                    File(pluginDir, path.split("/").last()).writeBytes(data)
-                    installed.add("配置: ${path.split("/").last()}")
-                }
-            }
-
-            // 5) 保存原始 ZIP 供后续使用
-            val pluginDir = File(context.filesDir, "aicode/dshgo/${ownerRepo.replace("/", "_")}")
-            pluginDir.mkdirs()
-            File(pluginDir, "source.zip").writeBytes(bytes)
-
-            if (installed.isEmpty()) {
-                // 没有可提取的内容，记录为已下载
-                installed.add("已下载源码（无可直接安装的技能/配置）")
-            }
-
-            DshPluginInstallResult.Success(installed)
-        } catch (e: Exception) {
-            DshPluginInstallResult.Failure("安装失败: ${e.message}")
         }
-    }
-
-    /** 生成 DSH 插件安装命令。 */
-    fun dshInstallCommand(entry: DshCatalogEntry): String {
-        val repo = entry.repoUrl
-        return if (repo.isNotBlank()) {
-            "dsh plugin add github:${repo.removePrefix("https://github.com/")}"
-        } else {
-            "dsh plugin add ${entry.installTarget}"
-        }
-    }
-
-    // ─── DSH Go 插件 ───
-
-    /** 解析 .dshgo.json 插件。 */
-    fun parseDshGoPlugin(jsonText: String): DshGoPlugin? {
-        return try {
-            json.decodeFromString<DshGoPlugin>(jsonText)
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /** 从 ZIP 安装 DSH Go 插件（.dshgo.json + 资源文件）。 */
-    suspend fun installDshGoPlugin(zipBytes: ByteArray): SkillInstallResult = withContext(Dispatchers.IO) {
-        try {
-            val entries = mutableMapOf<String, ByteArray>()
-            ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
-                var entry = zip.nextEntry
-                while (entry != null) {
-                    if (!entry.isDirectory) entries[entry.name] = zip.readBytes()
-                    zip.closeEntry()
-                    entry = zip.nextEntry
-                }
-            }
-
-            // 找 .dshgo.json
-            val manifestEntry = entries.entries
-                .firstOrNull { it.key.endsWith(".dshgo.json") || it.key.endsWith("dshgo.json") }
-                ?: return@withContext SkillInstallResult.Failure("缺少 .dshgo.json")
-
-            val plugin = parseDshGoPlugin(String(manifestEntry.value, Charsets.UTF_8))
-                ?: return@withContext SkillInstallResult.Failure(".dshgo.json 解析失败")
-
-            // 安装到 DSH Go 插件目录
-            val pluginDir = File(context.filesDir, "aicode/dshgo/${plugin.name.ifBlank { "unnamed" }}")
-            pluginDir.mkdirs()
-            for ((path, bytes) in entries) {
-                val target = File(pluginDir, path)
-                target.parentFile?.mkdirs()
-                target.writeBytes(bytes)
-            }
-
-            SkillInstallResult.Success(listOf(plugin.displayName.ifBlank { plugin.name }))
-        } catch (e: Exception) {
-            SkillInstallResult.Failure("安装失败: ${e.message}")
-        }
-    }
-
-    /** 已安装 DSH Go 插件列表。 */
-    fun listDshGoPlugins(): List<DshGoPlugin> {
-        val dir = File(context.filesDir, "aicode/dshgo")
-        return dir.listFiles()
-            ?.filter { it.isDirectory }
-            ?.mapNotNull { d ->
-                val manifest = File(d, ".dshgo.json").takeIf { it.exists() }
-                    ?: File(d, "dshgo.json").takeIf { it.exists() }
-                    ?: return@mapNotNull null
-                parseDshGoPlugin(manifest.readText())
-            }
-            ?: emptyList()
-    }
-
-    /** 删除 DSH Go 插件。 */
-    suspend fun uninstallDshGoPlugin(name: String): Boolean = withContext(Dispatchers.IO) {
-        runCatching { File(context.filesDir, "aicode/dshgo/$name").deleteRecursively() }.getOrDefault(false)
-    }
 
     /** 已安装技能列表。 */
     fun listInstalledSkills(): List<String> {
@@ -398,8 +213,30 @@ class MarketRepository @Inject constructor(
     }
 }
 
-/** DSH 插件安装结果。 */
-sealed class DshPluginInstallResult {
-    data class Success(val items: List<String>) : DshPluginInstallResult()
-    data class Failure(val reason: String) : DshPluginInstallResult()
+/**
+ * GitHub 搜索接口 items → 市场条目。
+ *
+ * 纯函数、不依赖网络与 Context，字段映射的回归可以直接用单测覆盖。
+ */
+internal fun parseGithubReposJson(json: Json, body: String): List<MarketEntry> {
+    val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
+        ?: return emptyList()
+    val items = root["items"]?.jsonArray ?: return emptyList()
+    return items.mapNotNull { element ->
+        runCatching {
+            val obj = element.jsonObject
+            val full = obj["full_name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val branch = obj["default_branch"]?.jsonPrimitive?.contentOrNull ?: "main"
+            MarketEntry(
+                name = full,
+                displayName = full.substringAfterLast("/"),
+                description = obj["description"]?.jsonPrimitive?.contentOrNull ?: "",
+                author = full.substringBefore("/"),
+                stars = obj["stargazers_count"]?.jsonPrimitive?.intOrNull ?: 0,
+                downloadUrl = "https://github.com/$full/archive/refs/heads/$branch.zip",
+                category = "skill",
+                tags = listOfNotNull(obj["language"]?.jsonPrimitive?.contentOrNull)
+            )
+        }.getOrNull()
+    }
 }

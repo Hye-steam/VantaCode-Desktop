@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VantaCode</string>
     <string name="common_tool_missing_argument">Missing parameter: %1$s.</string>
     <string name="plan_mode_invalid_action">Invalid action: %1$s. Supported values: enter or exit.</string>
     <string name="plan_mode_already_active">Already in PLAN mode.</string>
@@ -2126,4 +2125,23 @@
     <string name="about_github">GitHub Repository</string>
     <string name="about_terms">Terms of Service</string>
     <string name="about_privacy">Privacy Policy</string>
+    <string name="skill_market_online">Skill Market (Online)</string>
+    <string name="market_expand_detail">Tap to expand</string>
+    <string name="market_load_more">Load more</string>
+    <string name="market_loading_more">Loading…</string>
+    <string name="market_refresh">Refresh</string>
+    <string name="market_sort_by_stars">By stars</string>
+    <string name="market_sort_by_name">By name</string>
+    <string name="market_total_skills">%1$d skills</string>
+    <string name="market_matched"> · %1$d matched</string>
+    <string name="skill_detail_name">Name</string>
+    <string name="skill_detail_display_name">Display name</string>
+    <string name="skill_detail_author">Author</string>
+    <string name="skill_detail_stars">Stars</string>
+    <string name="skill_detail_version">Version</string>
+    <string name="skill_detail_category">Category</string>
+    <string name="skill_detail_package">Package</string>
+    <string name="skill_detail_tags">Tags</string>
+    <string name="skill_detail_download">Download URL</string>
+    <string name="skill_install_note">Installing extracts every SKILL.md from the archive into ~/.aicode/skills/&lt;name&gt;/</string>
 </resources>

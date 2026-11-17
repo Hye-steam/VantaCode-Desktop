@@ -63,6 +63,7 @@ import com.vantacode.feature.settings.data.remote.ApkVerifyResult
 import com.vantacode.feature.settings.data.remote.UpdateAsset
 import com.vantacode.feature.settings.data.remote.UpdateCheckResult
 import com.vantacode.feature.settings.data.remote.UpdateCheckService
+import com.vantacode.feature.settings.data.repository.MarketRepository
 import com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository
 import com.vantacode.feature.settings.data.repository.UpdateChannel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -390,6 +391,7 @@ class SettingsViewModel @Inject constructor(
     private val modelApiService: ModelApiService,
     private val modelMetadataService: ModelMetadataService,
     private val logSettingsRepository: LogSettingsRepository,
+    val marketRepository: MarketRepository,
     private val themeSettingsRepository: ThemeSettingsRepository,
     private val backgroundSettingsRepository: BackgroundSettingsRepository,
     private val keepaliveSettingsRepository: KeepaliveSettingsRepository,

@@ -5,8 +5,7 @@ AI-powered coding assistant for Android. Built on AiCode with extended capabilit
 ## Features
 
 - **AI Chat & Code Editing** — Full-featured AI assistant with code editing, file management, and terminal
-- **DSH Plugin Market** — Browse and install 8000+ DeepSeek Harness plugins directly from the app
-- **DSH Go Plugin Support** — Native `.dshgo.json` format for themes, pets, backgrounds, and custom instructions
+- **Online Skill Market** — Search and install community skills from GitHub, extracted straight into the app
 - **Team Collaboration** — Multi-agent team chat with task dispatch and executor delegation
 - **Skill System** — Extensible skill framework with online skill installation
 - **Phone Control** — AI-driven phone automation (tap, swipe, type, screenshot)
@@ -53,13 +52,17 @@ app/src/main/java/com/vantacode/
 └── MainActivity.kt
 ```
 
-## Plugin Ecosystem
+## Skill Market
 
-VantaCode integrates with the DeepSeek Harness (DSH) plugin ecosystem:
+Skills are `SKILL.md` folders the agent loads on demand. The market fetches entries
+online with three levels of fallback:
 
-- **Standard DSH Plugins** — npm/TypeScript format, install via `dsh plugin add`
-- **DSH Go Plugins** — `.dshgo.json` format for mobile UI extensions
-- **Market Source** — [dsh-plugin-catalog](https://www.npmjs.com/package/dsh-plugin-catalog) (8000+ entries)
+1. A self-hosted registry (`skills-registry.json` in this repo) — edit it to curate entries without shipping a release.
+2. GitHub search over the `claude-skills` topic, with keyword search and pagination.
+3. A bundled offline list.
+
+Installing downloads the repository archive and extracts every `SKILL.md` it finds
+into `~/.aicode/skills/<name>/`.
 
 ## License
 
@@ -68,5 +71,4 @@ Based on [AiCode](https://github.com/) (GPL-3.0). See LICENSE for details.
 ## Credits
 
 - Built on AiCode open-source project
-- DSH plugin catalog by the DeepSeek Harness community
-- DSH Go plugin format by [ccch1mneyyy/dsh-go](https://github.com/ccch1mneyyy/dsh-go)
+

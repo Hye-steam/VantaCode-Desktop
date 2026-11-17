@@ -65,6 +65,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vantacode.core.theme.AppThemePreset
 import com.vantacode.core.theme.Spacing
+import kotlinx.coroutines.launch
 import com.vantacode.core.theme.isDynamicColorSupported
 import com.vantacode.core.theme.semanticColors
 import com.vantacode.core.ui.ListSelectionState
@@ -382,8 +383,7 @@ fun SettingsScreen(
     var pendingSkillName by remember { mutableStateOf<String?>(null) }
     // 「添加技能」底部弹层：选择作用域后走手动新建 / 文件导入 / 压缩包导入。
     var showSkillAddSheet by remember { mutableStateOf(false) }
-    var showPluginMarket by remember { mutableStateOf(false) }
-    var showPluginManager by remember { mutableStateOf(false) }
+    var showSkillMarket by remember { mutableStateOf(false) }
     var skillImportScope by remember { mutableStateOf(SkillScope.GLOBAL) }
     // 技能文件 / 压缩包选择器：结果交给 ViewModel 读取并落盘到所选作用域。
     val skillFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -503,8 +503,7 @@ fun SettingsScreen(
             onOpenTerminalSettingsSheet = { showTerminalSettingsSheet = true },
             onOpenBackgroundSheet = { showBackgroundSheet = true },
             onOpenLanguageSheet = { showLanguageSheet = true },
-            onOpenPluginMarket = { showPluginMarket = true },
-            onOpenPluginManager = { showPluginManager = true },
+            onOpenSkillMarket = { showSkillMarket = true },
             onOpenManual = {
                 context.startActivity(
                     Intent(Intent.ACTION_VIEW, Uri.parse(USER_GUIDE_DOCS_URL))
@@ -1420,19 +1419,10 @@ fun SettingsScreen(
         )
     }
 
-    if (showPluginManager) {
-        val managerRepo = com.vantacode.feature.settings.data.repository.MarketRepository(context)
-        PluginManagerScreen(
-            repository = managerRepo,
-            onBack = { showPluginManager = false }
-        )
-    }
-
-    if (showPluginMarket) {
-        val marketRepo = com.vantacode.feature.settings.data.repository.MarketRepository(context)
-        DshMarketScreen(
-            repository = marketRepo,
-            onBack = { showPluginMarket = false }
+    if (showSkillMarket) {
+        SkillMarketOnlineScreen(
+            repository = viewModel.marketRepository,
+            onBack = { showSkillMarket = false }
         )
     }
 
@@ -1712,8 +1702,7 @@ internal fun SettingsMenu(
     onOpenTerminalSettingsSheet: () -> Unit,
     onOpenBackgroundSheet: () -> Unit,
     onOpenLanguageSheet: () -> Unit,
-    onOpenPluginMarket: () -> Unit,
-    onOpenPluginManager: () -> Unit,
+    onOpenSkillMarket: () -> Unit,
     onOpenManual: () -> Unit,
     onRerunOnboarding: () -> Unit,
     onOpen: (SettingsSection) -> Unit
@@ -1823,15 +1812,9 @@ internal fun SettingsMenu(
             )
             SettingsDivider()
             SettingsRow(
-                icon = FeatherIcons.Box,
-                title = stringResource(R.string.plugin_market_title),
-                onClick = onOpenPluginMarket
-            )
-            SettingsDivider()
-            SettingsRow(
-                icon = FeatherIcons.Box,
-                title = "插件管理",
-                onClick = onOpenPluginManager
+                icon = FeatherIcons.Globe,
+                title = "技能市场（在线）",
+                onClick = onOpenSkillMarket
             )
             SettingsDivider()
             SettingsRow(

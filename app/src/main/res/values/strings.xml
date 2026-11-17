@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VantaCode</string>
     <string name="common_tool_missing_argument">缺少参数：%1$s。</string>
     <string name="plan_mode_invalid_action">无效的 action：%1$s。支持 enter 或 exit。</string>
     <string name="plan_mode_already_active">当前已处于 PLAN（计划）模式。</string>
@@ -2125,4 +2124,23 @@
     <string name="about_github">GitHub 仓库</string>
     <string name="about_terms">用户协议</string>
     <string name="about_privacy">隐私政策</string>
+    <string name="skill_market_online">技能市场（在线）</string>
+    <string name="market_expand_detail">点击展开详情</string>
+    <string name="market_load_more">加载更多</string>
+    <string name="market_loading_more">加载中…</string>
+    <string name="market_refresh">刷新</string>
+    <string name="market_sort_by_stars">按星数</string>
+    <string name="market_sort_by_name">按名称</string>
+    <string name="market_total_skills">共 %1$d 个技能</string>
+    <string name="market_matched"> · 匹配 %1$d 个</string>
+    <string name="skill_detail_name">名称</string>
+    <string name="skill_detail_display_name">显示名</string>
+    <string name="skill_detail_author">作者</string>
+    <string name="skill_detail_stars">星数</string>
+    <string name="skill_detail_version">版本</string>
+    <string name="skill_detail_category">分类</string>
+    <string name="skill_detail_package">包名</string>
+    <string name="skill_detail_tags">标签</string>
+    <string name="skill_detail_download">下载地址</string>
+    <string name="skill_install_note">安装会把压缩包里的 SKILL.md 提取到 ~/.aicode/skills/&lt;名字&gt;/</string>
 </resources>

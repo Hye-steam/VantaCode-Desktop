@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,180 +40,39 @@ import com.vantacode.feature.settings.data.repository.*
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun DshMarketScreen(
-    repository: MarketRepository,
-    onBack: () -> Unit
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("") }
-    var entries by remember { mutableStateOf<List<DshCatalogEntry>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var installMsg by remember { mutableStateOf<String?>(null) }
-    val clipboardManager = LocalClipboardManager.current
-
-    var installedPlugins by remember { mutableStateOf<List<com.vantacode.feature.settings.data.repository.DshGoPlugin>>(emptyList()) }
-    var refreshTrigger by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) {
-        entries = repository.loadDshCatalog()
-        isLoading = false
-    }
-
-    LaunchedEffect(refreshTrigger) {
-        installedPlugins = withContext(kotlinx.coroutines.Dispatchers.IO) {
-            try { repository.listDshGoPlugins() } catch (_: Exception) { emptyList() }
-        }
-    }
-
-    val categories = remember(entries) {
-        entries.map { it.category }.filter { it.isNotBlank() }.distinct().sorted()
-    }
-
-    val filtered = remember(searchQuery, selectedCategory, entries) {
-        repository.searchDsh(
-            repository.filterByCategory(entries, selectedCategory),
-            searchQuery
-        )
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.plugin_market_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            // 搜索栏
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text(stringResource(R.string.market_search_hint)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            // 分类标签
-            if (categories.isNotEmpty()) {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = Spacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
-                ) {
-                    item {
-                        FilterChip(
-                            selected = selectedCategory.isEmpty(),
-                            onClick = { selectedCategory = "" },
-                            label = { Text("全部", style = MaterialTheme.typography.labelSmall) }
-                        )
-                    }
-                    items(categories) { cat ->
-                        FilterChip(
-                            selected = selectedCategory == cat,
-                            onClick = { selectedCategory = if (selectedCategory == cat) "" else cat },
-                            label = { Text(cat, style = MaterialTheme.typography.labelSmall) }
-                        )
-                    }
-                }
-            }
-
-            // 统计
-            Text(
-                text = "${filtered.size} 个插件" + if (entries.isNotEmpty()) "（共 ${entries.size}）" else "",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs)
-            )
-
-            // 安装提示
-            installMsg?.let { msg ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-                        Text(msg, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { installMsg = null }) { Text(stringResource(R.string.ok)) }
-                    }
-                }
-            }
-
-            if (isLoading) {
-                Box(Modifier.fillMaxWidth().padding(top = Spacing.xl), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = Spacing.xl)
-                ) {
-                    items(filtered.take(200)) { entry ->
-                        DshEntryCard(
-                            entry = entry,
-                            onInstall = {
-                                if (entry.repoUrl.isNotBlank()) {
-                                    kotlinx.coroutines.MainScope().launch {
-                                        installMsg = "正在安装 ${entry.displayName}..."
-                                        when (val r = repository.installDshPluginFromGithub(entry.repoUrl)) {
-                                            is com.vantacode.feature.settings.data.repository.DshPluginInstallResult.Success -> {
-                                                installMsg = "安装成功: ${r.items.joinToString(" / ")}"
-                                            }
-                                            is com.vantacode.feature.settings.data.repository.DshPluginInstallResult.Failure -> {
-                                                installMsg = r.reason
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    val cmd = repository.dshInstallCommand(entry)
-                                    clipboardManager.setText(AnnotatedString(cmd))
-                                    installMsg = "安装命令已复制: $cmd"
-                                }
-                            }
-                        )
-                    }
-                    if (filtered.size > 200) {
-                        item {
-                            Text(
-                                text = "仅显示前 200 条，请用搜索缩小范围",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(Spacing.lg)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * 技能市场（在线）。
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 internal fun SkillMarketOnlineScreen(
     repository: MarketRepository,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var entries by remember { mutableStateOf<List<MarketEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var installMsg by remember { mutableStateOf<String?>(null) }
+    var sortByStars by remember { mutableStateOf(true) }
+    var reloadKey by remember { mutableStateOf(0) }
+    var page by remember { mutableStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        entries = repository.loadSkillRegistry("")
+    // 关键词变了就重新查在线接口；空关键词走注册表/话题浏览。输入停顿 450ms 再发请求，省配额。
+    LaunchedEffect(searchQuery, reloadKey) {
+        if (searchQuery.isNotBlank()) kotlinx.coroutines.delay(450)
+        isLoading = true
+        page = 1
+        entries = if (searchQuery.isBlank()) {
+            repository.loadSkillRegistry()
+        } else {
+            repository.searchSkillsOnline(searchQuery, page = 1)
+        }
+        hasMore = entries.isNotEmpty()
         isLoading = false
     }
 
-    val filtered = remember(searchQuery, entries) {
-        repository.searchSkills(entries, searchQuery)
+    val filtered = remember(searchQuery, entries, sortByStars) {
+        val matched = repository.searchSkills(entries, searchQuery)
+        if (sortByStars) matched.sortedByDescending { it.stars } else matched.sortedBy { it.name }
     }
 
     Scaffold(
@@ -223,6 +83,11 @@ internal fun SkillMarketOnlineScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
+                },
+                actions = {
+                    IconButton(onClick = { reloadKey++ }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                    }
                 }
             )
         }
@@ -237,6 +102,25 @@ internal fun SkillMarketOnlineScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = context.getString(R.string.market_total_skills, entries.size) +
+                        (if (searchQuery.isNotBlank()) context.getString(R.string.market_matched, filtered.size) else ""),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { sortByStars = !sortByStars }) {
+                    Text(
+                        text = if (sortByStars) stringResource(R.string.market_sort_by_stars) else stringResource(R.string.market_sort_by_name),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
 
             installMsg?.let { msg ->
                 Card(
@@ -289,6 +173,30 @@ internal fun SkillMarketOnlineScreen(
                             }
                         }
                     }
+                    if (hasMore && !isLoading) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(Spacing.md), contentAlignment = Alignment.Center) {
+                                TextButton(
+                                    enabled = !loadingMore,
+                                    onClick = {
+                                        scope.launch {
+                                            loadingMore = true
+                                            val next = page + 1
+                                            val more = repository.searchSkillsOnline(searchQuery, page = next)
+                                            if (more.isNotEmpty()) {
+                                                page = next
+                                                entries = entries + more
+                                            }
+                                            hasMore = more.isNotEmpty()
+                                            loadingMore = false
+                                        }
+                                    }
+                                ) {
+                                    Text(if (loadingMore) stringResource(R.string.market_loading_more) else stringResource(R.string.market_load_more))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -298,133 +206,114 @@ internal fun SkillMarketOnlineScreen(
 // ─── 卡片 ───
 
 @Composable
-private fun DshEntryCard(
-    entry: DshCatalogEntry,
+private fun SkillEntryCard(
+    entry: MarketEntry,
     onInstall: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.lg, vertical = Spacing.xs)
+            .clickable { expanded = !expanded },
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = entry.displayName.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(Modifier.width(Spacing.md))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = entry.displayName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (entry.descriptionZh.isNotBlank()) {
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = entry.descriptionZh,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = entry.displayName.ifBlank { entry.name }.firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-                val meta = buildList {
-                    // DSH Go 插件类型标识
-                    val typeIcon = when {
-                        entry.name.contains("theme") || entry.category == "theme" -> "[主题] "
-                        entry.name.contains("pet") || entry.name.contains("桌宠") -> "[桌宠] "
-                        entry.name.contains("background") || entry.name.contains("wallpaper") -> "[背景] "
-                        entry.name.contains("dshgo") || entry.name.contains("dsh-go") -> "[DSHGo] "
-                        else -> ""
-                    }
-                    add(typeIcon + entry.category)
-                    if (entry.latestVersion.isNotBlank()) add("v${entry.latestVersion}")
-                    if (entry.repoUrl.isNotBlank()) {
-                        add(entry.repoUrl.removePrefix("https://github.com/"))
-                    }
-                }.joinToString(" · ")
-                if (meta.isNotBlank()) {
+                Spacer(Modifier.width(Spacing.md))
+                Column(Modifier.weight(1f)) {
                     Text(
-                        text = meta,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        maxLines = 1,
+                        text = entry.displayName.ifBlank { entry.name },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = if (expanded) 3 else 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (entry.description.isNotBlank()) {
+                        Text(
+                            text = entry.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = if (expanded) Int.MAX_VALUE else 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    val meta = buildList {
+                        if (entry.author.isNotBlank()) add(entry.author)
+                        if (entry.stars > 0) add("★ ${entry.stars}")
+                        if (entry.version.isNotBlank()) add("v${entry.version}")
+                        if (entry.category.isNotBlank()) add(entry.category)
+                    }.joinToString(" · ")
+                    if (meta.isNotBlank()) {
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Spacer(Modifier.width(Spacing.sm))
+                FilledTonalButton(onClick = onInstall) {
+                    Text(stringResource(R.string.market_install), style = MaterialTheme.typography.labelMedium)
                 }
             }
-            Spacer(Modifier.width(Spacing.sm))
-            FilledTonalButton(onClick = onInstall) {
-                Text(stringResource(R.string.market_install), style = MaterialTheme.typography.labelMedium)
+
+            if (!expanded) {
+                Text(
+                    text = stringResource(R.string.market_expand_detail),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(top = Spacing.xs)
+                )
+            } else {
+                HorizontalDivider(Modifier.padding(vertical = Spacing.sm))
+                SkillDetailRow(stringResource(R.string.skill_detail_name), entry.name)
+                if (entry.displayName.isNotBlank()) SkillDetailRow(stringResource(R.string.skill_detail_display_name), entry.displayName)
+                if (entry.author.isNotBlank()) SkillDetailRow(stringResource(R.string.skill_detail_author), entry.author)
+                if (entry.stars > 0) SkillDetailRow(stringResource(R.string.skill_detail_stars), entry.stars.toString())
+                if (entry.version.isNotBlank()) SkillDetailRow(stringResource(R.string.skill_detail_version), entry.version)
+                if (entry.category.isNotBlank()) SkillDetailRow(stringResource(R.string.skill_detail_category), entry.category)
+                if (entry.packageName.isNotBlank()) SkillDetailRow(stringResource(R.string.skill_detail_package), entry.packageName)
+                if (entry.tags.isNotEmpty()) SkillDetailRow(stringResource(R.string.skill_detail_tags), entry.tags.joinToString("、"))
+                if (entry.downloadUrl.isNotBlank()) SkillDetailRow(stringResource(R.string.skill_detail_download), entry.downloadUrl)
+                Text(
+                    text = stringResource(R.string.skill_install_note),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.sm)
+                )
             }
         }
     }
 }
 
+/** 技能详情里的「标签 — 值」行。 */
 @Composable
-private fun SkillEntryCard(
-    entry: MarketEntry,
-    onInstall: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.xs),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = entry.displayName.ifBlank { entry.name }.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(Modifier.width(Spacing.md))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = entry.displayName.ifBlank { entry.name },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (entry.description.isNotBlank()) {
-                    Text(
-                        text = entry.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                val meta = buildList {
-                    if (entry.author.isNotBlank()) add(entry.author)
-                    if (entry.stars > 0) add("★ ${entry.stars}")
-                    if (entry.version.isNotBlank()) add("v${entry.version}")
-                }.joinToString(" · ")
-                if (meta.isNotBlank()) {
-                    Text(
-                        text = meta,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            Spacer(Modifier.width(Spacing.sm))
-            FilledTonalButton(onClick = onInstall) {
-                Text(stringResource(R.string.market_install), style = MaterialTheme.typography.labelMedium)
-            }
-        }
+private fun SkillDetailRow(label: String, value: String) {
+    if (value.isBlank()) return
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(72.dp)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.weight(1f)
+        )
     }
 }

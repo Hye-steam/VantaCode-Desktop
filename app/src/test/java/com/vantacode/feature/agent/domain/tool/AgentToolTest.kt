@@ -81,7 +81,12 @@ class AgentToolTest {
             agentDefinitionRepository = mockk(relaxed = true),
             aiProviderRepository = mockk(relaxed = true),
             subagentTierSettings = mockk(relaxed = true),
-            appContext = mockk(relaxed = true)
+            appContext = mockk(relaxed = true),
+            teamRepository = mockk(relaxed = true),
+            teamChatRunner = mockk(relaxed = true),
+            teamExecutionRegistry = mockk(relaxed = true),
+            teamExecutor = mockk(relaxed = true),
+            teamChatDao = mockk(relaxed = true)
         )
 
         val tasksParam = taskTool.parameters["tasks"]
