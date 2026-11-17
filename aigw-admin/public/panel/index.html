@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 网关后台</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#fff; --ink:#1a1d23; --ink2:#5a6270; --ink3:#9aa2ae;
+    --line:#eceef3; --primary:#10b981; --primary-soft:#ecfdf5; --danger:#f43f5e;
+    --warn:#d97706; --info:#0284c7; --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--ink3);font-size:12px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .grow{flex:1;min-width:160px}
+  label{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fbfcfd;font:inherit;color:var(--ink)}
+  textarea{min-height:80px;resize:vertical}
+  button{padding:9px 16px;border:0;border-radius:10px;background:var(--primary);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  button.ghost{background:var(--primary-soft);color:#059669}
+  button.danger{background:#fef2f4;color:var(--danger)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--ink3);font-weight:600;font-size:12px;white-space:nowrap}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:5px;font-size:12px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+  .p-online{background:var(--primary-soft);color:#059669}
+  .p-silent{background:#fffbeb;color:var(--warn)}
+  .p-offline{background:#fef2f4;color:var(--danger)}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs button{background:#fff;color:var(--ink2);border:1px solid var(--line);font-weight:500}
+  .tabs button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .muted{color:var(--ink3);font-size:12px}
+  .stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+  .stat div{background:#fbfcfd;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .stat b{display:block;font-size:20px}
+  .hidden{display:none}
+  .err{color:var(--danger);font-size:12px;margin-top:8px}
+  .ok{color:#059669;font-size:12px;margin-top:8px}
+  pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:#f8fafc;padding:10px;border-radius:10px;margin:6px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI 网关后台</h1>
+  <div class="sub">设备心跳 · 远程公告 · 版本发布 · 供应商开关 · Bug 反馈</div>
+
+  <!-- 首次初始化 -->
+  <div class="card hidden" id="initCard">
+    <div style="margin-bottom:14px">
+      <b>首次使用 · 创建管理员</b>
+      <div class="muted" style="margin-top:4px">当前还没有任何管理员账号。创建后该入口自动关闭，请务必牢记密码。</div>
+    </div>
+    <div class="row">
+      <div class="grow"><label>用户名（3-50 位字母数字下划线）</label><input id="initUser" autocomplete="username"></div>
+      <div class="grow"><label>密码（至少 10 位）</label><input id="initPass" type="password" autocomplete="new-password"></div>
+      <div class="grow"><label>确认密码</label><input id="initPass2" type="password" autocomplete="new-password"></div>
+      <div style="padding-top:18px"><button onclick="doInit()">创建并登录</button></div>
+    </div>
+    <div class="err hidden" id="initErr"></div>
+  </div>
+
+  <!-- 登录 -->
+  <div class="card hidden" id="loginCard">
+    <div class="row">
+      <div class="grow"><label>用户名</label><input id="loginUser" autocomplete="username"></div>
+      <div class="grow"><label>密码</label><input id="loginPass" type="password" autocomplete="current-password"></div>
+      <div style="padding-top:18px"><button onclick="doLogin()">登录</button></div>
+    </div>
+    <div class="err hidden" id="loginErr"></div>
+  </div>
+
+  <!-- 主体 -->
+  <div id="main" class="hidden">
+    <div class="tabs">
+      <button data-tab="overview" class="active" onclick="switchTab('overview')">概览</button>
+      <button data-tab="devices" onclick="switchTab('devices')">设备</button>
+      <button data-tab="announcements" onclick="switchTab('announcements')">公告</button>
+      <button data-tab="releases" onclick="switchTab('releases')">版本</button>
+      <button data-tab="bugs" onclick="switchTab('bugs')">反馈</button>
+      <button data-tab="settings" onclick="switchTab('settings')">配置</button>
+      <span class="grow"></span>
+      <button class="ghost" onclick="doLogout()">退出</button>
+    </div>
+
+    <div id="tab-overview" class="tabpane">
+      <div class="card"><div class="stat" id="statBox"></div></div>
+    </div>
+
+    <div id="tab-devices" class="tabpane hidden">
+      <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <div class="grow muted">三态判定：5 分钟内=在线，6 小时内=沉默，超过=离线；running 但沉默/离线会标记异常。</div>
+          <button class="ghost" onclick="loadDevices()">刷新</button>
+        </div>
+        <div id="devicesBox"></div>
+      </div>
+      <div class="card hidden" id="deviceDetailCard">
+        <div class="row" style="margin-bottom:10px">
+          <b id="detailTitle" class="grow"></b>
+          <button class="ghost" onclick="closeDetail()">关闭</button>
+        </div>
+        <div id="deviceDetail"></div>
+      </div>
+    </div>
+
+    <div id="tab-announcements" class="tabpane hidden">
+      <div class="card">
+        <div class="row">
+          <div class="grow"><label>dedup_key（同 key 内容变化才会重弹）</label><input id="annKey"></div>
+          <div class="grow"><label>级别</label>
+            <select id="annLevel"><option value="info">info</option><option value="warn">warn</option><option value="critical">critical</option></select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>标题</label><input id="annTitle"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>正文</label><textarea id="annBody"></textarea></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>按钮文字（可选）</label><input id="annActionLabel"></div>
+          <div class="grow"><label>按钮链接（可选）</label><input id="annActionUrl"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>最低 versionCode（可选）</label><input id="annMin"></div>
+          <div class="grow"><label>最高 versionCode（可选）</label><input id="annMax"></div>
+          <div class="grow"><label>开始时间（可选）</label><input id="annStarts" placeholder="YYYY-MM-DD HH:MM:SS"></div>
+          <div class="grow"><label>结束时间（可选）</label><input id="annEnds" placeholder="YYYY-MM-DD HH:MM:SS"></div>
+          <div class="grow"><label>启用</label>
+            <select id="annEnabled"><option value="1">是</option><option value="0">否</option></select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button onclick="saveAnnouncement()">保存公告</button>
+          <button class="ghost" onclick="resetAnnouncementForm()">清空表单</button>
+          <span class="grow"></span>
+          <button class="ghost" onclick="loadAnnouncements()">刷新</button>
+        </div>
+        <div class="err hidden" id="annErr"></div>
+        <div id="annBox" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div id="tab-releases" class="tabpane hidden">
+      <div class="card">
+        <div class="row">
+          <div class="grow"><label>版本名</label><input id="relVersion" placeholder="1.7.21"></div>
+          <div class="grow"><label>versionCode</label><input id="relCode" placeholder="72"></div>
+          <div class="grow"><label>灰度百分比</label><input id="relRollout" value="100"></div>
+          <div class="grow"><label>强制更新</label>
+            <select id="relForce"><option value="0">否</option><option value="1">是</option></select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>APK 地址</label><input id="relUrl" placeholder="https://example.com/app.apk"></div>
+          <div class="grow"><label>APK 大小（字节，可选）</label><input id="relSize"></div>
+          <div class="grow"><label>APK SHA256（可选）</label><input id="relSha"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>更新日志</label><textarea id="relChangelog"></textarea></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button onclick="saveRelease()">发布/更新</button>
+          <span class="grow"></span>
+          <button class="ghost" onclick="loadReleases()">刷新</button>
+        </div>
+        <div class="err hidden" id="relErr"></div>
+        <div id="relBox" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div id="tab-bugs" class="tabpane hidden">
+      <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <div class="grow"><label>状态筛选</label>
+            <select id="bugFilter" onchange="loadBugs()">
+              <option value="">全部</option><option value="open">待处理</option>
+              <option value="fixing">修复中</option><option value="done">已解决</option>
+            </select>
+          </div>
+          <button class="ghost" onclick="loadBugs()" style="margin-top:18px">刷新</button>
+        </div>
+        <div id="bugsBox"></div>
+      </div>
+    </div>
+
+    <div id="tab-settings" class="tabpane hidden">
+      <div class="card">
+        <div class="row">
+          <div class="grow"><label>全局最低支持 versionCode（低于则强制更新，0=关闭）</label><input id="setMinCode"></div>
+          <div class="grow"><label>心跳间隔（秒，30-3600）</label><input id="setInterval"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="grow"><label>异常告警 Webhook（留空不通知）</label><input id="setWebhook"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button onclick="saveSettings()">保存配置</button>
+          <button class="ghost" onclick="loadSettings()">刷新</button>
+        </div>
+        <div class="err hidden" id="setErr"></div>
+        <div class="ok hidden" id="setOk"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = { tab: 'overview', devices: [], announcements: [], editingAnnId: 0 };
+
+async function api(path, opts = {}) {
+  const res = await fetch('/panel/api/' + path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (res.status === 401) { showLogin(); throw new Error('未登录'); }
+  const data = await res.json().catch(() => ({}));
+  if (data.code !== 0) throw new Error(data.msg || '请求失败');
+  return data.data;
+}
+
+function showLogin() {
+  document.getElementById('initCard').classList.add('hidden');
+  document.getElementById('loginCard').classList.remove('hidden');
+  document.getElementById('main').classList.add('hidden');
+}
+function showInit() {
+  document.getElementById('initCard').classList.remove('hidden');
+  document.getElementById('loginCard').classList.add('hidden');
+  document.getElementById('main').classList.add('hidden');
+}
+function showMain() {
+  document.getElementById('initCard').classList.add('hidden');
+  document.getElementById('loginCard').classList.add('hidden');
+  document.getElementById('main').classList.remove('hidden');
+}
+
+async function doInit() {
+  const err = document.getElementById('initErr');
+  err.classList.add('hidden');
+  const username = document.getElementById('initUser').value.trim();
+  const pass = document.getElementById('initPass').value;
+  const pass2 = document.getElementById('initPass2').value;
+  if (pass !== pass2) {
+    err.textContent = '两次输入的密码不一致';
+    err.classList.remove('hidden');
+    return;
+  }
+  try {
+    await api('init', { method: 'POST', body: JSON.stringify({ username, password: pass }) });
+    showMain(); switchTab('overview');
+  } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+async function doLogin() {
+  const err = document.getElementById('loginErr');
+  err.classList.add('hidden');
+  try {
+    await api('login', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: document.getElementById('loginUser').value.trim(),
+        password: document.getElementById('loginPass').value,
+      }),
+    });
+    showMain(); switchTab('overview');
+  } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+async function doLogout() {
+  try { await api('logout', { method: 'POST', body: '{}' }); } catch (e) {}
+  showLogin();
+}
+
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll('.tabs button[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  if (tab === 'overview') loadStats();
+  if (tab === 'devices') loadDevices();
+  if (tab === 'announcements') loadAnnouncements();
+  if (tab === 'releases') loadReleases();
+  if (tab === 'bugs') loadBugs();
+  if (tab === 'settings') loadSettings();
+}
+
+// ---------------- 概览
+async function loadStats() {
+  const d = await api('stats');
+  document.getElementById('statBox').innerHTML = `
+    <div><span class="muted">设备总数</span><b>${d.devices_total}</b></div>
+    <div><span class="muted">在线</span><b style="color:#059669">${d.devices_online}</b></div>
+    <div><span class="muted">沉默</span><b style="color:#d97706">${d.devices_silent}</b></div>
+    <div><span class="muted">离线</span><b style="color:#f43f5e">${d.devices_offline}</b></div>
+    <div><span class="muted">未处理反馈</span><b>${d.bugs_open}</b></div>`;
+}
+
+// ---------------- 设备
+function pill(state, alert) {
+  const map = { online: ['p-online', '在线'], silent: ['p-silent', '沉默'], offline: ['p-offline', '离线'] };
+  const [cls, text] = map[state] || ['p-offline', state];
+  return `<span class="pill ${cls}">${text}</span>` + (alert ? ' <span class="pill p-silent">异常</span>' : '');
+}
+
+async function loadDevices() {
+  const d = await api('devices');
+  state.devices = d.devices;
+  if (!d.devices.length) { document.getElementById('devicesBox').innerHTML = '<div class="muted">暂无设备上报</div>'; return; }
+  const rows = d.devices.map(x => `
+    <tr>
+      <td><code>${x.device_id.slice(0, 12)}…</code><div class="muted">${x.manufacturer || ''} ${x.model || ''}</div></td>
+      <td>${x.app_version || '-'}<div class="muted">code ${x.version_code}</div></td>
+      <td>${pill(x.state, x.alert)}</td>
+      <td>${x.running ? '运行中' : '已停止'}<div class="muted">端口 ${x.port || '-'}</div></td>
+      <td>${x.last_seen_at || '-'}</td>
+      <td><button class="ghost" onclick="openDetail('${x.device_id}')">详情</button></td>
+    </tr>`).join('');
+  document.getElementById('devicesBox').innerHTML = `
+    <table><thead><tr><th>设备</th><th>版本</th><th>状态</th><th>网关</th><th>最后心跳</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+async function openDetail(deviceId) {
+  const d = await api('device?device_id=' + encodeURIComponent(deviceId));
+  document.getElementById('detailTitle').textContent = '设备 ' + d.device_id;
+  const providers = (d.provider_sync && d.provider_sync.providers) || [];
+  const switches = {};
+  (d.switches || []).forEach(s => switches[s.provider_id] = s);
+
+  const provRows = providers.length ? providers.map(p => {
+    const sw = switches[p.provider_id];
+    const enabled = sw ? sw.enabled : true;
+    return `<tr>
+      <td><code>${p.provider_id}</code></td>
+      <td>${p.accounts_ok}/${p.accounts_total}</td>
+      <td>${p.enabled ? '已启用' : '已停用'}</td>
+      <td>${p.last_error ? p.last_error.slice(0, 40) : '-'}</td>
+      <td>
+        <select onchange="toggleProvider('${deviceId}','${p.provider_id}', this.value)">
+          <option value="1" ${enabled ? 'selected' : ''}>远程启用</option>
+          <option value="0" ${!enabled ? 'selected' : ''}>远程停用</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="muted">暂无供应商上报</td></tr>';
+
+  document.getElementById('deviceDetail').innerHTML = `
+    <div class="muted" style="margin-bottom:8px">
+      同步时间：${d.provider_sync ? d.provider_sync.received_at : '-'} ·
+      剩余池：${JSON.stringify(d.pool_summary)}
+    </div>
+    <table><thead><tr><th>供应商</th><th>账号</th><th>本地状态</th><th>最近错误</th><th>远程开关</th></tr></thead>
+    <tbody>${provRows}</tbody></table>`;
+  document.getElementById('deviceDetailCard').classList.remove('hidden');
+}
+
+function closeDetail() { document.getElementById('deviceDetailCard').classList.add('hidden'); }
+
+async function toggleProvider(deviceId, providerId, value) {
+  await api('switch', { method: 'POST', body: JSON.stringify({ device_id: deviceId, provider_id: providerId, enabled: value === '1' }) });
+}
+
+// ---------------- 公告
+function resetAnnouncementForm() {
+  state.editingAnnId = 0;
+  ['annKey','annTitle','annBody','annActionLabel','annActionUrl','annMin','annMax','annStarts','annEnds'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('annLevel').value = 'info';
+  document.getElementById('annEnabled').value = '1';
+}
+
+async function loadAnnouncements() {
+  const d = await api('announcements');
+  state.announcements = d.announcements;
+  const rows = d.announcements.map(a => `
+    <tr>
+      <td><code>${a.dedup_key}</code><div class="muted">${a.level}</div></td>
+      <td>${escapeHtml(a.title)}<div class="muted">${escapeHtml((a.body || '').slice(0, 60))}</div></td>
+      <td>${a.enabled == 1 ? '启用' : '停用'}<div class="muted">${a.starts_at || '—'} ~ ${a.ends_at || '—'}</div></td>
+      <td>${a.min_code || '-'} ~ ${a.max_code || '-'}</td>
+      <td>
+        <button class="ghost" onclick="editAnnouncementById(${a.id})">编辑</button>
+        <button class="danger" onclick="deleteAnnouncement(${a.id})">删除</button>
+      </td>
+    </tr>`).join('');
+  document.getElementById('annBox').innerHTML = d.announcements.length
+    ? `<table><thead><tr><th>去重键/级别</th><th>标题</th><th>状态/时间窗</th><th>版本区间</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<div class="muted">暂无公告</div>';
+}
+
+function editAnnouncementById(id) {
+  const a = (state.announcements || []).find(x => Number(x.id) === Number(id));
+  if (!a) return;
+  state.editingAnnId = a.id;
+  document.getElementById('annKey').value = a.dedup_key || '';
+  document.getElementById('annTitle').value = a.title || '';
+  document.getElementById('annBody').value = a.body || '';
+  document.getElementById('annLevel').value = a.level || 'info';
+  document.getElementById('annActionLabel').value = a.action_label || '';
+  document.getElementById('annActionUrl').value = a.action_url || '';
+  document.getElementById('annMin').value = a.min_code ?? '';
+  document.getElementById('annMax').value = a.max_code ?? '';
+  document.getElementById('annStarts').value = a.starts_at || '';
+  document.getElementById('annEnds').value = a.ends_at || '';
+  document.getElementById('annEnabled').value = String(a.enabled ?? 1);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function saveAnnouncement() {
+  const err = document.getElementById('annErr');
+  err.classList.add('hidden');
+  try {
+    await api('announcement/save', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: state.editingAnnId,
+        dedup_key: document.getElementById('annKey').value.trim(),
+        title: document.getElementById('annTitle').value.trim(),
+        body: document.getElementById('annBody').value,
+        level: document.getElementById('annLevel').value,
+        action_label: document.getElementById('annActionLabel').value.trim(),
+        action_url: document.getElementById('annActionUrl').value.trim(),
+        min_code: document.getElementById('annMin').value.trim(),
+        max_code: document.getElementById('annMax').value.trim(),
+        starts_at: document.getElementById('annStarts').value.trim(),
+        ends_at: document.getElementById('annEnds').value.trim(),
+        enabled: document.getElementById('annEnabled').value === '1',
+      }),
+    });
+    resetAnnouncementForm();
+    loadAnnouncements();
+  } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('确定删除这条公告？')) return;
+  await api('announcement/delete', { method: 'POST', body: JSON.stringify({ id }) });
+  loadAnnouncements();
+}
+
+// ---------------- 版本
+async function loadReleases() {
+  const d = await api('releases');
+  const rows = d.releases.map(r => `
+    <tr>
+      <td>${r.version}<div class="muted">code ${r.version_code}</div></td>
+      <td>${r.force_update == 1 ? '<span class="pill p-offline">强制</span>' : '可选'}<div class="muted">灰度 ${r.rollout_percent}%</div></td>
+      <td><a href="${escapeAttr(r.apk_url)}" target="_blank" rel="noreferrer">下载</a>
+        <div class="muted">${r.apk_size || '-'} 字节</div></td>
+      <td><div class="muted">${(r.apk_sha256 || '-').slice(0, 16)}…</div></td>
+      <td>${r.published_at}</td>
+      <td><button class="danger" onclick="deleteRelease(${r.id})">删除</button></td>
+    </tr>`).join('');
+  document.getElementById('relBox').innerHTML = d.releases.length
+    ? `<table><thead><tr><th>版本</th><th>策略</th><th>APK</th><th>SHA256</th><th>发布时间</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<div class="muted">暂无版本</div>';
+}
+
+async function saveRelease() {
+  const err = document.getElementById('relErr');
+  err.classList.add('hidden');
+  try {
+    await api('release/save', {
+      method: 'POST',
+      body: JSON.stringify({
+        version: document.getElementById('relVersion').value.trim(),
+        version_code: document.getElementById('relCode').value.trim(),
+        apk_url: document.getElementById('relUrl').value.trim(),
+        apk_size: document.getElementById('relSize').value.trim(),
+        apk_sha256: document.getElementById('relSha').value.trim(),
+        changelog: document.getElementById('relChangelog').value,
+        force_update: document.getElementById('relForce').value === '1',
+        rollout_percent: document.getElementById('relRollout').value.trim(),
+      }),
+    });
+    loadReleases();
+  } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+async function deleteRelease(id) {
+  if (!confirm('确定删除该版本？')) return;
+  await api('release/delete', { method: 'POST', body: JSON.stringify({ id }) });
+  loadReleases();
+}
+
+// ---------------- 反馈
+async function loadBugs() {
+  const status = document.getElementById('bugFilter').value;
+  const d = await api('bugs' + (status ? '?status=' + status : ''));
+  if (!d.bugs.length) { document.getElementById('bugsBox').innerHTML = '<div class="muted">暂无反馈</div>'; return; }
+  const rows = d.bugs.map(b => `
+    <tr>
+      <td>#${b.id}<div class="muted">${b.created_at}</div></td>
+      <td><b>${escapeHtml(b.title)}</b>
+        <div class="muted">${escapeHtml((b.detail || '').slice(0, 120))}</div>
+        ${b.log_excerpt ? `<pre>${escapeHtml(b.log_excerpt.slice(0, 600))}</pre>` : ''}
+      </td>
+      <td>${b.severity}<div class="muted">${b.app_version || ''}</div></td>
+      <td>
+        <select onchange="setBugStatus(${b.id}, this.value)">
+          ${['open','fixing','done'].map(s => `<option value="${s}" ${b.status === s ? 'selected' : ''}>${({open:'待处理',fixing:'修复中',done:'已解决'})[s]}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`).join('');
+  document.getElementById('bugsBox').innerHTML = `
+    <table><thead><tr><th>提交</th><th>内容</th><th>级别</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function setBugStatus(id, status) {
+  await api('bug/status', { method: 'POST', body: JSON.stringify({ id, status }) });
+}
+
+// ---------------- 配置
+async function loadSettings() {
+  const d = await api('settings');
+  const s = d.settings || {};
+  document.getElementById('setMinCode').value = s.min_supported_code || '0';
+  document.getElementById('setInterval').value = s.heartbeat_interval_sec || '60';
+  document.getElementById('setWebhook').value = s.alert_webhook || '';
+}
+
+async function saveSettings() {
+  const err = document.getElementById('setErr');
+  const ok = document.getElementById('setOk');
+  err.classList.add('hidden'); ok.classList.add('hidden');
+  try {
+    await api('settings', {
+      method: 'POST',
+      body: JSON.stringify({
+        min_supported_code: document.getElementById('setMinCode').value.trim(),
+        heartbeat_interval_sec: document.getElementById('setInterval').value.trim(),
+        alert_webhook: document.getElementById('setWebhook').value.trim(),
+      }),
+    });
+    ok.textContent = '已保存'; ok.classList.remove('hidden');
+  } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+// ---------------- 工具
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+// 启动：先查是否已初始化，再判断是否已登录
+(async function boot() {
+  try {
+    const st = await api('init-status');
+    if (st.needs_init) { showInit(); return; }
+  } catch (e) { /* 忽略，走登录流程 */ }
+  try { await api('stats'); showMain(); switchTab('overview'); }
+  catch (e) { showLogin(); }
+})();
+</script>
+</body>
+</html>

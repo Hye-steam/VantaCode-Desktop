@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>pet</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:transparent;}
+  canvas{display:block;background:transparent;}
+  #stage{position:fixed;inset:0;background:transparent;}
+  #err{position:fixed;left:0;right:0;bottom:2px;font:11px/1.4 -apple-system,sans-serif;
+       color:#B4543F;text-align:center;opacity:.85;display:none;}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="err"></div>
+
+<script src="lib/pixi.min.js"></script>
+<script src="lib/live2dcubismcore.min.js"></script>
+<script src="lib/live2d.min.js"></script>
+<script src="lib/pixi-live2d-display.min.js"></script>
+<script>
+(function () {
+  var stageEl = document.getElementById('stage');
+  var errEl = document.getElementById('err');
+  var app = null, model = null, currentPath = '', baseScale = 1;
+  window.__petStatus = 'init';
+  window.__petInfo = null;
+
+  function report(msg) {
+    try {
+      if (window.AndroidPet && AndroidPet.onError) AndroidPet.onError(String(msg));
+    } catch (e) {}
+  }
+
+  function initApp() {
+    app = new PIXI.Application({
+      backgroundAlpha: 0,
+      transparent: true,
+      resizeTo: window,
+      antialias: true,
+      autoDensity: true,
+      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      powerPreference: 'high-performance'
+    });
+    app.renderer.backgroundAlpha = 0;
+    stageEl.appendChild(app.view);
+    app.view.style.position = 'absolute';
+    app.view.style.left = '0';
+    app.view.style.top = '0';
+    app.view.style.background = 'transparent';
+
+    // 触摸事件交给原生层处理，这里只做视线跟随兜底
+    window.addEventListener('pointermove', function (e) {
+      focusAt(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+    });
+    window.addEventListener('resize', function () { setTimeout(fit, 80); });
+  }
+
+  // 每个模型的内容实际绘制范围（模型坐标系，离线量出），用它来做真正的居中/满屏适配
+  var CALIB = {
+    'model/DeepSeekChan/whale/c_0120.model3.json': { cw: 3645, ch: 3187, cx: 527, cy: 347 },
+    'model/DeepSeekChan/kr/model.model3.json':     { cw: 3096, ch: 6597, cx: 518, cy: 751 },
+    // 大肥鱼（DeepSeek 娘本体）：贴图里带 bilibili 工房水印，用自带的「水印消除」参数盖掉
+    'model/DeepSeekChan/feiyu/dafy.model3.json': { cw: 2290, ch: 4561, cx: 724, cy: 224 },
+    // 2026-11-10 新增大肥鱼系列（dsh-live2d-mao 仓库那 6 个），离线量出的真实绘制范围
+    'model/DaFeiyu/Mao/Mao.model3.json':       { cw: 5164, ch: 7504, cx: 178,  cy: 695 },
+    'model/DaFeiyu/Haru/Haru.model3.json':     { cw: 873,  ch: 3974, cx: 768,  cy: 237 },
+    'model/DaFeiyu/Hiyori/Hiyori.model3.json': { cw: 862,  ch: 3746, cx: 1062, cy: 318 },
+    'model/DaFeiyu/Mark/Mark.model3.json':     { cw: 965,  ch: 1635, cx: 677,  cy: 670 },
+    'model/DaFeiyu/Rice/Rice.model3.json':     { cw: 901,  ch: 2441, cx: 2625, cy: 401 },
+    'model/DaFeiyu/Wanko/Wanko.model3.json':   { cw: 461,  ch: 498,  cx: 384,  cy: 521 }
+  };
+  var autoCal = null;   // 未校准模型：运行时实测一次，再据此贴合
+  var loadSeq = 0;
+  // 模型宽度 / 高度（1 = 100%），两根滑杆分开控制，互不影响
+  var scaleX = 1, scaleY = 1;
+
+  // 舞台上只允许存在一个模型：切模型/重复加载时把旧的彻底清掉
+  function clearModels() {
+    if (!app || !app.stage) return;
+    var kids = app.stage.children.slice();
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c === model || c.internalModel || c.isLive2D) {
+        try { app.stage.removeChild(c); } catch (e) {}
+        try { c.destroy({ children: true }); } catch (e) {}
+      }
+    }
+    model = null;
+  }
+
+  function calibKey(path) {
+    if (!path) return '';
+    return String(path).replace(/^\.?\/?/, '').replace(/^web\//, '');
+  }
+
+  function fit() {
+    if (!model || !app) return;
+    var w = window.innerWidth, h = window.innerHeight;
+    var mw = (model.internalModel && model.internalModel.width) || model.width || 1;
+    var mh = (model.internalModel && model.internalModel.height) || model.height || 1;
+    var cal = CALIB[calibKey(currentPath)] || autoCal;
+
+    // 每个模型用自己的实测绘制范围（cw/ch），这是不被拉伸的前提
+    var cw = cal ? cal.cw : mw;
+    var ch = cal ? cal.ch : mh;
+    var cx = cal ? cal.cx : 0;
+    var cy = cal ? cal.cy : 0;
+
+    // 宽高已合并为单一「大小」：两轴必须用同一个系数
+    var k = (typeof scaleX === 'number' && scaleX > 0) ? scaleX : 1;
+
+    // 先按「整只模型塞进窗口」算基准比例（取宽高两个方向更紧的那个）
+    var sFit = Math.min(w / cw, (h * 0.995) / ch);
+    if (!isFinite(sFit) || sFit <= 0) sFit = Math.min(w / mw, h / mh);
+
+    var s = sFit * k;
+
+    // 关键：x/y 用同一个 s，保持模型原始宽高比
+    model.scale.set(s, s);
+
+    // 水平居中
+    model.x = (w - cw * s) / 2 - cx * s;
+
+    // 垂直：内容多出的空白全留到底部（会被窗口裁掉），气泡贴住模型顶端
+    var drawH = ch * s;
+    var slack = h - drawH;
+    var topY = -cy * s;
+    var bottomY = h - drawH - cy * s;
+    model.y = (slack > h * 0.06) ? topY : bottomY;
+
+    baseScale = s;
+    window.__hopBase = model.y;
+    window.__hopLast = model.y;
+
+    window.__petFit = { w: w, h: h, scale: s, x: model.x, y: model.y,
+                        cw: cw, ch: ch, slack: slack, k: k };
+  }
+
+  // 供离线校准使用：量当前画面里模型实际画到哪
+  window.__measure = function () {
+    if (!app || !model) return null;
+    var r = app.renderer;
+    var rw = r.width, rh = r.height, res = r.resolution || 1;
+    var px;
+    try {
+      px = r.extract.pixels(app.stage);
+    } catch (e) {
+      return { error: String(e) };
+    }
+    if (!px || !px.length) return { error: 'no pixels' };
+    var minx = rw, miny = rh, maxx = -1, maxy = -1;
+    for (var y = 0; y < rh; y++) {
+      for (var x = 0; x < rw; x++) {
+        if (px[(y * rw + x) * 4 + 3] > 8) {
+          if (x < minx) minx = x;
+          if (x > maxx) maxx = x;
+          if (y < miny) miny = y;
+          if (y > maxy) maxy = y;
+        }
+      }
+    }
+    if (maxx < 0) return { error: 'empty' };
+    return {
+      x: minx / res, y: (rh - 1 - maxy) / res,
+      w: (maxx - minx + 1) / res, h: (maxy - miny + 1) / res,
+      W: window.innerWidth, H: window.innerHeight
+    };
+  };
+
+  // 未离线校准的模型：渲染出来后实测一次实际绘制范围，按比例贴合窗口
+  function autoCalibrate() {
+    if (!model || !app || autoCal) return;
+    if (CALIB[calibKey(currentPath)]) return;
+    var m = window.__measure();
+    if (!m || m.error || !m.w || !m.h) return;
+    var s = model.scale.x || 0;
+    if (!(s > 0)) return;
+    var mw = (model.internalModel && model.internalModel.width) || model.width || 1;
+    var mh = (model.internalModel && model.internalModel.height) || model.height || 1;
+    var cw = m.w / s, ch = m.h / s;
+    if (!isFinite(cw) || !isFinite(ch) || cw < 8 || ch < 8) return;
+    if (cw > mw * 2.2 || ch > mh * 2.2) return;
+    // 内容本来就跟画布差不多大，就别再折腾
+    if (cw > mw * 0.92 && ch > mh * 0.92) return;
+    var cx = (m.x - model.x) / s;
+    var cy = (m.y - model.y) / s;
+    if (!isFinite(cx) || !isFinite(cy)) return;
+    autoCal = { cw: cw, ch: ch, cx: cx, cy: cy };
+    window.__autoCal = autoCal;
+    fit();
+  }
+
+  var lastFocus = 0;
+  window.__focusVec = { x: 0, y: 0 };
+
+  // x/y 是 0~1 的归一化触点。
+  // 这里不再走 model.focus()：库内部会用 atan2 把位置归一成方向向量，
+  // 手指靠近模型中心时方向会乱跳、幅度也不线性，看着就像「眼睛不跟手」。
+  // 直接驱动 focusController，把触点线性映射成 -1~1 的朝向，幅度稳定、跟手。
+  function focusAt(x, y) {
+    if (!model) return;
+    var now = Date.now();
+    if (now - lastFocus < 16) return;
+    lastFocus = now;
+    var nx = Math.max(0, Math.min(1, x));
+    var ny = Math.max(0, Math.min(1, y));
+    var dx = (nx - 0.5) * 2;
+    var dy = (0.5 - ny) * 2;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 1) {
+      dx /= len;
+      dy /= len;
+    }
+    window.__focusVec = { x: dx, y: dy };
+    try {
+      var fc = model.internalModel && model.internalModel.focusController;
+      if (fc && fc.focus) {
+        fc.focus(dx, dy, false);   // false = 平滑过渡，不像瞬移那么僵
+        return;
+      }
+    } catch (e) {}
+    try {
+      var w = window.innerWidth || 1, h = window.innerHeight || 1;
+      model.focus(nx * w, ny * h, true);
+    } catch (e) {}
+  }
+
+  // 点击时的可见反馈：模型轻轻一跳（韩版模型只有一个 Idle 动作，光播动作看不出来）
+  var hopRaf = null;
+  function hop(strength) {
+    if (!model) return;
+    var k = typeof strength === 'number' ? strength : 1;
+    if (hopRaf) {
+      try { cancelAnimationFrame(hopRaf); } catch (e) {}
+      hopRaf = null;
+    }
+    if (!window.__hopBase || Math.abs(model.y - window.__hopLast) > 0.5) {
+      window.__hopBase = model.y;
+    }
+    var baseY = window.__hopBase;
+    var amp = Math.max(8, (model.scale.y || 1) * 70) * k;
+    var t0 = 0;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / 400);
+      var s = Math.sin(Math.PI * p);
+      model.y = baseY - s * amp;
+      window.__hopLast = model.y;
+      if (p < 1) hopRaf = requestAnimationFrame(step);
+      else {
+        model.y = baseY;
+        window.__hopLast = model.y;
+        hopRaf = null;
+      }
+    }
+    hopRaf = requestAnimationFrame(step);
+  }
+
+  // ---------- 说话时嘴动起来 ----------
+  // 之前她「说话」只有气泡，模型本体一动不动，看着像没反应。
+  // 这里每帧直接按嘴形参数驱动（ParamMouthOpenY），说到哪嘴张到哪。
+  var speakUntil = 0;
+  var speakTimer = null;
+
+  // 大肥鱼这套模型的贴图里带了平台水印，模型作者留了一个「水印消除」参数
+  // （Paramcol_3 = 1 就把它盖掉）。这里每帧强制一次，别处切换表情也覆盖不回来。
+  var WM_PARAMS = { 'model/DeepSeekChan/feiyu/dafy.model3.json': ['Paramcol_3'] };
+  function applyWatermarkOff() {
+    if (window.__wmForce === false) return;
+    var ps = WM_PARAMS[calibKey(currentPath)];
+    if (!ps) return;
+    try {
+      var cm = model && model.internalModel && model.internalModel.coreModel;
+      if (!cm) return;
+      for (var i = 0; i < ps.length; i++) {
+        if (cm.setParameterValueById) cm.setParameterValueById(ps[i], 1);
+        else if (cm.setParamFloat) cm.setParamFloat(ps[i], 1);
+      }
+    } catch (e) {}
+  }
+
+  function applyMouth() {
+    window.__mouthCalls = (window.__mouthCalls || 0) + 1;
+    if (!model) return;
+    var open = 0;
+    if (speakUntil > Date.now()) {
+      var t = Date.now() / 78;
+      open = (0.18 + 0.82 * Math.abs(Math.sin(t)))
+           * (0.55 + 0.45 * Math.abs(Math.sin(t * 0.31)));
+    }
+    try {
+      var cm = model.internalModel.coreModel;
+      window.__mouthLast = open;
+      if (cm && cm.setParameterValueById) {
+        // Cubism 3 / 4
+        cm.setParameterValueById('ParamMouthOpenY', open);
+        cm.setParameterValueById('ParamMouthForm', open > 0.2 ? 0.7 : 0);
+      } else if (cm && cm.setParamFloat) {
+        // Cubism 2：这批模型绝大多数是老格式，参数名不一样
+        cm.setParamFloat('PARAM_MOUTH_OPEN_Y', open);
+      }
+    } catch (e) {}
+  }
+
+  // 有的模型只有一个待机动作（比如韩版），看着像张静态图。
+  // 这类模型用参数自己加一点呼吸、摇摆和眨眼，让它"活着"。
+  var needsLife = false;
+  var lifeT = 0;
+  var blinkState = 0;
+
+  function addParam(cm, id, v) {
+    try {
+      if (cm.addToParamFloat) cm.addToParamFloat(id, v, 1);
+      else cm.setParamFloat(id, (cm.getParamFloat ? cm.getParamFloat(id) : 0) + v);
+    } catch (e) {}
+  }
+
+  // ---------------- 1.8.0：程序化动作 ----------------
+  // 模型自带的动作是固定的（DeepSeek 娘 8 个、韩版 1 个），不够用。
+  // 这里用参数自己演一套：点头、摇头、歪头、蹦、挥手、伸懒腰、害羞、眼神飘、扭两下。
+  // 不依赖任何动作文件，Cubism 2 / 3 / 4 都能跑。
+  var procKind = null, procStart = 0, procDur = 1200;
+  var PROC_STYLES = ['nod', 'shake', 'tilt', 'bounce', 'wave', 'stretch', 'shy', 'look', 'dance'];
+
+  function nowMs() {
+    return (window.performance && performance.now) ? performance.now() : Date.now();
+  }
+
+  function playProcedural(kind, dur) {
+    procKind = kind || 'nod';
+    procStart = nowMs();
+    procDur = dur || 1200;
+  }
+
+  function applyProcedural() {
+    if (!procKind || !model) return;
+    var t = (nowMs() - procStart) / procDur;
+    if (t >= 1) { procKind = null; return; }
+    if (t < 0) t = 0;
+    var e = Math.sin(Math.PI * t);          // 起 → 峰 → 回，两头是 0
+    var k = procKind;
+    try {
+      var cm = model.internalModel.coreModel;
+      if (k === 'nod') {
+        addParam(cm, 'ParamAngleY', -10 * e);
+        addParam(cm, 'PARAM_ANGLE_Y', -24 * e);
+      } else if (k === 'shake') {
+        var sx = Math.sin(t * Math.PI * 5) * 9 * e;
+        addParam(cm, 'ParamAngleX', sx);
+        addParam(cm, 'PARAM_ANGLE_X', sx * 2.6);
+      } else if (k === 'tilt') {
+        addParam(cm, 'ParamAngleZ', 12 * e);
+        addParam(cm, 'PARAM_ANGLE_Z', 30 * e);
+      } else if (k === 'bounce') {
+        var by = Math.abs(Math.sin(t * Math.PI * 2)) * 7 * e;
+        addParam(cm, 'ParamBodyAngleY', by);
+        addParam(cm, 'PARAM_BODY_ANGLE_Y', by * 3);
+        addParam(cm, 'ParamAngleY', by * 0.4);
+        addParam(cm, 'PARAM_ANGLE_Y', by * 1.1);
+      } else if (k === 'wave') {
+        var w = Math.sin(t * Math.PI * 4) * 26 * e;
+        addParam(cm, 'ParamArmLA', w);
+        addParam(cm, 'ParamArmRA', -w * 0.35);
+        addParam(cm, 'PARAM_ARM_L_A', w);
+        addParam(cm, 'PARAM_ARM_R_A', -w * 0.35);
+        addParam(cm, 'ParamAngleZ', 5 * e);
+        addParam(cm, 'PARAM_ANGLE_Z', 12 * e);
+      } else if (k === 'stretch') {
+        addParam(cm, 'ParamBreath', 0.05 * e);
+        addParam(cm, 'PARAM_BREATH', 0.05 * e);
+        addParam(cm, 'ParamAngleY', -8 * e);
+        addParam(cm, 'PARAM_ANGLE_Y', -20 * e);
+        addParam(cm, 'ParamBodyAngleZ', 4 * e);
+        addParam(cm, 'PARAM_BODY_ANGLE_Z', 10 * e);
+      } else if (k === 'shy') {
+        addParam(cm, 'ParamCheek', 0.9 * e);
+        addParam(cm, 'PARAM_CHEEK', 0.9 * e);
+        addParam(cm, 'ParamAngleX', -6 * e);
+        addParam(cm, 'PARAM_ANGLE_X', -16 * e);
+        addParam(cm, 'ParamEyeLOpen', -0.35 * e);
+        addParam(cm, 'ParamEyeROpen', -0.35 * e);
+        addParam(cm, 'PARAM_EYE_L_OPEN', -0.35 * e);
+        addParam(cm, 'PARAM_EYE_R_OPEN', -0.35 * e);
+      } else if (k === 'look') {
+        addParam(cm, 'ParamEyeBallX', Math.sin(t * Math.PI * 2) * 0.8 * e);
+        addParam(cm, 'ParamEyeBallY', 0.4 * e);
+        addParam(cm, 'PARAM_EYE_BALL_X', Math.sin(t * Math.PI * 2) * 0.8 * e);
+        addParam(cm, 'PARAM_EYE_BALL_Y', 0.4 * e);
+        addParam(cm, 'ParamAngleX', Math.sin(t * Math.PI * 2) * 4 * e);
+        addParam(cm, 'PARAM_ANGLE_X', Math.sin(t * Math.PI * 2) * 10 * e);
+      } else if (k === 'dance') {
+        addParam(cm, 'ParamBodyAngleZ', Math.sin(t * Math.PI * 4) * 6 * e);
+        addParam(cm, 'PARAM_BODY_ANGLE_Z', Math.sin(t * Math.PI * 4) * 16 * e);
+        addParam(cm, 'ParamAngleZ', Math.sin(t * Math.PI * 4 + 0.6) * 8 * e);
+        addParam(cm, 'PARAM_ANGLE_Z', Math.sin(t * Math.PI * 4 + 0.6) * 20 * e);
+        addParam(cm, 'ParamArmLA', Math.sin(t * Math.PI * 4) * 14 * e);
+        addParam(cm, 'PARAM_ARM_L_A', Math.sin(t * Math.PI * 4) * 14 * e);
+      }
+    } catch (e2) {}
+  }
+
+  function applyLife() {
+    if (!model) return;
+    try {
+      applyProcedural();
+    } catch (e0) {}
+    if (!needsLife) return;
+    try {
+      var cm = model.internalModel.coreModel;
+      lifeT += 0.016;
+
+      // 呼吸：胸口的起伏
+      var breath = Math.sin(lifeT * 1.6) * 0.015;
+      addParam(cm, 'ParamBreath', breath);
+      addParam(cm, 'PARAM_BREATH', breath);
+
+      // 身体和头轻微晃
+      var sway = Math.sin(lifeT * 0.9) * 2.2;
+      var nod = Math.sin(lifeT * 0.55) * 1.4;
+      addParam(cm, 'ParamAngleX', sway);
+      addParam(cm, 'ParamAngleY', nod);
+      addParam(cm, 'ParamAngleZ', Math.sin(lifeT * 0.7) * 1.1);
+      addParam(cm, 'PARAM_ANGLE_X', sway * 15);
+      addParam(cm, 'PARAM_ANGLE_Y', nod * 15);
+      addParam(cm, 'PARAM_ANGLE_Z', Math.sin(lifeT * 0.7) * 8);
+      addParam(cm, 'ParamBodyAngleZ', Math.sin(lifeT * 0.8) * 1.5);
+      addParam(cm, 'PARAM_BODY_ANGLE_Z', Math.sin(lifeT * 0.8) * 8);
+
+      // 眨眼：每 3.6~5 秒一次
+      blinkState += 0.016;
+      var cyc = blinkState % 4.4;
+      var open = 1;
+      if (cyc > 4.2) open = Math.max(0, 1 - (cyc - 4.2) / 0.07);
+      else if (cyc > 4.27) open = Math.min(1, (cyc - 4.27) / 0.09);
+      if (open < 1) {
+        addParam(cm, 'ParamEyeLOpen', open - 1);
+        addParam(cm, 'ParamEyeROpen', open - 1);
+        addParam(cm, 'PARAM_EYE_L_OPEN', open - 1);
+        addParam(cm, 'PARAM_EYE_R_OPEN', open - 1);
+      }
+    } catch (e) {}
+  }
+
+  // 返回 {group,index}；index 必须落在该组动作数量之内，
+  // 之前随机一个 0~98 的索引，超过动作数就取不到，点了看着像没反应
+  var lastPick = null;
+  var lastExpr = -1;
+  var burstCount = 2;     // 一次做几个动作
+  var exprOn = true;      // 说话/动作时换表情
+
+  function pickRandomMotion() {
+    try {
+      if (!model) return null;
+      var defs = model.internalModel.motionManager.definitions || {};
+      var groups = Object.keys(defs).filter(function (g) {
+        return Array.isArray(defs[g]) && defs[g].length > 0;
+      });
+      if (!groups.length) return null;
+      // 优先挑真正有动作的组；idle 放最后当兜底
+      var weighted = groups.filter(function (g) { return g.toLowerCase() !== 'idle'; });
+      var pool = weighted.length ? weighted : groups;
+      for (var attempt = 0; attempt < 6; attempt++) {
+        var g = pool[Math.floor(Math.random() * pool.length)];
+        var i = Math.floor(Math.random() * defs[g].length);
+        if (!lastPick || lastPick.group !== g || lastPick.index !== i) {
+          lastPick = { group: g, index: i };
+          return lastPick;
+        }
+      }
+      var g2 = pool[Math.floor(Math.random() * pool.length)];
+      lastPick = { group: g2, index: 0 };
+      return lastPick;
+    } catch (e) { return null; }
+  }
+
+  /** 换一个跟上次不一样的表情 */
+  function pickExpression() {
+    if (!exprOn || !model) return -1;
+    try {
+      var em = model.internalModel.motionManager.expressionManager;
+      if (!em || !em.definitions || !em.definitions.length) return -1;
+      var n = em.definitions.length;
+      if (n === 1) return 0;
+      for (var k = 0; k < 6; k++) {
+        var i = Math.floor(Math.random() * n);
+        if (i !== lastExpr) { lastExpr = i; return i; }
+      }
+      lastExpr = (lastExpr + 1) % n;
+      return lastExpr;
+    } catch (e) { return -1; }
+  }
+
+  /** 连着做 n 个动作，动作之间有间隔，看起来像自己在活动 */
+  function chainMotions(n) {
+    if (!model) return false;
+    var played = false;
+    function step(left) {
+      if (!model || left <= 0) return;
+      try {
+        var pick = pickRandomMotion();
+        if (pick) {
+          model.motion(pick.group, pick.index);
+          played = true;
+        } else {
+          var defs = model.internalModel.motionManager.definitions || {};
+          if (defs.idle && defs.idle.length) {
+            model.motion('idle', Math.floor(Math.random() * defs.idle.length));
+            played = true;
+          }
+        }
+        var ei = pickExpression();
+        if (ei >= 0) { try { model.expression(ei); } catch (e) {} }
+        // 光靠模型自带动作会显得单调，一半概率叠一个程序化小动作
+        if (Math.random() < 0.55) {
+          playProcedural(PROC_STYLES[Math.floor(Math.random() * PROC_STYLES.length)],
+            900 + Math.random() * 700);
+        }
+      } catch (e) {}
+      if (left > 1) setTimeout(function () { step(left - 1); }, 700 + Math.random() * 900);
+    }
+    step(n);
+    return played;
+  }
+
+  var PetAPI = {
+    setModel: function (path, name) {
+      if (!app) initApp();
+      if (!path) return;
+      // 同一个模型已经加载好了就别重复加载（重复 addChild 会在屏幕上叠出两个模型）
+      if (path === currentPath && model && window.__petStatus === 'loaded') { fit(); return; }
+      currentPath = path;
+      loadSeq++;
+      var seq = loadSeq;
+      autoCal = null;
+      window.__autoCal = null;
+      window.__petStatus = 'loading';
+      window.__petInfo = null;
+      errEl.style.display = 'none';
+
+      clearModels();
+
+      PIXI.live2d.Live2DModel.from(path, { autoInteract: false, autoUpdate: true })
+        .then(function (m) {
+          // 加载期间用户又切了模型：这个结果作废，直接销毁，绝不能留在舞台上
+          if (seq !== loadSeq) {
+            try { m.destroy(); } catch (e) {}
+            return;
+          }
+          clearModels();
+          model = m;
+          window.__petStatus = 'loaded';
+          m.interactive = false;
+          app.stage.addChild(m);
+          fit();
+          try {
+            var defs = m.internalModel.motionManager.definitions || {};
+            if (defs.idle && defs.idle.length) m.motion('idle');
+          } catch (e) {}
+          setTimeout(function () { if (seq === loadSeq) fit(); }, 200);
+          setTimeout(function () { if (seq === loadSeq) fit(); }, 700);
+          try { m.internalModel.on('beforeModelUpdate', applyMouth); } catch (e) {}
+          try { m.internalModel.on('beforeModelUpdate', applyLife); } catch (e) {}
+          try { m.internalModel.on('beforeModelUpdate', applyWatermarkOff); } catch (e) {}
+          try {
+            var dAll = m.internalModel.motionManager.definitions || {};
+            var totalMotions = 0;
+            Object.keys(dAll).forEach(function (g) { totalMotions += (dAll[g] || []).length; });
+            needsLife = totalMotions <= 1;
+            lifeT = 0;
+          } catch (e) { needsLife = true; }
+          setTimeout(function () { if (seq === loadSeq) autoCalibrate(); }, 900);
+          setTimeout(function () { if (seq === loadSeq) autoCalibrate(); }, 1900);
+          try {
+            var info = { name: name || '', motions: [], expressions: [] };
+            try {
+              var d = m.internalModel.motionManager.definitions || {};
+              Object.keys(d).forEach(function (g) {
+                (d[g] || []).forEach(function (_, i) { info.motions.push(g + '#' + i); });
+              });
+            } catch (e) {}
+            try {
+              var em = m.internalModel.motionManager.expressionManager;
+              if (em && em.definitions) {
+                em.definitions.forEach(function (d2) {
+                  info.expressions.push((d2 && d2.Name) || '');
+                });
+              }
+            } catch (e) {}
+            window.__petInfo = info;
+            if (window.AndroidPet && AndroidPet.onInfo) AndroidPet.onInfo(JSON.stringify(info));
+          } catch (e) {}
+        })
+        .catch(function (e) {
+          if (seq !== loadSeq) return;
+          window.__petStatus = 'error:' + (e && e.message ? e.message : e);
+          report('model load failed: ' + (e && e.message ? e.message : e));
+          errEl.textContent = '模型加载失败';
+          errEl.style.display = 'block';
+        });
+    },
+
+    setScale: function (s) {
+      fit();
+    },
+
+    // 模型宽度 / 高度分开设置（1 = 100%）
+    setSize: function (fx, fy) {
+      // 只有一个「大小」滑杆，两个方向永远同步
+      var v = (fx && fx > 0) ? fx : ((fy && fy > 0) ? fy : 1);
+      scaleX = v;
+      scaleY = v;
+      fit();
+      setTimeout(fit, 60);
+    },
+
+    resize: function () {
+      if (app) {
+        try { app.renderer.resize(window.innerWidth, window.innerHeight); } catch (e) {}
+      }
+      fit();
+      setTimeout(fit, 120);
+    },
+
+    focus: function (x, y) { focusAt(x, y); },
+
+    /** 原生直接传 -1~1 的朝向（比 0~1 归一化更准） */
+    focusVec: function (dx, dy) {
+      if (!model) return;
+      try {
+        var fc = model.internalModel && model.internalModel.focusController;
+        if (fc && fc.focus) fc.focus(Math.max(-1, Math.min(1, dx)), Math.max(-1, Math.min(1, dy)), false);
+      } catch (e) {}
+    },
+
+    isReady: function () { return !!(model && window.__petStatus === 'loaded'); },
+
+    randomMotion: function (burst) {
+      if (!model) return false;
+      var n = burst === false ? 1 : burstCount;
+      var played = chainMotions(n);
+      // 有的模型只有 Idle，光播动作肉眼看不出来，补一个轻微跳动
+      hop(0.45);
+      return played;
+    },
+
+    /** 说话的时候按情绪挑表情：happy / shy / sad / idle */
+    emote: function (kind) {
+      if (!model || !exprOn) return;
+      try {
+        var em = model.internalModel.motionManager.expressionManager;
+        if (!em || !em.definitions || !em.definitions.length) return;
+        var names = [];
+        for (var i = 0; i < em.definitions.length; i++) {
+          names.push(((em.definitions[i] || {}).Name || '').toLowerCase());
+        }
+        var want = [];
+        if (kind === 'happy') want = ['smile', 'happy', 'joy', 'fun', '笑', '喜'];
+        else if (kind === 'shy') want = ['blush', 'shy', 'heart', '害羞', '红'];
+        else if (kind === 'sad') want = ['sad', 'tear', 'cry', '悲', '哭'];
+        for (var w = 0; w < want.length; w++) {
+          for (var j = 0; j < names.length; j++) {
+            if (names[j].indexOf(want[w]) >= 0) {
+              try { model.expression(j); } catch (e) {}
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+    },
+
+    /** 设置：一次做几个动作 / 要不要换表情 */
+    setMotionPrefs: function (burst, expr) {
+      burstCount = Math.max(1, Math.min(4, burst || 1));
+      exprOn = expr !== false;
+    },
+
+    /** 只做可见反馈，不依赖动作数据 */
+    /** 手动触发一个程序化动作（不依赖模型自带动作） */
+    procedural: function (kind) {
+      playProcedural(kind || PROC_STYLES[Math.floor(Math.random() * PROC_STYLES.length)]);
+    },
+    /** 列一下有哪些程序化动作 */
+    procList: function () { return PROC_STYLES.slice(); },
+
+    poke: function () {
+      hop();
+      return true;
+    },
+
+    playMotion: function (group, index) {
+      if (!model) return;
+      try { model.motion(group, index || 0); } catch (e) {}
+    },
+
+    expression: function (i) {
+      if (!model) return;
+      try { model.expression(i); } catch (e) {}
+    }
+  };
+
+  window.PetAPI = PetAPI;
+
+  /** 让她「说」ms 毫秒：这段时间里嘴一直动 */
+  PetAPI.speakStart = function (ms) {
+    var d = Math.max(600, ms || 2000);
+    speakUntil = Date.now() + d;
+    if (speakTimer) clearTimeout(speakTimer);
+    speakTimer = setTimeout(function () {
+      speakUntil = 0;
+      speakTimer = null;
+      applyMouth();
+    }, d + 40);
+    return true;
+  };
+
+  PetAPI.speakStop = function () {
+    speakUntil = 0;
+    if (speakTimer) {
+      clearTimeout(speakTimer);
+      speakTimer = null;
+    }
+    applyMouth();
+  };
+
+  window.__setCalib = function (key, obj) {
+    CALIB[key] = obj;
+    return CALIB;
+  };
+  window.__CALIB = CALIB;
+  window.__getApp = function () { return app; };
+  window.__getModel = function () { return model; };
+
+  function boot() {
+    initApp();
+    try {
+      if (window.AndroidPet && AndroidPet.onReady) AndroidPet.onReady();
+    } catch (e) {}
+  }
+
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
+})();
+</script>
+<script src="film/petconfig.js"></script>
+<script src="film/film.js"></script>
+</body>
+</html>

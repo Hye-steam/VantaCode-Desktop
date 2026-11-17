@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 智谱清言占位图标：蓝圆 + 白色星形（后续可替换为官方 logo） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#2B63F2"
+        android:pathData="M24,2 a22,22 0 1,1 -0.01,0 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,9 L28.5,19 L34,19 L26.5,25.5 L30,36 L24,28.5 L18,36 L21.5,25.5 L14,19 L19.5,19 Z" />
+</vector>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VantaGate</string>
+    <string name="notification_channel">网关运行状态</string>
+    <string name="notification_channel_desc">显示本地网关的运行状态</string>
+    <string name="notification_running">本地网关运行中 · 端口 %1$d</string>
+</resources>

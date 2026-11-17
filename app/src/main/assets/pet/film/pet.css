@@ -1,0 +1,32 @@
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  background: transparent;
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#stage {
+  position: fixed; inset: 0;
+  background: transparent;
+  background-color: transparent;
+  pointer-events: none;
+}
+.petvid {
+  position: absolute; top: 0; bottom: 0; left: 50%; right: auto;
+  width: auto; height: 100%;
+  max-width: none;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0;
+  transform: translateX(-50%);
+  transform-origin: 50% 91%;
+  /* 新帧在旧帧上层淡入；旧帧保持不透明作为底，避免整体发虚 */
+  transition: opacity .14s linear;
+  background: transparent;
+  background-color: transparent;
+  pointer-events: none;
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+.petvid.show { opacity: 1; }
