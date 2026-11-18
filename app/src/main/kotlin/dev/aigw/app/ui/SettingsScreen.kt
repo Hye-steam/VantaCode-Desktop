@@ -55,6 +55,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +90,7 @@ import dev.aigw.gateway.RemoteAdminClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import dev.aigw.app.update.UpdateChecker
 
 /**
  * 设置页（设计稿：主页 + 子页导航）。
@@ -717,6 +720,27 @@ private fun NetSubPage(vm: AppViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun ConcSubPage(vm: AppViewModel, onBack: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val versionName = remember {
+        runCatching {
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+        }.getOrNull() ?: "0.0.0"
+    }
+    var checking by remember { mutableStateOf(false) }
+    var latest by remember { mutableStateOf<UpdateChecker.Release?>(null) }
+    var checkError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(checking) {
+        if (!checking) return@LaunchedEffect
+        val r = withContext(Dispatchers.IO) { UpdateChecker.check(versionName) }
+        checking = false
+        r.onSuccess { rel ->
+            if (rel == null) vm.notify("已是最新版本") else latest = rel
+        }.onFailure { e ->
+            checkError = e.message ?: "检查失败"
+            vm.notify("检查更新失败：${e.message ?: ""}")
+        }
+    }
     val state = vm.state
     Column(
         Modifier
@@ -821,7 +845,56 @@ private fun ConcSubPage(vm: AppViewModel, onBack: () -> Unit) {
                 },
             )
             }
+            GroupDivider()
+            CompactSetRow(
+                title = "检查更新",
+                desc = "当前版本 ${versionName}",
+                trailing = {
+                    TextButton(
+                        onClick = { checking = true },
+                        enabled = !checking,
+                    ) {
+                        Text(
+                            if (checking) "检查中…" else "检查",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (checking) LoopColors.muted else LoopColors.brand,
+                        )
+                    }
+                },
+            )
             Spacer(Modifier.height(40.dp))
+
+            latest?.let { rel ->
+                AlertDialog(
+                    onDismissRequest = { latest = null },
+                    title = { Text("发现新版本 ${rel.version}", fontWeight = FontWeight.SemiBold) },
+                    text = {
+                        Text(
+                            rel.notes.take(400).ifBlank { "更新内容请见发布页。" },
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            latest = null
+                            val target = rel.apkUrl ?: rel.pageUrl
+                            runCatching {
+                                val i = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(target),
+                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                vm.notify("正在打开下载页")
+                                ctx.startActivity(i)
+                            }.onFailure { vm.notify("打不开下载页：${it.message}") }
+                        }) { Text("去下载") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { latest = null }) { Text("稍后") }
+                    },
+                )
+            }
         }
     }
 }
