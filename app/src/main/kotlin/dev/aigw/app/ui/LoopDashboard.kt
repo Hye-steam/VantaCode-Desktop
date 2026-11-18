@@ -65,6 +65,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import dev.aigw.app.update.UpdateChecker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Loop 仪表盘（设计稿 viewDash）。
@@ -334,6 +337,30 @@ private fun MetricTile(
 
 @Composable
 private fun FunctionGroup(onOpen: (LoopDashSheet) -> Unit, onRelogin: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val versionName = remember {
+        runCatching {
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+        }.getOrNull() ?: "0.0.0"
+    }
+    var checking by remember { mutableStateOf(false) }
+    var latest by remember { mutableStateOf<UpdateChecker.Release?>(null) }
+
+    LaunchedEffect(checking) {
+        if (!checking) return@LaunchedEffect
+        val r = withContext(Dispatchers.IO) { UpdateChecker.check(versionName) }
+        checking = false
+        r.onSuccess { rel ->
+            if (rel == null) {
+                android.widget.Toast.makeText(ctx, "已是最新版本 $versionName", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                latest = rel
+            }
+        }.onFailure { e ->
+            android.widget.Toast.makeText(ctx, "检查更新失败：${e.message ?: "网络不可用"}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(
         Modifier
             .fillMaxWidth()
@@ -348,6 +375,42 @@ private fun FunctionGroup(onOpen: (LoopDashSheet) -> Unit, onRelogin: () -> Unit
         FuncRow("网关地址") { onOpen(LoopDashSheet.Address) }
         HorizontalDivider(color = LoopColors.line, thickness = 1.dp)
         FuncRow("运行状态") { onOpen(LoopDashSheet.Status) }
+        HorizontalDivider(color = LoopColors.line, thickness = 1.dp)
+        FuncRow(if (checking) "检查更新中…" else "检查更新") { checking = true }
+    }
+
+    latest?.let { rel ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { latest = null },
+            title = { androidx.compose.material3.Text("发现新版本 ${rel.version}", fontWeight = FontWeight.SemiBold) },
+            text = {
+                androidx.compose.material3.Text(
+                    rel.notes.take(400).ifBlank { "更新内容请见发布页。" },
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    latest = null
+                    val target = rel.apkUrl ?: rel.pageUrl
+                    runCatching {
+                        val i = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(target),
+                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        ctx.startActivity(i)
+                    }.onFailure {
+                        android.widget.Toast.makeText(ctx, "打不开下载页", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { androidx.compose.material3.Text("去下载") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { latest = null }) {
+                    androidx.compose.material3.Text("稍后")
+                }
+            },
+        )
     }
 }
 
