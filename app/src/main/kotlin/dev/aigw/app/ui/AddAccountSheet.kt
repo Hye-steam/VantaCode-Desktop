@@ -1,5 +1,9 @@
 package dev.aigw.app.ui
 
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -75,14 +79,32 @@ internal fun AddAccountSheet(
     onImport: () -> Unit,
     onAddCustom: () -> Unit = {},
 ) {
+    var showDoubaoForm by remember { mutableStateOf(false) }
     val enabled = vm.state.providerEnabled[kind.providerId] ?: true
+    if (showDoubaoForm) {
+        DoubaoAccountDialog(
+            vm = vm,
+            onDismiss = { showDoubaoForm = false },
+            onFinished = {
+                showDoubaoForm = false
+                onDismiss()
+            },
+        )
+        // 关键：这里必须提前返回。LoopSheet 内部并不判断 visible，
+        // 它永远 fillMaxSize + clickable，会把表单上所有点击吃掉。
+        return
+    }
     var showLoomyForm by remember { mutableStateOf(false) }
-    var doubaoName by remember { mutableStateOf("") }
-    var doubaoCookie by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
     var exportedJson by remember { mutableStateOf<String?>(null) }
 
-    LoopSheet(visible = true, onDismiss = onDismiss, onVisibilityChanged = onVisibilityChanged) {
+    // 打开豆包表单时把这一层收起来：两个 LoopSheet 同时 visible 会叠出两条拖动手柄，
+    // 下面那层还会被挡住。
+    LoopSheet(
+        visible = !showDoubaoForm,
+        onDismiss = onDismiss,
+        onVisibilityChanged = onVisibilityChanged,
+    ) {
         LoopSheetHeader(
             icon = Icons.Outlined.Login,
             iconBg = LoopColors.brandSoft,
@@ -257,6 +279,11 @@ internal fun AddAccountSheet(
                     // 与供应商列表页右下角 + 球的弹层一致：名称 / 接口 / 密钥
                     OpButton("添加自定义账号", Icons.Outlined.Link, primary = true) {
                         onAddCustom()
+                    }
+                }
+                DetailKind.Doubao -> {
+                    OpButton("添加豆包账号", Icons.Outlined.Link, primary = true) {
+                        showDoubaoForm = true
                     }
                 }
                 DetailKind.FreePool -> {
@@ -509,4 +536,145 @@ private fun SmsLoginPanel(
             Text(it, fontSize = 12.sp, color = LoopColors.danger)
         }
     }
+}
+
+// ------------------------------ 豆包账号表单 ------------------------------
+
+/**
+ * 豆包走 PC 客户端协议，需要 Cookie 和与之同源的 device_id / web_id。
+ * 三个值缺一个都会被上游判成异常设备，所以分开填、逐个校验。
+ */
+@Composable
+internal fun DoubaoAccountDialog(
+    vm: AppViewModel,
+    onDismiss: () -> Unit,
+    onFinished: () -> Unit = onDismiss,
+) {
+    var name by remember { mutableStateOf("") }
+    var cookie by remember { mutableStateOf("") }
+    var deviceId by remember { mutableStateOf("") }
+    var webId by remember { mutableStateOf("") }
+    val ready = cookie.isNotBlank() && deviceId.isNotBlank() && webId.isNotBlank()
+
+    LoopSheet(
+        visible = true,
+        onDismiss = onDismiss,
+        onVisibilityChanged = { vm.setSheetOpen(it) },
+    ) {
+        LoopSheetHeader(
+            icon = Icons.Outlined.Link,
+            iconBg = LoopColors.brandSoft,
+            iconTint = LoopColors.brand,
+            title = "添加豆包账号",
+            onDismiss = onDismiss,
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+        ) {
+            // 主路径：一键登录。手动填 Cookie 在手机上基本没法用（要开开发者工具），
+            // 只作为兜底保留。
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            OpButton("一键登录豆包", Icons.Outlined.Login, primary = true) {
+                // LocalContext 在弹层里拿到的可能是 Application context，
+                // 用它启动 Activity 必须带 NEW_TASK，否则直接抛异常（且容易被静默吞掉）
+                val host = ctx.findActivity()
+                val intent = android.content.Intent(host ?: ctx, DoubaoLoginActivity::class.java)
+                if (host == null) {
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val err = runCatching { (host ?: ctx).startActivity(intent) }.exceptionOrNull()
+                if (err != null) {
+                    android.util.Log.w("DoubaoLogin", "启动登录页失败：${err.message}")
+                    android.widget.Toast.makeText(
+                        ctx,
+                        "无法打开登录页：${err.message}",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                } else {
+                    // 不主动关闭弹层：关弹层会触发重组，把刚启动的登录页顶掉。
+                    // 用户从登录页返回后弹层还在，关掉即可（账号已经保存好了）。
+                    android.widget.Toast.makeText(
+                        ctx, "正在打开豆包登录页…", android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "登录成功后会自动保存账号，不需要手动复制任何东西。",
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                color = LoopColors.muted,
+            )
+            Spacer(Modifier.height(18.dp))
+            HorizontalDivider(color = LoopColors.line, thickness = 1.dp)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "也可以手动填写（需要从开发者工具取，必须来自同一会话）",
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                color = LoopColors.muted,
+            )
+            Spacer(Modifier.height(12.dp))
+            DoubaoField("备注名（可选）", name, 1) { name = it }
+            Spacer(Modifier.height(10.dp))
+            DoubaoField("Cookie", cookie, 4) { cookie = it }
+            Spacer(Modifier.height(10.dp))
+            DoubaoField("device_id", deviceId, 1) { deviceId = it }
+            Spacer(Modifier.height(10.dp))
+            DoubaoField("web_id", webId, 1) { webId = it }
+            Spacer(Modifier.height(18.dp))
+            LoopSaveButton(text = "保存", icon = Icons.Outlined.Check, enabled = ready) {
+                if (vm.addDoubaoAccount(name.ifBlank { "豆包账号" }, cookie, deviceId, webId)) {
+                    onDismiss()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DoubaoField(
+    label: String,
+    value: String,
+    lines: Int,
+    onChange: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(label, fontSize = 12.sp, color = LoopColors.muted)
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = if (lines > 1) 84.dp else 44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(LoopColors.fieldBg)
+                .border(1.dp, LoopColors.line, RoundedCornerShape(14.dp))
+                .padding(horizontal = 13.dp, vertical = 11.dp),
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                textStyle = TextStyle(
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp,
+                    color = LoopColors.text,
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(LoopColors.brand),
+                maxLines = if (lines > 1) 8 else 1,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** 从 Compose 的 Context 里取出宿主 Activity；取不到返回 null。 */
+private fun android.content.Context.findActivity(): android.app.Activity? {
+    var c: android.content.Context? = this
+    while (c is android.content.ContextWrapper) {
+        if (c is android.app.Activity) return c
+        c = c.baseContext
+    }
+    return null
 }

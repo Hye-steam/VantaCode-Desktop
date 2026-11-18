@@ -59,10 +59,11 @@
             android:theme="@style/Theme.AiGateway"
             android:windowSoftInputMode="adjustResize" />
 
-            <activity
-            android:name=".ui.DoubaoWebLoginActivity"
+        <activity
+            android:name=".ui.DoubaoLoginActivity"
             android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
+            android:theme="@style/Theme.AiGateway"
+            android:windowSoftInputMode="adjustResize" />
 
 </application>
 

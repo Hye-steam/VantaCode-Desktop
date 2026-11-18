@@ -31,6 +31,8 @@ class GatewayHttpServer(private val engine: Engine) {
     fun start() {
         if (server != null) return
         val s = engine.settings
+        // 媒体中转要用真实端口拼本地地址
+        MediaProxy.port = s.port
         val host = if (s.bindLan) "0.0.0.0" else "127.0.0.1"
         val nano = NanoServer(host, s.port, engine)
         nano.start(300_000, true)
@@ -68,6 +70,11 @@ class GatewayHttpServer(private val engine: Engine) {
                 if (session.method == Method.OPTIONS) {
                     return cors(newFixedLengthResponse(Response.Status.NO_CONTENT, "text/plain", ""))
                 }
+                // 图片/视频中转必须在鉴权之前：Markdown 里内嵌的资源请求不带 Authorization 头。
+                // 安全性由 MediaProxy 的域名白名单保证。
+                if (session.method == Method.GET && session.uri == "/v1/media") {
+                    return handleMedia(session)
+                }
                 if (!authorized(session)) {
                     engine.eventLog.debug("网关", "鉴权失败：${session.method} ${session.uri}")
                     return jsonResponse(Response.Status.UNAUTHORIZED, errorJson("invalid_api_key", "Invalid API key provided"))
@@ -99,6 +106,63 @@ class GatewayHttpServer(private val engine: Engine) {
                     Response.Status.INTERNAL_ERROR,
                     errorJson("internal_error", "internal error: ${e.message}"),
                 )
+            }
+        }
+
+        /**
+         * 把上游媒体取回来原样转发。
+         *
+         * 走的是同一条 HTTP 路径给客户端，好处是绕开客户端对外域名的各种策略，
+         * 也不受签名 URL 的长度和特殊字符影响。
+         */
+        private fun handleMedia(session: IHTTPSession): Response {
+            val raw = session.parameters["u"]?.firstOrNull().orEmpty()
+            if (raw.isEmpty()) {
+                return jsonResponse(Response.Status.BAD_REQUEST, errorJson("invalid_request", "missing u"))
+            }
+            val target = MediaProxy.decode(raw) ?: return jsonResponse(
+                Response.Status.BAD_REQUEST, errorJson("invalid_request", "bad u"),
+            )
+            if (!target.startsWith("http://") && !target.startsWith("https://")) {
+                return jsonResponse(Response.Status.BAD_REQUEST, errorJson("invalid_request", "bad scheme"))
+            }
+            if (!MediaProxy.allowed(target)) {
+                engine.eventLog.warn("网关", "拒绝中转非白名单域名：${target.take(120)}")
+                return jsonResponse(Response.Status.FORBIDDEN, errorJson("forbidden", "host not allowed"))
+            }
+
+            return try {
+                val conn = (java.net.URL(target).openConnection() as java.net.HttpURLConnection).apply {
+                    connectTimeout = 15_000
+                    readTimeout = 30_000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
+                    setRequestProperty("Referer", "https://www.doubao.com/")
+                }
+                try {
+                    val code = conn.responseCode
+                    if (code !in 200..299) {
+                        return jsonResponse(
+                            Response.Status.lookup(code) ?: Response.Status.INTERNAL_ERROR,
+                            errorJson("upstream_error", "media upstream $code"),
+                        )
+                    }
+                    val bytes = conn.inputStream.readBytes()
+                    val type = conn.contentType?.substringBefore(';') ?: "image/jpeg"
+                    cors(
+                        newFixedLengthResponse(
+                            Response.Status.OK,
+                            type,
+                            java.io.ByteArrayInputStream(bytes),
+                            bytes.size.toLong(),
+                        ),
+                    )
+                } finally {
+                    runCatching { conn.disconnect() }
+                }
+            } catch (e: Exception) {
+                engine.eventLog.warn("网关", "中转媒体失败：${e.javaClass.simpleName}: ${e.message}")
+                jsonResponse(Response.Status.INTERNAL_ERROR, errorJson("internal_error", "media fetch failed"))
             }
         }
 

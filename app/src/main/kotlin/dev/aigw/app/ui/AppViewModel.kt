@@ -1428,6 +1428,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * 直接控制悬浮窗，不走网关服务：桌宠是 app 级的东西，
      * 挂到 GatewayService 上会导致「网关没跑就永远不显示」。
      */
+    /**
+     * 添加豆包账号。
+     *
+     * 三个字段缺一不可：Cookie 决定身份，device_id / web_id 要与之同源，
+     * 否则上游会把请求当成异常设备。三者一起塞进 secret 的 JSON 里。
+     */
+    fun addDoubaoAccount(name: String, cookie: String, deviceId: String, webId: String): Boolean {
+        if (cookie.isBlank() || deviceId.isBlank() || webId.isBlank()) {
+            notify("Cookie、device_id、web_id 都不能为空")
+            return false
+        }
+        val secret = com.google.gson.JsonObject().apply {
+            addProperty("cookie", cookie.trim())
+            addProperty("device_id", deviceId.trim())
+            addProperty("web_id", webId.trim())
+            addProperty("local_app_id", "582478")
+        }.toString()
+        val uid = (name + deviceId).hashCode().toUInt().toString(16)
+        engine.pool.add(
+            dev.aigw.provider.ProviderAccount(
+                providerId = "doubao",
+                uid = uid,
+                displayName = name.trim().ifBlank { "豆包账号" },
+                apiKey = "",
+                baseUrl = "",
+                secret = secret,
+            ),
+        )
+        refreshAll()
+        notify("豆包账号已添加")
+        return true
+    }
+
     /** 设置网关层系统提示词；空串表示不注入。 */
     fun setSystemPrompt(text: String) {
         engine.settings.systemPrompt = text

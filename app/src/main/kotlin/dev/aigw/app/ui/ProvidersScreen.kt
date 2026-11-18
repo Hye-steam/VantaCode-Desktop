@@ -112,6 +112,12 @@ private enum class ProviderKind(
         providerId = "chatglm",
         logoRes = R.drawable.ic_provider_chatglm,
     ),
+    Doubao(
+        title = "豆包",
+        tagline = "Cookie 直连 · 工作模式 10 个模型",
+        providerId = "doubao",
+        logoRes = R.drawable.ic_provider_doubao,
+    ),
     Relay(
         title = "自定义供应商",
         tagline = "填 Base URL 与密钥即可添加",
@@ -329,6 +335,7 @@ private fun providerIconBg(kind: ProviderKind): Color = when (kind) {
     ProviderKind.Raccoon -> LoopColors.accentBlueSoft
     ProviderKind.Mimo -> LoopColors.accentOrangeSoft
     ProviderKind.Chatglm -> LoopColors.accentBlueSoft
+    ProviderKind.Doubao -> LoopColors.accentBlueSoft
     ProviderKind.FreePool -> LoopColors.accentGreenSoft
     ProviderKind.Relay -> LoopColors.brandSoft
 }

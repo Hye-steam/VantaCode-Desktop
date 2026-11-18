@@ -76,6 +76,7 @@ internal enum class DetailKind(
     Mimo("MiMo", "小米 AI Studio", "mimo", dev.aigw.app.R.drawable.ic_provider_mimo),
     Chatglm("智谱清言", "GLM 系列模型", "chatglm", dev.aigw.app.R.drawable.ic_provider_chatglm),
     FreePool("免费池", "免登录公共通道", "freepool", dev.aigw.app.R.drawable.ic_provider_freepool),
+    Doubao("豆包", "Cookie 直连 · 工作模式", "doubao", dev.aigw.app.R.drawable.ic_provider_doubao),
     Relay("自定义供应商", "聚合接入", "custom", dev.aigw.app.R.drawable.ic_provider_relay),
     ;
 
@@ -96,6 +97,7 @@ internal fun providerIconBg(kind: DetailKind): Color = when (kind) {
     DetailKind.Mimo -> LoopColors.accentOrangeSoft
     DetailKind.Raccoon -> LoopColors.accentBlueSoft
     DetailKind.Chatglm -> LoopColors.accentBlueSoft
+    DetailKind.Doubao -> LoopColors.accentBlueSoft
     DetailKind.FreePool -> LoopColors.accentGreenSoft
     DetailKind.Relay -> LoopColors.brandSoft
     // 官方图标自带蓝紫底，再套一层底色会露出一圈边

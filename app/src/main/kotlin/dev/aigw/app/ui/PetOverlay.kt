@@ -240,6 +240,20 @@ class PetOverlay(
         }
     }
 
+    /**
+     * 临时隐藏/显示。不销毁 WebView——销毁会导致切回来时重新加载模型，
+     * 有明显延迟。
+     */
+    fun setHidden(hidden: Boolean) {
+        val view = container ?: return
+        runCatching {
+            view.animate()
+                .alpha(if (hidden) 0f else 1f)
+                .setDuration(140L)
+                .start()
+        }
+    }
+
     fun stop() {
         val view = container ?: return
         web?.let { w ->
