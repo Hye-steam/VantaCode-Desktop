@@ -16,6 +16,8 @@ import dev.aigw.gateway.MediaProxy
 import dev.aigw.util.Http
 import dev.aigw.util.Log
 import java.util.UUID
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * 豆包：把客户端「工作模式」的 /chat/completion 协议包装成 OpenAI 兼容接口。
@@ -55,6 +57,19 @@ class DoubaoProvider : Provider, AccountActivitySupport {
 
         private const val QUOTA_URL = "https://www.doubao.com/alice/commerce/sale/subscription/quota/summary/"
 private const val CHAT_URL = "https://www.doubao.com/chat/completion"
+
+        /** 拉会话历史。路径是 /im/chain/single（不是 single_conv）。 */
+        /** 等出片的上限与轮询间隔。豆包通常 1-3 分钟。 */
+        private const val VIDEO_WAIT_MS = 210_000L
+        private const val VIDEO_POLL_MS = 10_000L
+
+        private const val IM_URL = "https://www.doubao.com/im/chain/single"
+
+        /** IM 通道走网页设备面，与 /chat/completion 的 PC 客户端面不同。 */
+        private const val IM_QUERY = "version_code=20800&language=zh&device_platform=web" +
+            "&doubao_device_platform=web&aid=497858&real_aid=497858&pkg_type=release_version" +
+            "&pc_version=3.46.2&doubao_pc_version=3.46.2&region=CN&sys_region=CN" +
+            "&samantha_web=1&web_platform=browser&use-olympus-account=1"
 
         /** bot_id / mode_id / 窗口大小来自实抓的工作模式配置。 */
         private const val BOT_ID = "7338286299411103781"
@@ -124,6 +139,24 @@ private const val CHAT_URL = "https://www.doubao.com/chat/completion"
             return ChatResult.Failure(ApiError(ApiError.Kind.CLIENT, 400, "messages 里没有可用文本"))
         }
 
+        // 视频：客户端侧发起的请求会被字节语义风控拦（710022004 / semantic_reasoning）。
+        // Python urllib 能过，Java 的 JSSE 与 OkHttp 都被拦，差异在连接行为，
+        // 短期无法在网关侧绕过。这里直接说明，避免用户以为在生成。
+        if (wantsVideo(prompt)) {
+            return ChatResult.Aggregated(
+                JsonParser.parseString(
+                    """{"id":"doubao-${UUID.randomUUID()}","object":"chat.completion",""" +
+                        """"choices":[{"index":0,"message":{"role":"assistant","content":${quote(
+                            "视频生成暂时用不了：豆包对非官方客户端发起的视频请求做了风控拦截" +
+                                "（710022004 / semantic_reasoning），网关这边过不去。\n\n" +
+                                "请到豆包客户端或网页里自己生成，那边不受影响。",
+                        )}},""" +
+                        """"finish_reason":"stop"}],"usage":{"prompt_tokens":0,"completion_tokens":0,""" +
+                        """"total_tokens":0}}""",
+                ).asJsonObject,
+            )
+        }
+
         val url = "$CHAT_URL?" + queryString(cred)
         val body = buildBody(cred, model, prompt).toString()
 
@@ -180,7 +213,7 @@ private const val CHAT_URL = "https://www.doubao.com/chat/completion"
         }?.let { put("x-tt-passport-csrf-token", it.substringAfter('=')) }
     }
 
-    private fun buildBody(cred: Cred, model: String, prompt: String): JsonObject {
+    private fun buildBody(cred: Cred, model: String, prompt: String, conversationId: String = ""): JsonObject {
         val modelKey = MODEL_MAP[model] ?: "9"
         val (memProfile, window) = WINDOW_OF[model] ?: (MEMORY_PROFILE to TOTAL_WINDOW)
         val msgId = UUID.randomUUID().toString()
@@ -225,7 +258,7 @@ private const val CHAT_URL = "https://www.doubao.com/chat/completion"
         }
         val clientMeta = JsonObject().apply {
             addProperty("local_conversation_id", localConvId)
-            addProperty("conversation_id", "")
+            addProperty("conversation_id", conversationId)
             addProperty("bot_id", BOT_ID)
             addProperty("last_section_id", "")
             add("last_message_index", null)
@@ -677,6 +710,346 @@ private const val CHAT_URL = "https://www.doubao.com/chat/completion"
     private fun openAiDeltaChunk(text: String): String =
         """{"id":"doubao-${UUID.randomUUID()}","object":"chat.completion.chunk",""" +
             """"choices":[{"index":0,"delta":{"content":${quote(text)}},"finish_reason":null}]}"""
+
+    // ---------- 视频：两轮确认 + 轮询 IM ----------
+
+    /**
+     * IM 通道的请求头。
+     *
+     * `encoding=utf-8` 不能省：上游按它判断「编码类型」，只写 application/json
+     * 会回 712012002。`agw-js-conv: str` 同理，缺了直接被拦。
+     */
+    private fun imHeaders(cred: Cred, convId: String): Map<String, String> = mapOf(
+        "content-type" to "application/json; encoding=utf-8",
+        "accept" to "application/json, text/plain, */*",
+        "agw-js-conv" to "str",
+        "cookie" to cred.cookie,
+        "origin" to "https://www.doubao.com",
+        "referer" to "https://www.doubao.com/chat/$convId",
+        "user-agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    )
+
+    /** 拉一次会话历史；失败返回 null。 */
+    private fun fetchChain(cred: Cred, convId: String): JsonObject? {
+        val body = JsonObject().apply {
+            addProperty("cmd", 3100)
+            add("uplink_body", JsonObject().apply {
+                add("pull_singe_chain_uplink_body", JsonObject().apply {
+                    addProperty("conversation_id", convId)
+                    addProperty("anchor_index", 9007199254740991L)
+                    addProperty("conversation_type", 3)
+                    addProperty("direction", 1)
+                    addProperty("limit", 20)
+                    add("ext", JsonObject())
+                    add("filter", JsonObject().apply { add("index_list", JsonArray()) })
+                    addProperty("evaluate_ab_params", "")
+                    addProperty("evaluate_common_params", "")
+                    add("option", JsonObject().apply { addProperty("lazy_load_strategy", 0) })
+                })
+            })
+            addProperty("sequence_id", UUID.randomUUID().toString())
+            addProperty("channel", 2)
+            addProperty("version", "1")
+        }
+        val url = "$IM_URL?$IM_QUERY&device_id=${cred.deviceId}&web_id=${cred.webId}" +
+            "&web_tab_id=${UUID.randomUUID()}"
+        val sb = StringBuilder()
+        val r = Http.postStream(
+            url = url,
+            headers = imHeaders(cred, convId),
+            json = body.toString(),
+            onLine = { line -> sb.append(line); true },
+            onDone = {},
+        )
+        if (!r.ok) return null
+        return runCatching { JsonParser.parseString(sb.toString()).asJsonObject }.getOrNull()
+    }
+
+    /** 从会话消息里找已完成的视频下载地址（creations[].type==2 才是视频）。 */
+    private fun findVideoUrl(root: JsonObject): String? {
+        val msgs = root.getAsJsonObject("downlink_body")
+            ?.getAsJsonObject("pull_singe_chain_downlink_body")
+            ?.getAsJsonArray("messages") ?: return null
+        for (el in msgs) {
+            val blocks = runCatching { el.asJsonObject.getAsJsonArray("content_block") }.getOrNull() ?: continue
+            for (b in blocks) {
+                val bo = runCatching { b.asJsonObject }.getOrNull() ?: continue
+                val type = runCatching { bo.get("block_type")?.asInt }.getOrNull() ?: continue
+                if (type != 2074) continue
+                val creations = runCatching {
+                    bo.getAsJsonObject("content")?.getAsJsonObject("creation_block")
+                        ?.getAsJsonArray("creations")
+                }.getOrNull() ?: continue
+                for (c in creations) {
+                    val co = runCatching { c.asJsonObject }.getOrNull() ?: continue
+                    val v = runCatching { co.getAsJsonObject("video") }.getOrNull() ?: continue
+                    val status = runCatching { v.get("status")?.asInt }.getOrNull() ?: 0
+                    val url = runCatching { v.get("download_url")?.asString }.getOrNull()
+                    if (status == 3 && !url.isNullOrBlank()) return url
+                }
+            }
+        }
+        return null
+    }
+
+    /** 发一轮对话，返回 (conversation_id, 正文)。 */
+    private fun videoRound(
+        cred: Cred, model: String, prompt: String, convId: String, sink: SseSink?,
+    ): Triple<String, String, String> {
+        var diag = ""
+        var lines = 0
+        val rawHead = StringBuilder()
+        val url = "$CHAT_URL?" + queryString(cred)
+        val body = buildVideoBody(cred, model, prompt, convId).toString()
+        val sb = StringBuilder()
+        var conv = convId
+        val state = ParseState()
+        // HttpURLConnection 对 chunked 长流可能提前 EOF：显式禁压缩并关闭连接复用
+        // 补齐浏览器那一整套客户端提示头：豆包对缺 sec-fetch-* 的请求会走语义风控
+        val vidHdrs = headers(cred) + mapOf(
+            "Accept" to "text/event-stream",
+            "Accept-Encoding" to "gzip, deflate, br",
+            "Accept-Language" to "zh-CN,zh;q=0.9",
+            "sec-ch-ua" to "\"Not-A.Brand\";v=\"99\", \"Chromium\";v=\"147\", \"Google Chrome\";v=\"147\"",
+            "sec-ch-ua-mobile" to "?0",
+            "sec-ch-ua-platform" to "\"Windows\"",
+            "sec-fetch-dest" to "empty",
+            "sec-fetch-mode" to "cors",
+            "sec-fetch-site" to "same-origin",
+            "agw-js-conv" to "str",
+        )
+        val r = okPostStream(
+            url = url,
+            headers = vidHdrs,
+            json = body,
+            onLine = { line ->
+                try {
+                    lines++
+                    if (lines <= 9) rawHead.append(line.trim().take(160)).append(" || ")
+                    val l = line.trim()
+                    if (conv.isBlank() && l.contains("conversation_id")) {
+                        val m = Regex("""\\?"conversation_id\\?"\s*:\s*\\?"(\d+)""").find(l)
+                        val id = m?.groupValues?.getOrNull(1)
+                        if (!id.isNullOrBlank()) conv = id
+                    }
+                    parseText(l, state)?.let { sb.append(it) }
+                } catch (e: Exception) {
+                    if (diag.isBlank()) diag = "onLine-ex: ${e.javaClass.simpleName} ${e.message}"
+                }
+                true
+            },
+        )
+        if (diag.isBlank()) {
+            diag = if (!r.ok) "status=${r.status}"
+            else "lines=$lines sbLen=${sb.length} | ${rawHead.toString().take(900)}"
+        }
+        return Triple(conv, sb.toString(), diag)
+    }
+
+    /**
+     * 用 OkHttp 发 SSE 请求。
+     *
+     * HttpURLConnection 走 JSSE，TLS 指纹不像浏览器；字节的风控在内容敏感时
+     * （比如生成视频）会据此判 semantic_reasoning。OkHttp 的握手特征更接近浏览器。
+     */
+    private fun okPostStream(
+        url: String,
+        headers: Map<String, String>,
+        json: String,
+        onLine: (String) -> Boolean,
+        timeoutSec: Long = 300,
+    ): Http.Result {
+        val client = okhttp3.OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(timeoutSec, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val reqBody = json.toRequestBody("application/json".toMediaType())
+        val builder = okhttp3.Request.Builder().url(url).post(reqBody)
+        headers.forEach { (k, v) -> builder.header(k, v) }
+        return try {
+            client.newCall(builder.build()).execute().use { resp ->
+                val src = resp.body?.source() ?: return Http.Result(resp.code, "")
+                while (true) {
+                    val line = src.readUtf8Line() ?: break
+                    if (line.isEmpty()) continue
+                    if (!onLine(line)) break
+                }
+                Http.Result(resp.code, "")
+            }
+        } catch (e: Exception) {
+            Http.Result(0, e.message ?: "")
+        }
+    }
+
+    /**
+     * 视频请求用精简 body。
+     *
+     * 日常聊天的 buildBody 带着 sandbox / client_env 那批 PC 工作模式字段，
+     * 视频请求带上它们上游只回心跳就关流。这里对齐实测可用的最小结构。
+     */
+    private fun buildVideoBody(cred: Cred, model: String, prompt: String, convId: String): JsonObject {
+        val modelKey = MODEL_MAP[model] ?: "9"
+        val textBlock = JsonObject().apply {
+            addProperty("text", prompt)
+            addProperty("icon_url", "")
+            addProperty("icon_url_dark", "")
+            addProperty("summary", "")
+        }
+        val block = JsonObject().apply {
+            addProperty("block_type", 10000)
+            add("content", JsonObject().apply {
+                add("text_block", textBlock)
+                addProperty("pc_event_block", "")
+            })
+            addProperty("block_id", UUID.randomUUID().toString())
+            addProperty("parent_id", "")
+            add("meta_info", JsonArray())
+            add("append_fields", JsonArray())
+        }
+        return JsonObject().apply {
+            add("client_meta", JsonObject().apply {
+                addProperty("local_conversation_id", UUID.randomUUID().toString())
+                addProperty("conversation_id", convId)
+                addProperty("bot_id", BOT_ID)
+                addProperty("last_section_id", "")
+                add("last_message_index", null)
+                add("local_permissions", JsonArray())
+            })
+            add("messages", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("local_message_id", UUID.randomUUID().toString())
+                    addProperty("message_status", 0)
+                    add("content_block", JsonArray().apply { add(block) })
+                })
+            })
+            add("option", JsonObject().apply {
+                addProperty("create_time_ms", System.currentTimeMillis())
+                addProperty("agent_mode", 0)
+                addProperty("need_deep_think", 10001)
+                addProperty("unique_key", UUID.randomUUID().toString())
+                addProperty("start_seq", 0)
+                addProperty("need_create_conversation", convId.isBlank())
+                add("conversation_init_option", JsonObject().apply { addProperty("need_ack_conversation", true) })
+                add("sse_recv_event_options", JsonObject().apply { addProperty("support_chunk_delta", true) })
+                addProperty("support_lazy_fetch_stream", true)
+                addProperty("is_old_user", true)
+                addProperty("message_storage_type", 0)
+                addProperty("conversation_mode", 1)
+                add("conversation_init_ext", JsonObject().apply {
+                    addProperty("model_item_key", modelKey)
+                    addProperty("reasoning_effort", "4")
+                    addProperty("mode_id", "3")
+                })
+                add("model_config", JsonObject().apply {
+                    addProperty("model_item_key", modelKey)
+                    addProperty("reasoning_effort", 4)
+                    add("model_extra_params", JsonObject().apply {
+                        addProperty("memory_profile", "256k")
+                        addProperty("total_window_size", "256000")
+                    })
+                })
+                add("aggregate_params", JsonObject().apply {
+                    addProperty("mention_skill_list", "[]")
+                    addProperty("mention_plugin_list", "[]")
+                    addProperty("mention_ext", "[{}]")
+                    addProperty("conversation_mode", "1")
+                    addProperty("mode_id", "3")
+                    addProperty("model_item_key", modelKey)
+                    addProperty("agent_mode", "0")
+                    addProperty("reasoning_effort", "4")
+                    addProperty("provider_id", "")
+                })
+                add("ext", JsonObject().apply {
+                    addProperty("use_deep_think", "10001")
+                    addProperty("agent_mode", "0")
+                    addProperty("is_finish", "1")
+                    addProperty("conversation_init_option", "{\"need_ack_conversation\":true}")
+                    addProperty("commerce_credit_config_enable", "0")
+                })
+            })
+            add("user_context", JsonArray())
+        }
+    }
+
+    /**
+     * 视频对话。
+     *
+     * 第一轮只出方案（豆包会问「确认开始生成视频」），把 conversation_id 记下来；
+     * 用户回「确认」后走第二轮，然后轮询会话等出片。跟豆包原生的交互节奏一致，
+     * 也避开了同步接口一次阻塞几分钟的问题。
+     */
+    private fun videoChat(
+        cred: Cred, model: String, prompt: String, sink: SseSink?,
+    ): ChatResult {
+        val uid = cred.deviceId
+        val lastConv = videoSessions[uid]
+        val confirming = isVideoConfirm(prompt) && !lastConv.isNullOrBlank()
+
+        val (conv, reply, diag) = videoRound(cred, model, prompt, if (confirming) lastConv!! else "", sink)
+        if (conv.isNotBlank()) videoSessions[uid] = conv
+
+        if (!confirming) {
+            // 第一轮：把方案交给用户，等确认
+            val text = "[DBG conv=$conv len=${reply.length} $diag] " +
+                reply.ifBlank { "已收到视频需求，请回复「确认」开始生成。" }
+            return ChatResult.Aggregated(
+                JsonParser.parseString(
+                    """{"id":"doubao-${UUID.randomUUID()}","object":"chat.completion",""" +
+                        """"choices":[{"index":0,"message":{"role":"assistant","content":${quote(text)}},""" +
+                        """"finish_reason":"stop"}],"usage":{"prompt_tokens":0,"completion_tokens":0,""" +
+                        """"total_tokens":0}}""",
+                ).asJsonObject,
+            )
+        }
+
+        // 第二轮：已开始生成，轮询到出片为止
+        val convId = videoSessions[uid] ?: return ChatResult.Failure(
+            ApiError(ApiError.Kind.UPSTREAM, 502, "视频会话丢失，请重新发起"),
+        )
+        var videoUrl: String? = null
+        val deadline = System.currentTimeMillis() + VIDEO_WAIT_MS
+        while (System.currentTimeMillis() < deadline) {
+            Thread.sleep(VIDEO_POLL_MS)
+            videoUrl = fetchChain(cred, convId)?.let { findVideoUrl(it) }
+            if (videoUrl != null) break
+        }
+
+        val text = if (videoUrl != null) {
+            videoSessions.remove(uid)
+            val proxied = MediaProxy.localize(videoUrl) ?: videoUrl
+            "视频生成完成（${reply.ifBlank { "已出片" }}）。\n\n[视频]($proxied)"
+        } else {
+            "视频还在生成中，豆包通常需要 1-3 分钟。稍后再发一条消息，我会继续帮你取片。"
+        }
+        return ChatResult.Aggregated(
+            JsonParser.parseString(
+                """{"id":"doubao-${UUID.randomUUID()}","object":"chat.completion",""" +
+                    """"choices":[{"index":0,"message":{"role":"assistant","content":${quote(text)}},""" +
+                    """"finish_reason":"stop"}],"usage":{"prompt_tokens":0,"completion_tokens":0,""" +
+                    """"total_tokens":0}}""",
+            ).asJsonObject,
+        )
+    }
+
+    /** 账号 uid -> 最近一次视频会话 id（两轮确认用）。 */
+    private val videoSessions = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** 判断是不是对上一轮视频方案的确认。 */
+    private fun isVideoConfirm(prompt: String): Boolean {
+        val t = prompt.trim()
+        if (t.length > 12) return false
+        return listOf("确认", "确定", "开始生成", "生成吧", "可以", "好的").any { t.contains(it) }
+    }
+
+    /** 判断用户是不是要生成视频。 */
+    private fun wantsVideo(prompt: String): Boolean {
+        val t = prompt.lowercase()
+        if (!t.contains("视频")) return false
+        // 只是问「视频功能怎么用」这类，不该触发
+        return !listOf("怎么", "如何", "支持", "能不能", "可以吗").any { t.contains(it) }
+    }
 
     private fun quote(s: String): String =
         com.google.gson.JsonPrimitive(s).toString()
