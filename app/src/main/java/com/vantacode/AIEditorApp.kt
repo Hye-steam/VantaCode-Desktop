@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import javax.inject.Inject
 
@@ -194,6 +195,15 @@ class AIEditorApp : Application(), Configuration.Provider {
     @Inject
     lateinit var executionModeRepository: com.vantacode.feature.settings.data.repository.ExecutionModeRepository
 
+    @Inject
+    lateinit var pluginManager: com.vantacode.feature.plugin.domain.PluginManager
+
+    @Inject
+    lateinit var pluginToolManager: com.vantacode.feature.plugin.runtime.PluginToolManager
+
+    @Inject
+    lateinit var pluginHookDispatcher: com.vantacode.feature.plugin.runtime.PluginHookDispatcher
+
     /** 应用语言偏好仓库：持久化用户选择的语言，供 attachBaseContext 同步读取。 */
     @Inject
     lateinit var languageSettings: LanguageSettingsRepository
@@ -240,6 +250,8 @@ class AIEditorApp : Application(), Configuration.Provider {
     /** 长驻作用域：持续把持久化的日志等级同步到 FileLogger。 */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val PLUGIN_LOAD_TIMEOUT_MS = 10_000L
+
     override fun onCreate() {
         if (isCrashProcess(this)) {
             // 崩溃错误页运行在独立 :crash 进程中。
@@ -255,6 +267,25 @@ class AIEditorApp : Application(), Configuration.Provider {
         logDeviceInfo()
         // 补记 Java 未捕获异常处理器覆盖不到的异常退出（native 崩溃 / ANR / 低内存被杀 / 被信号杀死）。
         appScope.launch { reportAbnormalExits() }
+
+        // 插件运行时装配：先注册插件工具，再派发 app.started 拉起常驻插件。
+        // 少了这一步，声明 runtime 的插件进程永远不会自己起来——「随 App 启动」看着是开的，实际没有触发点。
+        appScope.launch {
+            pluginToolManager.start(appScope)
+            // 等安装记录从磁盘读完再派发，否则快照里还没有任何插件。
+            val loaded = withTimeoutOrNull(PLUGIN_LOAD_TIMEOUT_MS) {
+                pluginManager.isLoaded.first { it }
+            }
+            if (loaded != true) {
+                com.vantacode.core.util.FileLogger.w(
+                    "AIEditorApp", "插件记录加载超时，仍尝试派发 app.started"
+                )
+            }
+            val appVersion = runCatching {
+                packageManager.getPackageInfo(packageName, 0).versionName
+            }.getOrNull().orEmpty()
+            pluginHookDispatcher.dispatchAppStarted(appVersion)
+        }
         // 把提供商级代理注册表挂到 AppProxy（applyGlobal 已在 attachBaseContext 完成），
         // 此后按目标 host 分派 provider 专属代理；无 provider 配置时回退全局代理。
         AppProxy.registerProviderProxyRegistry(providerProxyRegistry)

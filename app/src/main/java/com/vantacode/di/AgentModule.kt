@@ -453,6 +453,7 @@ object AgentModule {
         keyRotator: ProviderKeyRotator,
         agentNotificationCenter: AgentNotificationCenter,
         eventInjector: AgentEventInjector,
+        pluginHookDispatcher: com.vantacode.feature.plugin.runtime.PluginHookDispatcher,
         fileAccess: FileAccessProvider,
         @ApplicationContext context: Context
     ): AgentWorkflow {
@@ -480,6 +481,7 @@ object AgentModule {
             keyRotator,
             agentNotificationCenter,
             eventInjector,
+            pluginHookDispatcher,
             fileAccess,
             context
         )

@@ -101,7 +101,7 @@ val testBuild = (findProperty("testBuild") as String?)?.toBoolean() ?: true
 
 // 测试版版本名带构建时间，装完能一眼看出是哪一次构建。
 val buildStamp = SimpleDateFormat("MMdd-HHmm", Locale.US).format(Date())
-val appVersionName = if (testBuild) "5.2-test.$buildStamp" else "5.3"
+val appVersionName = if (testBuild) "5.2-test.$buildStamp" else "5.4"
 
 // 构建后把本次用到的 versionCode 落盘，供下次取 max 兜底。
 val persistVersionCode = tasks.register("persistVersionCode") {
@@ -159,6 +159,13 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        buildFeatures { buildConfig = true }
+        // 插件商店收件箱令牌：未配置时留空，上传能力在运行时判定为不可用。
+        buildConfigField(
+            "String",
+            "PLUGIN_INBOX_TOKEN",
+            "\"${(findProperty("pluginInboxToken") as String?) ?: ""}\""
+        )
     }
 
     // 按容器镜像拆包：universal 同时含 arm + x86 两套 Alpine rootfs/proot（兼容所有设备但体积大），
@@ -218,8 +225,10 @@ android {
         release {
             // R8：体积从 ~58MB 降到 30MB 上下。敏感点已在 proguard-rules.pro 里逐个保留
             // （JS 接口、序列化器、Room/Hilt/Media3、反射入口），改这里前先跑一遍冒烟测试。
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // 测试版跳过 R8：这一步在 ARM 上占整个构建的一半时间，而测试包不需要混淆；
+            // 正式版（-PtestBuild=false）仍然开启，保证发布产物的体积与混淆效果。
+            isMinifyEnabled = !testBuild
+            isShrinkResources = !testBuild
             if (keystorePropertiesFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }

@@ -337,6 +337,14 @@ class ContainerInstaller @Inject constructor(
         return marker.exists() && marker.readText().trim() == INSTALL_VERSION
     }
 
+    /** 宿主文件 → 容器内绝对路径（容器里 aicode 目录挂在 /root/.aicode）。 */
+    fun containerPathFor(file: File): String {
+        val root = aicodeDir.canonicalFile
+        val relative = runCatching { file.canonicalFile.relativeTo(root) }.getOrNull()
+            ?: return file.absolutePath
+        return "/root/.aicode/" + relative.invariantSeparatorsPath
+    }
+
     /**
      * 若未安装（或版本不匹配）则从 assets 解压安装。幂等，可在每次执行命令前调用。
      *

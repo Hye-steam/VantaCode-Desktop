@@ -76,6 +76,9 @@ sealed interface ImageSource {
 
     /** 内存里的 base64 图片数据。 */
     data class Base64(val data: String) : ImageSource
+
+    /** 网络图片：先由调用方的缓存下载到本地文件，再解码。 */
+    data class RemoteUrl(val url: String) : ImageSource
 }
 
 /**

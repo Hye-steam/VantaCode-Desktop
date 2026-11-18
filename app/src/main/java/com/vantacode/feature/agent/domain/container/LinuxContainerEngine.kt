@@ -672,9 +672,14 @@ class LinuxContainerEngine @Inject constructor(
         programArgs: List<String>,
         projectPath: String?,
         extraEnv: Map<String, String> = emptyMap(),
-        profile: ContainerProfile = currentProfile
+        profile: ContainerProfile = currentProfile,
+        /**
+         * 容器内工作目录。插件进程的启动命令是 `node dist/main.js` 这类相对路径，
+         * 不切目录就会在默认目录里找不到入口文件、进程秒退（表现为 stdout 已关闭）。
+         */
+        workingDir: String? = null
     ): Process {
-        val invocation = buildStdioInvocation(program, programArgs, projectPath, extraEnv, profile)
+        val invocation = buildStdioInvocation(program, programArgs, projectPath, extraEnv, profile, workingDir)
         val pb = buildProcessBuilder(invocation)
         // 刻意不 redirectErrorStream：stdout 留给 JSON-RPC，stderr 由调用方单独消费。
         // 同样刻意不重定向 stdin：这里的 stdin 就是 JSON-RPC 的请求通道，接 /dev/null 会让 server 立刻收到 EOF 退出。
@@ -690,9 +695,15 @@ class LinuxContainerEngine @Inject constructor(
         programArgs: List<String>,
         projectPath: String?,
         extraEnv: Map<String, String>,
-        profile: ContainerProfile
+        profile: ContainerProfile,
+        workingDir: String? = null
     ): ProotInvocation {
         val argv = buildBaseProotArgv(projectPath, profile)
+        // proot 的 -w 在 argv 末尾添加才生效；目录不存在时 proot 会直接失败，故只在非空时加。
+        workingDir?.takeIf { it.isNotBlank() }?.let {
+            argv.add("-w")
+            argv.add(it)
+        }
         argv.add("/bin/sh")
         argv.add("-c")
         argv.add("exec \"\$0\" \"\$@\"")

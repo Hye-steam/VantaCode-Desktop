@@ -120,6 +120,7 @@ class StatefulAgentWorkflow @Inject constructor(
     private val keyRotator: ProviderKeyRotator,
     private val agentNotificationCenter: AgentNotificationCenter,
     private val eventInjector: AgentEventInjector,
+    private val pluginHookDispatcher: com.vantacode.feature.plugin.runtime.PluginHookDispatcher,
     private val fileAccess: FileAccessProvider,
     @param:ApplicationContext private val appContext: Context
 ) : AgentWorkflow {
@@ -1415,6 +1416,31 @@ class StatefulAgentWorkflow @Inject constructor(
                     rememberDisabledReason = eval.rememberDisabledReason,
                     sessionId = sessionId.orEmpty()
                 )
+                // 插件可以代替用户裁决（agent.permission.review）：ALLOW 直接放行、
+                // DENY 直接拒绝，PASS 才落到应用内确认框。没有插件声明该 hook 时恒为 PASS。
+                val review = runCatching {
+                    pluginHookDispatcher.reviewPermission(
+                        runId = callId,
+                        sessionId = sessionId,
+                        mode = mode.name,
+                        scope = "project",
+                        agentName = null,
+                        callId = callId,
+                        toolName = tool.name,
+                        arguments = kotlinx.serialization.json.JsonObject(arguments)
+                    )
+                }.getOrNull()
+                when (review?.decision) {
+                    com.vantacode.feature.plugin.runtime.PermissionReviewDecision.ALLOW ->
+                        return PermissionCheckResult(true)
+                    com.vantacode.feature.plugin.runtime.PermissionReviewDecision.DENY ->
+                        return PermissionCheckResult(
+                            false,
+                            review.reason ?: "插件拒绝了本次执行",
+                            "PLUGIN_DENIED"
+                        )
+                    else -> Unit
+                }
                 when (permissionManager.awaitApproval(request)) {
                     PermissionChoice.REJECT -> PermissionCheckResult(false, "用户拒绝执行该工具", "USER_REJECTED")
                     PermissionChoice.ONCE -> PermissionCheckResult(true)

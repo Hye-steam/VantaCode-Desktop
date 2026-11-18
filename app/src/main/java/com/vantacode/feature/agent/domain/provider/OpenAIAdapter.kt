@@ -512,6 +512,13 @@ class OpenAIAdapter @Inject constructor(
             val toolCalls = toolAccs.values
                 .filter { it.id.isNotEmpty() || it.name.isNotEmpty() }
                 .map { acc -> ToolCall(id = acc.id, name = acc.name, arguments = parseToolArguments(acc.args.toString())) }
+            // 上游偶发返回 HTTP 200 但整条流没有任何正文（常见于网关把失效渠道的空结果当成成功转发）。
+            // 这种情况必须抛出去走重试/换渠道，否则会落库成一条空消息，界面上什么都不显示。
+            if (textBuilder.isBlank() && toolCalls.isEmpty() && streamedImages.isEmpty() &&
+                (finishReason == null || finishReason == "stop")
+            ) {
+                throw StreamApiException("EMPTY", "上游返回空内容（模型未输出任何正文）")
+            }
             send(AIStreamChunk.Final(AIResponse(content = textBuilder.toString(), toolCalls = toolCalls, stopReason = finishReason, inputTokens = streamInputTokens, outputTokens = streamOutputTokens, cachedInputTokens = streamCachedInputTokens, cacheCreationTokens = streamCacheCreationTokens, images = streamedImages)))
                     }
             },

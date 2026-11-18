@@ -107,6 +107,23 @@ interface FileAccessProvider {
     fun readBytes(path: String): ByteArray
 
     /**
+     * 有界读取：超出 [maxBytes] 抛 [FileReadTooLargeException]。
+     * 默认实现先全读再校验，远程后端应覆盖为流式限制。
+     */
+    fun readBytes(path: String, maxBytes: Long): ByteArray {
+        val bytes = readBytes(path)
+        if (bytes.size > maxBytes) throw FileReadTooLargeException(maxBytes)
+        return bytes
+    }
+
+    /**
+     * 按后端文件系统语义解析路径，返回可用于相等/祖先比较的绝对身份路径。
+     * [followFinalLink] 为 false 时保留末级符号链接本身。
+     */
+    fun resolvePath(path: String, followFinalLink: Boolean = true): String =
+        if (followFinalLink) path.trimEnd('/').ifEmpty { "/" } else path
+
+    /**
      * 写入文件原始字节。父目录不存在则自动创建。[overwrite] 为 false 且文件已存在时抛 [FileAlreadyExistsException]。
      * 供 [GenerateImageTool] 等需要落盘二进制数据（图片等）的工具使用，也用于上传附件等二进制写入；
      * 文本内容仍用 [writeFile]。
@@ -198,3 +215,6 @@ fun isValidFileEntryName(name: String): Boolean {
         trimmed != "." &&
         trimmed != ".."
 }
+
+/** 有界读取超限：请求的字节数超过调用方允许的上限。 */
+class FileReadTooLargeException(val maxBytes: Long) : java.io.IOException("file exceeds $maxBytes bytes")

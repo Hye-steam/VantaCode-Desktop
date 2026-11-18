@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
@@ -49,16 +50,31 @@ private object NoOpImageTransformer : ImageTransformer {
  * 看原图，那边会按屏幕尺寸重新解码一份更清晰的。
  */
 internal class MarkdownImageTransformer(
-    private val fileAccess: FileAccessProvider
+    private val fileAccess: FileAccessProvider,
+    /** 网络图片落盘缓存；为 null 时退回「只渲染本地图」的旧行为。 */
+    private val remoteCache: RemoteImageCache? = null
 ) : ImageTransformer {
+
+    private sealed interface LoadState {
+        object Loading : LoadState
+        object Failed : LoadState
+        data class Ready(val painter: Painter) : LoadState
+    }
 
     @Composable
     override fun transform(link: String): ImageData? {
-        if (!isLocalPath(link)) return null
-        val painter by produceState<Painter?>(initialValue = null, key1 = link) {
-            value = withContext(Dispatchers.IO) { decode(link) }
+        if (!canRender(link)) return null
+        val state by produceState<LoadState>(LoadState.Loading, key1 = link) {
+            value = withContext(Dispatchers.IO) {
+                decode(link)?.let { LoadState.Ready(it) } ?: LoadState.Failed
+            }
         }
-        val p = painter ?: return null
+        // 加载中保持空白（避免闪烁）；远端图片失败时给一张占位，否则用户只会看到一片空白。
+        if (state is LoadState.Loading) return null
+        if (state is LoadState.Failed) {
+            return if (isRemoteUrl(link)) failureImageData() else null
+        }
+        val p = (state as LoadState.Ready).painter
         val viewer = LocalImageViewer.current
         val clickLabel = stringResource(R.string.common_image_preview)
         // remember 住 modifier：ImageData 是 data class，每帧换一个新 Modifier 实例会让它的
@@ -73,8 +89,57 @@ internal class MarkdownImageTransformer(
         return ImageData(painter = p, modifier = modifier, contentScale = ContentScale.Fit)
     }
 
-    private fun decode(url: String): Painter? {
+    /** 加载失败占位：画一张带文字的灰底图，尺寸固定，避免撑坏排版。 */
+    @Composable
+    private fun failureImageData(): ImageData {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val label = stringResource(R.string.markdown_image_failed)
+        val bitmap = remember(context, label) { renderFailureBitmap(context, label) }
+        val modifier = remember { Modifier.fillMaxWidth() }
+        return ImageData(
+            painter = BitmapPainter(bitmap),
+            modifier = modifier,
+            contentScale = ContentScale.Fit
+        )
+    }
+
+    private fun renderFailureBitmap(
+        context: android.content.Context,
+        label: String
+    ): androidx.compose.ui.graphics.ImageBitmap {
+        val density = context.resources.displayMetrics.density
+        val width = (360 * density).toInt().coerceAtLeast(240)
+        val height = (140 * density).toInt().coerceAtLeast(96)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            width, height, android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(bitmap)
+        val bg = android.graphics.Paint().apply {
+            color = 0xFF2A2A2E.toInt()
+            isAntiAlias = true
+        }
+        canvas.drawRoundRect(
+            0f, 0f, width.toFloat(), height.toFloat(),
+            8 * density, 8 * density, bg
+        )
+        val text = android.graphics.Paint().apply {
+            color = 0xFFB9B9C0.toInt()
+            textSize = 14 * density
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+        val baseline = height / 2f - (text.descent() + text.ascent()) / 2f
+        canvas.drawText(label, width / 2f, baseline, text)
+        return bitmap.asImageBitmap()
+    }
+
+    private suspend fun decode(url: String): Painter? {
         return try {
+            if (isRemoteUrl(url)) {
+                val cached = remoteCache?.localFile(url) ?: return null
+                return decodeSampledBitmap(cached.absolutePath, MARKDOWN_MAX_EDGE)
+                    ?.let { BitmapPainter(it) }
+            }
             val file = fileAccess.copyToLocal(url)
             if (!file.isFile || file.length() <= 0L) return null
             decodeSampledBitmap(file.absolutePath, MARKDOWN_MAX_EDGE)?.let { BitmapPainter(it) }
@@ -84,11 +149,12 @@ internal class MarkdownImageTransformer(
         }
     }
 
-    private fun isLocalPath(url: String): Boolean {
+    /** 能否渲染：本地路径、file:// 与 http(s) 网络图片；其余协议（data/content/ftp）仍不处理。 */
+    private fun canRender(url: String): Boolean {
         val u = url.trim()
         if (u.isEmpty()) return false
         if (u.startsWith("file://")) return true
-        // 带 :// 的其它协议（http/https/data/content/ftp...）一律视为非本地
+        if (isRemoteUrl(u)) return remoteCache != null
         return !u.contains("://")
     }
 

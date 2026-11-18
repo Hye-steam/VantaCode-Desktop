@@ -247,56 +247,7 @@ class AIAgentViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, AgentUIState.Idle)
 
-    init {
-        // 桌宠：等待授权时切换表情
-        viewModelScope.launch {
-            toolPermissionManager.awaitingSessionIds.collect { ids ->
-                try {
-                    val pet = com.vantacode.feature.pet.PetOverlayManager
-                    if (ids.isNotEmpty()) {
-                        pet.setExpression(com.vantacode.feature.pet.PetOverlayManager.PetExpression.WAITING)
-                        pet.showPersistentBubble("需要授权…")
-                    }
-                } catch (_: Exception) {}
-            }
-        }
-    }
-
-    private var lastPetStateTime = 0L
-
     private fun setAgentState(sessionId: String, state: AgentUIState) {
-        // 桌宠实时状态联动：状态切换时保持气泡可见
-        try {
-            val pet = com.vantacode.feature.pet.PetOverlayManager
-            val now = System.currentTimeMillis()
-            when (state) {
-                is AgentUIState.Streaming -> {
-                    pet.setExpression(com.vantacode.feature.pet.PetOverlayManager.PetExpression.CODING)
-                    pet.showPersistentBubble("正在写代码…")
-                }
-                is AgentUIState.Loading -> {
-                    pet.setExpression(com.vantacode.feature.pet.PetOverlayManager.PetExpression.STREAMING)
-                    pet.showPersistentBubble("思考中…")
-                }
-                is AgentUIState.Error -> {
-                    pet.setExpression(com.vantacode.feature.pet.PetOverlayManager.PetExpression.ERROR)
-                    pet.showPersistentBubble("出错了！")
-                }
-                is AgentUIState.Result -> {
-                    pet.setExpression(com.vantacode.feature.pet.PetOverlayManager.PetExpression.DONE)
-                    pet.showPersistentBubble("完成啦！")
-                    // 完成气泡显示 15 秒
-                    kotlinx.coroutines.MainScope().launch {
-                        kotlinx.coroutines.delay(15000)
-                        pet.hideBubble()
-                    }
-                }
-                is AgentUIState.Idle -> {
-                    pet.setExpression(com.vantacode.feature.pet.PetOverlayManager.PetExpression.IDLE)
-                    pet.hideBubble()
-                }
-            }
-        } catch (_: Exception) {}
         _agentStates.value = _agentStates.value + (sessionId to state)
     }
 

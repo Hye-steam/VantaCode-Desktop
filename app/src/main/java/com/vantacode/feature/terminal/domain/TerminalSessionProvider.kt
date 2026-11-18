@@ -23,6 +23,17 @@ interface TerminalSessionProvider {
         sourceSessionId: String? = null
     ): String
 
+    /** 插件发起的后台命令：不进通知中心，避免插件刷任务栏。 */
+    suspend fun startPluginCommand(command: String, title: String?, pluginId: String): String =
+        startBackgroundCommand(command, title, notify = false)
+
+    /** 标签运行状态；无此标签时返回 null。 */
+    /** 标签运行状态；无此标签时返回 null。 */
+    fun tabStatus(id: String): TerminalTabStatus? = null
+
+    /** 订阅标签输出；后端不支持时返回 null。 */
+    fun tabOutput(id: String): kotlinx.coroutines.flow.Flow<ByteArray>? = null
+
     /** 按 id 向标签发送输入并回车执行。返回是否命中标签且仍活跃。 */
     fun sendInput(id: String, input: String, appendNewline: Boolean = true): Boolean
 

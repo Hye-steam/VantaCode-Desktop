@@ -15,6 +15,39 @@ object AgentDefinitionParser {
     private const val MAX_DESC_CHARS = 500
 
     /** 正文为空视为非法定义（agent 必须有提示词），返回 null。定义文件经 [provider] 以容器路径读取。 */
+    /**
+     * 直接解析 Markdown 文本（插件包里已经不落盘，无法走文件读取路径）。
+     * [fallbackName] 在没有 frontmatter name 时兜底。
+     */
+    fun parseText(
+        text: String,
+        fallbackName: String,
+        filePath: String? = null
+    ): AgentDefinition? {
+        val (frontmatter, body) = splitAndParseFrontmatter(text) ?: return null
+        val prompt = body.trim()
+        if (prompt.isEmpty()) return null
+
+        val name = frontmatter["name"]?.toString()?.trim()?.takeIf { it.isNotBlank() }
+            ?: fallbackName
+        val description = (frontmatter["description"]?.toString() ?: "").take(MAX_DESC_CHARS)
+
+        return AgentDefinition(
+            name = name,
+            description = description,
+            providerId = frontmatter["provider"]?.toString()?.trim()?.takeIf { it.isNotBlank() },
+            model = frontmatter["model"]?.toString()?.trim()?.takeIf { it.isNotBlank() },
+            reasoningEffort = frontmatter["reasoningEffort"]?.toString()?.trim()?.lowercase()
+                ?.takeIf { it in VALID_EFFORTS },
+            mode = parseMode(frontmatter["mode"]),
+            allowedTools = stringList(frontmatter["tools"]),
+            disallowedTools = stringList(frontmatter["disallowedTools"]),
+            inject = parseInject(frontmatter["inject"]),
+            prompt = prompt,
+            filePath = filePath
+        )
+    }
+
     fun parse(provider: FileAccessProvider, filePath: String): AgentDefinition? {
         val text = runCatching { provider.readFile(filePath) }.getOrElse {
             FileLogger.w(TAG, "读取子代理定义失败: $filePath", it)

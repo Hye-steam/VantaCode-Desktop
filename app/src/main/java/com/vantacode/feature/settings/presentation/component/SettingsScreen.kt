@@ -246,7 +246,6 @@ fun SettingsScreen(
     val streamIdleTimeoutSec by viewModel.streamIdleTimeoutSec.collectAsStateWithLifecycle()
     val maxNetworkRetries by viewModel.maxNetworkRetries.collectAsStateWithLifecycle()
     val enterToSend by viewModel.enterToSend.collectAsStateWithLifecycle()
-    val petEnabled by viewModel.petEnabled.collectAsStateWithLifecycle()
     val compactionThresholdPercent by viewModel.compactionThresholdPercent.collectAsStateWithLifecycle()
     val sendFileMaxSizeMb by viewModel.sendFileMaxSizeMb.collectAsStateWithLifecycle()
     val goalMaxTurns by viewModel.goalMaxTurns.collectAsStateWithLifecycle()
@@ -384,6 +383,7 @@ fun SettingsScreen(
     // 「添加技能」底部弹层：选择作用域后走手动新建 / 文件导入 / 压缩包导入。
     var showSkillAddSheet by remember { mutableStateOf(false) }
     var showSkillMarket by remember { mutableStateOf(false) }
+    var showPlugins by remember { mutableStateOf(false) }
     var skillImportScope by remember { mutableStateOf(SkillScope.GLOBAL) }
     // 技能文件 / 压缩包选择器：结果交给 ViewModel 读取并落盘到所选作用域。
     val skillFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -504,6 +504,7 @@ fun SettingsScreen(
             onOpenBackgroundSheet = { showBackgroundSheet = true },
             onOpenLanguageSheet = { showLanguageSheet = true },
             onOpenSkillMarket = { showSkillMarket = true },
+            onOpenPlugins = { showPlugins = true },
             onOpenManual = {
                 context.startActivity(
                     Intent(Intent.ACTION_VIEW, Uri.parse(USER_GUIDE_DOCS_URL))
@@ -974,8 +975,6 @@ fun SettingsScreen(
                     onSetMaxNetworkRetries = { viewModel.setMaxNetworkRetries(it) },
                     enterToSend = enterToSend,
                     onToggleEnterToSend = { viewModel.setEnterToSend(it) },
-                    petEnabled = petEnabled,
-                    onTogglePetEnabled = { viewModel.setPetEnabled(it) },
                     compactionThresholdPercent = compactionThresholdPercent,
                     onSetCompactionThresholdPercent = { viewModel.setCompactionThresholdPercent(it) },
                     sendFileMaxSizeMb = sendFileMaxSizeMb,
@@ -1419,6 +1418,11 @@ fun SettingsScreen(
         )
     }
 
+    if (showPlugins) {
+        com.vantacode.feature.plugin.presentation.PluginsScreen(
+            onBack = { showPlugins = false }
+        )
+    }
     if (showSkillMarket) {
         SkillMarketOnlineScreen(
             repository = viewModel.marketRepository,
@@ -1703,6 +1707,7 @@ internal fun SettingsMenu(
     onOpenBackgroundSheet: () -> Unit,
     onOpenLanguageSheet: () -> Unit,
     onOpenSkillMarket: () -> Unit,
+    onOpenPlugins: () -> Unit,
     onOpenManual: () -> Unit,
     onRerunOnboarding: () -> Unit,
     onOpen: (SettingsSection) -> Unit
@@ -1813,8 +1818,14 @@ internal fun SettingsMenu(
             SettingsDivider()
             SettingsRow(
                 icon = FeatherIcons.Globe,
-                title = "技能市场（在线）",
+                title = stringResource(R.string.skill_market_online),
                 onClick = onOpenSkillMarket
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Box,
+                title = stringResource(R.string.plugins_section_title),
+                onClick = onOpenPlugins
             )
             SettingsDivider()
             SettingsRow(

@@ -1462,13 +1462,22 @@ fun AIChatPanel(
     val connectionState = settingsViewModel?.connectionState?.collectAsStateWithLifecycle()?.value
     val isRemote = executionMode == com.vantacode.feature.settings.data.repository.ExecutionMode.REMOTE_SSH
 
-    val markdownImageTransformer = remember(viewModel.fileAccess) {
-        MarkdownImageTransformer(viewModel.fileAccess)
+    val appContextForImages = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val remoteImageCache = remember(appContextForImages) {
+        RemoteImageCache(appContextForImages)
+    }
+    val markdownImageTransformer = remember(viewModel.fileAccess, remoteImageCache) {
+        MarkdownImageTransformer(viewModel.fileAccess, remoteImageCache)
     }
     val imageViewerState = rememberImageViewerState()
     val viewerDecodeSpec = rememberViewerDecodeSpec()
-    val chatImageLoad = remember(viewModel.fileAccess, viewerDecodeSpec) {
-        chatImageLoader(viewModel.fileAccess, viewerDecodeSpec.maxEdge, viewerDecodeSpec.maxPixels)
+    val chatImageLoad = remember(viewModel.fileAccess, viewerDecodeSpec, remoteImageCache) {
+        chatImageLoader(
+            viewModel.fileAccess,
+            viewerDecodeSpec.maxEdge,
+            viewerDecodeSpec.maxPixels,
+            remoteImageCache
+        )
     }
 
     // 文件卡片点击用系统 app 打开：重取/拷贝需要在 IO 线程跑（远程模式要下载），故由这里注入协程。

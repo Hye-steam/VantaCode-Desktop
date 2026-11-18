@@ -80,6 +80,7 @@ import com.vantacode.feature.agent.presentation.AIAgentViewModel
 import com.vantacode.feature.agent.presentation.AgentAttachment
 import com.vantacode.feature.agent.presentation.component.AIChatPanel
 import com.vantacode.feature.agent.presentation.component.ChatDrawerContent
+import com.vantacode.feature.agent.presentation.component.RemoteImageCache
 import com.vantacode.feature.agent.presentation.component.chatImageLoader
 import com.vantacode.feature.agent.presentation.component.openSentAttachment
 import com.vantacode.feature.agreement.presentation.AgreementGate
@@ -96,7 +97,6 @@ import com.vantacode.feature.onboarding.domain.OnboardingStep
 import com.vantacode.feature.onboarding.presentation.LocalOnboardingTargetRegistry
 import com.vantacode.feature.onboarding.presentation.OnboardingOverlay
 import com.vantacode.feature.onboarding.presentation.OnboardingTargetRegistry
-import com.vantacode.feature.pet.data.PetSettingsRepository
 import com.vantacode.feature.settings.data.repository.KeepaliveSettingsRepository
 import com.vantacode.feature.settings.data.repository.AppThemeMode
 import com.vantacode.feature.settings.data.repository.BackgroundSettingsRepository
@@ -167,10 +167,6 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var browserManager: com.vantacode.feature.agent.domain.tool.browser.BrowserManager
-
-    /** 桌宠开关与位置：覆层开关、拖动落位都走这里。 */
-    @Inject
-    lateinit var petSettings: PetSettingsRepository
 
     override fun attachBaseContext(newBase: android.content.Context) {
         // 在 Activity 创建前同步应用用户选择的语言，确保冷启动也生效。
@@ -302,8 +298,7 @@ class MainActivity : ComponentActivity() {
                         AgreementGate(repository = agreementRepository) { agreementAccepted ->
                             AppNavigation(
                                 onboardingRepository = onboardingRepository,
-                                agreementAccepted = agreementAccepted,
-                                petSettings = petSettings
+                                agreementAccepted = agreementAccepted
                             )
                             if (agreementAccepted) {
                                 // 全局凭据弹窗：覆盖所有页面，命令行 git 缺凭据在任意页面都能弹。
@@ -409,8 +404,7 @@ private const val MAX_PANE_SPLIT = 0.7f
 @Composable
 fun AppNavigation(
     onboardingRepository: com.vantacode.feature.onboarding.data.OnboardingRepository,
-    agreementAccepted: Boolean,
-    petSettings: PetSettingsRepository
+    agreementAccepted: Boolean
 ) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -427,9 +421,7 @@ fun AppNavigation(
 
     // Activity 级别的 ViewModel——Drawer 和 AIChatPanel 共享同一个实例。
     val agentViewModel: AIAgentViewModel = hiltViewModel()
-    // 桌宠表情源：当前会话的 agent 状态（已 flatten，切会话自动跟随）；开关走 DataStore。
     val agentUiState by agentViewModel.agentState.collectAsStateWithLifecycle()
-    val petEnabled by petSettings.enabledFlow.collectAsStateWithLifecycle(initialValue = true)
     val settingsViewModel: SettingsViewModel = hiltViewModel()
     // 侧栏要列出团队群聊：回到聊天页就刷一次，新建/改名后立刻可见。
     val teams by settingsViewModel.teams.collectAsStateWithLifecycle()
@@ -580,8 +572,14 @@ fun AppNavigation(
     // 文件树里点文件：图片进内置全屏查看器、APK 走系统安装器，其余仍进编辑器。
     val drawerImageViewerState = rememberImageViewerState()
     val drawerDecodeSpec = rememberViewerDecodeSpec()
-    val drawerImageLoad = remember(agentViewModel.fileAccess, drawerDecodeSpec) {
-        chatImageLoader(agentViewModel.fileAccess, drawerDecodeSpec.maxEdge, drawerDecodeSpec.maxPixels)
+    val drawerImageContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val drawerImageLoad = remember(agentViewModel.fileAccess, drawerDecodeSpec, drawerImageContext) {
+        chatImageLoader(
+            agentViewModel.fileAccess,
+            drawerDecodeSpec.maxEdge,
+            drawerDecodeSpec.maxPixels,
+            RemoteImageCache(drawerImageContext)
+        )
     }
     val openTreeEntry: (String) -> Unit = { path ->
         val name = path.trimEnd('/').substringAfterLast('/')
@@ -1167,7 +1165,6 @@ fun AppNavigation(
         )
     }
 
-    // 桌宠已迁移到 PetOverlayManager（WindowManager 悬浮窗）
     }
     }
 }

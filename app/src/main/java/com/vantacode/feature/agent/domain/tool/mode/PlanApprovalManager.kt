@@ -62,6 +62,13 @@ class PlanApprovalManager @Inject constructor(
         }
     }
 
+    /** 指定会话当前挂起的计划审批；没有则返回 null。供插件只读查询。 */
+    fun pendingForSession(sessionId: String): PlanApprovalRequest? = synchronized(lock) {
+        pending.entries.firstOrNull { it.value.sessionId == sessionId }?.let { (id, entry) ->
+            PlanApprovalRequest(reason = entry.reason, sessionId = entry.sessionId, id = id)
+        }
+    }
+
     /** UI 回传用户选择，唤醒最早挂起的 [awaitApproval]。 */
     fun resolve(choice: PlanApprovalChoice) {
         val id = pendingApproval.value?.id ?: return

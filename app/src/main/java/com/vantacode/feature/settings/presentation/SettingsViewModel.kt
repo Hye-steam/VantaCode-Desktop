@@ -83,7 +83,6 @@ import com.vantacode.feature.settings.data.repository.AgentSoundSettingsReposito
 import com.vantacode.feature.settings.data.repository.KeepaliveSettingsRepository
 import com.vantacode.feature.settings.data.repository.LiveNotificationSettingsRepository
 import com.vantacode.feature.settings.data.repository.ApprovalNotificationSettingsRepository
-import com.vantacode.feature.pet.data.PetSettingsRepository
 import com.vantacode.feature.settings.data.repository.LanguageSettingsRepository
 import com.vantacode.feature.settings.data.repository.LogSettingsRepository
 import com.vantacode.feature.settings.data.repository.ProxyConfig
@@ -400,7 +399,6 @@ class SettingsViewModel @Inject constructor(
     private val liveNotificationSettingsRepository: LiveNotificationSettingsRepository,
     private val approvalNotificationSettingsRepository: ApprovalNotificationSettingsRepository,
     private val generalSettingsRepository: GeneralSettingsRepository,
-    private val petSettingsRepository: PetSettingsRepository,
     private val languageSettingsRepository: LanguageSettingsRepository,
     private val mcpConfigRepository: McpConfigRepository,
     private val mcpManager: McpManager,
@@ -624,9 +622,6 @@ class SettingsViewModel @Inject constructor(
 
     private val _enterToSend = MutableStateFlow(false)
     val enterToSend: StateFlow<Boolean> = _enterToSend.asStateFlow()
-
-    private val _petEnabled = MutableStateFlow(true)
-    val petEnabled: StateFlow<Boolean> = _petEnabled.asStateFlow()
 
 
     private val _compactionThresholdPercent = MutableStateFlow(85)
@@ -1046,19 +1041,6 @@ class SettingsViewModel @Inject constructor(
             launch {
                 generalSettingsRepository.enterToSendFlow.collectLatest {
                     _enterToSend.value = it
-                }
-            }
-
-            launch {
-                petSettingsRepository.enabledFlow.collectLatest {
-                    _petEnabled.value = it
-                    // 启动时同步桌宠显示
-                    val ctx = context
-                    if (it) {
-                        com.vantacode.feature.pet.PetOverlayManager.show(ctx)
-                    } else {
-                        com.vantacode.feature.pet.PetOverlayManager.hide()
-                    }
                 }
             }
 
@@ -2227,19 +2209,6 @@ class SettingsViewModel @Inject constructor(
     fun setAgentSoundEnabled(enabled: Boolean) {
         viewModelScope.launch {
             agentSoundSettingsRepository.setEnabled(enabled)
-        }
-    }
-
-    fun setPetEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            petSettingsRepository.setEnabled(enabled)
-            // 控制桌宠悬浮窗
-            val ctx = context
-            if (enabled) {
-                com.vantacode.feature.pet.PetOverlayManager.show(ctx)
-            } else {
-                com.vantacode.feature.pet.PetOverlayManager.hide()
-            }
         }
     }
 

@@ -80,3 +80,9 @@ data class TabInfo(
     val running: Boolean,
     val command: String?
 )
+
+/** 终端标签的运行状态：插件要等命令跑完并拿退出码。 */
+data class TerminalTabStatus(
+    val running: Boolean,
+    val exitCode: Int?
+)

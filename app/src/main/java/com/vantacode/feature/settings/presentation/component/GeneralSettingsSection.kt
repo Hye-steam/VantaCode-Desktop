@@ -67,8 +67,6 @@ internal fun GeneralSettingsSection(
     onSetGoalMaxTokens: (Int) -> Unit,
     deleteExternalWorkspaceSessions: Boolean,
     onToggleDeleteExternalWorkspaceSessions: (Boolean) -> Unit,
-    petEnabled: Boolean,
-    onTogglePetEnabled: (Boolean) -> Unit,
 ) {
     var showStartupSessionSheet by remember { mutableStateOf(false) }
     var editingFirstByteTimeout by remember { mutableStateOf(false) }
@@ -87,21 +85,6 @@ internal fun GeneralSettingsSection(
             .padding(bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
-        SettingsGroupHeader(text = stringResource(R.string.settings_general_pet))
-        SettingsGroup {
-            SettingsRow(
-                icon = null,
-                title = stringResource(R.string.settings_pet_enabled),
-                subtitle = stringResource(R.string.settings_pet_enabled_desc),
-                trailing = {
-                    AppSwitch(
-                        checked = petEnabled,
-                        onCheckedChange = onTogglePetEnabled
-                    )
-                }
-            )
-        }
-
         SettingsGroupHeader(text = stringResource(R.string.settings_general_models))
         SettingsGroup {
             SettingsRow(

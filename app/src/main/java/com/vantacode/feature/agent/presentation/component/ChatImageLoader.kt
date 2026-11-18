@@ -23,7 +23,8 @@ private const val TAG = "ChatImageLoader"
 internal fun chatImageLoader(
     fileAccess: FileAccessProvider,
     maxEdge: Int,
-    maxPixels: Long
+    maxPixels: Long,
+    remoteCache: RemoteImageCache? = null
 ): suspend (ImageSource) -> ImageBitmap? = { source ->
     withContext(Dispatchers.IO) {
         try {
@@ -36,6 +37,9 @@ internal fun chatImageLoader(
 
                 is ImageSource.Base64 ->
                     decodeSampledBitmap(Base64.getDecoder().decode(source.data), maxEdge, maxPixels)
+
+                is ImageSource.RemoteUrl -> remoteCache?.localFile(source.url)
+                    ?.let { decodeExistingFile(it, maxEdge, maxPixels) }
             }
         } catch (e: Exception) {
             FileLogger.w(TAG, "图片加载失败: $source", e)
@@ -84,6 +88,15 @@ internal fun AgentAttachment.toViewerRequest(): ImageViewerRequest = ImageViewer
  * 退而取路径末段的文件名当标题。
  */
 internal fun markdownViewerRequest(link: String): ImageViewerRequest = ImageViewerRequest(
-    sources = listOf(ImageSource.ContainerPath(link)),
+    sources = listOf(
+        if (isRemoteUrl(link)) ImageSource.RemoteUrl(link.trim())
+        else ImageSource.ContainerPath(link)
+    ),
     title = link.trimEnd('/').substringAfterLast('/')
 )
+
+/** 正文里的网络图片：只有 http(s) 才走远端缓存，其余仍按容器路径读。 */
+internal fun isRemoteUrl(link: String): Boolean {
+    val u = link.trim().lowercase()
+    return u.startsWith("http://") || u.startsWith("https://")
+}
