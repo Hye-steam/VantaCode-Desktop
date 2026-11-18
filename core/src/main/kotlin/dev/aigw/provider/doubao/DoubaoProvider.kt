@@ -3,7 +3,10 @@ package dev.aigw.provider.doubao
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import dev.aigw.provider.AccountActivitySupport
 import dev.aigw.provider.ApiError
+import dev.aigw.provider.BalanceInfo
+import dev.aigw.provider.CheckinResult
 import dev.aigw.provider.ChatRequest
 import dev.aigw.provider.ChatResult
 import dev.aigw.provider.Provider
@@ -34,7 +37,7 @@ import java.util.UUID
  * - 会话 id 从 SSE_ACK.ack_client_meta 取，多轮时要回传
  * - 收尾看 SSE_REPLY_END，msg_finish_attr.brief 是完整答案（可兜底）
  */
-class DoubaoProvider : Provider {
+class DoubaoProvider : Provider, AccountActivitySupport {
 
     override val id = ID
     override val displayName = "豆包"
@@ -50,7 +53,8 @@ class DoubaoProvider : Provider {
     companion object {
         const val ID = "doubao"
 
-        private const val CHAT_URL = "https://www.doubao.com/chat/completion"
+        private const val QUOTA_URL = "https://www.doubao.com/alice/commerce/sale/subscription/quota/summary/"
+private const val CHAT_URL = "https://www.doubao.com/chat/completion"
 
         /** bot_id / mode_id / 窗口大小来自实抓的工作模式配置。 */
         private const val BOT_ID = "7338286299411103781"
@@ -387,13 +391,21 @@ class DoubaoProvider : Provider {
                 }
                 true
             },
-            onDone = { sink.onDone() },
+            // 不能在这里就 sink.onDone()：它会把 done 置位，后续补发的 brief 兜底会被丢掉
+            onDone = {},
         )
         if (!r.ok) Http.classify(r)?.let { return ChatResult.Failure(it) }
+        // 上游 200 + STREAM_ERROR：必须在产出任何内容前就失败，让 Engine 换号重试
+        state.upstreamError?.let { return ChatResult.Failure(it) }
         if (textLen == 0 && state.brief.isNotBlank()) {
-            // 一整段都靠 SSE_REPLY_END 兜底时才走到这里
             sink.onData(openAiDeltaChunk(state.brief))
         }
+        // 一条数据都没产出就当成成功，客户端只会收到 [DONE] 且永远看不到错误，
+        // 也就没法换号重试。必须按 EMPTY 失败上报。
+        if (events == 0 && state.brief.isBlank()) {
+            return ChatResult.Failure(ApiError(ApiError.Kind.EMPTY, 200, "豆包返回空内容"))
+        }
+        sink.onDone()
         return ChatResult.Streamed(events, 0, 0, 0)
     }
 
@@ -412,6 +424,7 @@ class DoubaoProvider : Provider {
             onDone = {},
         )
         if (!r.ok) Http.classify(r)?.let { return ChatResult.Failure(it) }
+        state.upstreamError?.let { return ChatResult.Failure(it) }
         val text = sb.toString().ifBlank { state.brief }
         if (text.isBlank()) {
             return ChatResult.Failure(ApiError(ApiError.Kind.EMPTY, 200, "豆包返回空内容"))
@@ -426,6 +439,11 @@ class DoubaoProvider : Provider {
     }
 
     private class ParseState {
+        /**
+         * 上游用 HTTP 200 + STREAM_ERROR 事件报错（风控/限流），
+         * 不接住就会被当成「正常但没内容」的空响应。
+         */
+        var upstreamError: ApiError? = null
         var brief: String = ""
         /** 一旦收到过 CHUNK_DELTA，就不再从 STREAM_CHUNK 取正文，避免重复。 */
         var sawChunkDelta: Boolean = false
@@ -470,6 +488,22 @@ class DoubaoProvider : Provider {
         else root.getAsJsonObject("event_data") ?: root
 
         when (ev) {
+
+            "STREAM_ERROR" -> {
+                val code = runCatching {
+                    body.get("error_code")?.takeIf { it.isJsonPrimitive }?.asInt
+                }.getOrNull() ?: 0
+                val msg = runCatching {
+                    body.get("error_msg")?.takeIf { it.isJsonPrimitive }?.asString
+                }.getOrNull() ?: "unknown"
+                // 710022004/710022002 是字节风控：换号能绕开，所以按 UPSTREAM 处理让 Engine 换号
+                state.upstreamError = ApiError(
+                    ApiError.Kind.UPSTREAM,
+                    502,
+                    "豆包上游错误 $code：$msg",
+                )
+                return null
+            }
             "SSE_REPLY_END" -> {
                 val brief = runCatching {
                     root.getAsJsonObject("msg_finish_attr")
@@ -646,4 +680,56 @@ class DoubaoProvider : Provider {
 
     private fun quote(s: String): String =
         com.google.gson.JsonPrimitive(s).toString()
+
+    // ---------- 账号运营 ----------
+
+    /**
+     * 豆包没有传统签到，额度按天/按月自动派发。
+     */
+    override fun checkin(account: ProviderAccount): Result<CheckinResult> =
+        Result.success(CheckinResult.Skipped)
+
+    /**
+     * 查当月额度。
+     *
+     * 接口是 `/alice/commerce/sale/subscription/quota/summary/`，额度在
+     * `data.window_limit_section.window_limit_groups[].window_limits[]`，
+     * 字段是带千分位的字符串（"2,142"），要先去逗号再解析。
+     */
+    override fun balance(account: ProviderAccount): Result<BalanceInfo> {
+        val cred = parseCred(account) ?: return Result.failure(IllegalStateException("缺少 Cookie"))
+        val url = "$QUOTA_URL?" + queryString(cred)
+        val sb = StringBuilder()
+        val r = Http.postStream(
+            url = url,
+            headers = headers(cred),
+            json = "{}",
+            onLine = { line -> sb.append(line); true },
+            onDone = {},
+        )
+        if (!r.ok) return Result.failure(IllegalStateException("额度接口 ${r.status}"))
+        val root = runCatching { JsonParser.parseString(sb.toString()).asJsonObject }.getOrNull()
+            ?: return Result.failure(IllegalStateException("额度响应不是 JSON"))
+        val data = root.getAsJsonObject("data") ?: return Result.failure(IllegalStateException("缺少 data"))
+        val groups = data.getAsJsonObject("window_limit_section")
+            ?.getAsJsonArray("window_limit_groups") ?: return Result.success(BalanceInfo(remain = 0.0))
+        var remain = 0.0
+        for (g in groups) {
+            val limits = g.asJsonObject.getAsJsonArray("window_limits") ?: continue
+            for (w in limits) {
+                val o = w.asJsonObject
+                val total = number(o, "total_amount")
+                val used = number(o, "used_amount")
+                remain += (total - used).coerceAtLeast(0.0)
+            }
+        }
+        return Result.success(BalanceInfo(remain = remain))
+    }
+
+    private fun number(o: com.google.gson.JsonObject, key: String): Double {
+        val raw = runCatching {
+            o.get(key)?.takeIf { it.isJsonPrimitive }?.asString
+        }.getOrNull() ?: return 0.0
+        return raw.replace(",", "").toDoubleOrNull() ?: 0.0
+    }
 }

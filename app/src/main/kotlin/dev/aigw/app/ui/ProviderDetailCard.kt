@@ -127,6 +127,8 @@ internal fun SwipeableAccountCard(
         DetailKind.Mimo -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         DetailKind.WorkBuddy -> account.name.takeIf { it.isNotBlank() && it != "WorkBuddy" } ?: account.uid
         DetailKind.Trae -> account.name.takeIf { it.isNotBlank() && it != "Trae" } ?: account.uid
+        // 豆包的账号名是登录时落库的真实昵称，落到 else 会显示成 uid 的 hash
+        DetailKind.Doubao -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         else -> account.uid
     }
     val cooling = account.cooldownUntil > System.currentTimeMillis()

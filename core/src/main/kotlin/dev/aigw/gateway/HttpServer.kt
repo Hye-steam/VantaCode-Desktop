@@ -120,9 +120,9 @@ class GatewayHttpServer(private val engine: Engine) {
             if (raw.isEmpty()) {
                 return jsonResponse(Response.Status.BAD_REQUEST, errorJson("invalid_request", "missing u"))
             }
-            val target = MediaProxy.decode(raw) ?: return jsonResponse(
-                Response.Status.BAD_REQUEST, errorJson("invalid_request", "bad u"),
-            )
+            // NanoHTTPD 解析 query 时已经解过一次码，这里不能再用 URLDecoder：
+            // 二次解码会把签名里的 %3D 变成 =，上游直接 403。
+            val target = raw.trim()
             if (!target.startsWith("http://") && !target.startsWith("https://")) {
                 return jsonResponse(Response.Status.BAD_REQUEST, errorJson("invalid_request", "bad scheme"))
             }
