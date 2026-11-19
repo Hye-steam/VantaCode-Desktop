@@ -45,7 +45,7 @@ class DoubaoLoginActivity : Activity() {
         }
 
         hint = TextView(this).apply {
-            text = "登录豆包后会自动保存账号"
+            text = "登录后自动保存账号；已清除上次的登录状态，可登录其他账号"
             textSize = 13f
             setTextColor(Color.parseColor("#444444"))
             gravity = Gravity.CENTER_VERTICAL
@@ -84,6 +84,14 @@ class DoubaoLoginActivity : Activity() {
                     }
                 }
             }
+            // 上次登录的 Cookie 会留在 WebView 里，直接打开页面就是已登录状态，
+            // 加第二个账号时会被顶回旧账号。这里先清干净再进去。
+            android.webkit.CookieManager.getInstance().removeAllCookies(null)
+            android.webkit.CookieManager.getInstance().flush()
+            android.webkit.WebStorage.getInstance().deleteAllData()
+            clearCache(true)
+            clearHistory()
+            clearFormData()
             loadUrl("https://www.doubao.com/chat/")
         }
         root.addView(view, LinearLayout.LayoutParams(
