@@ -12,6 +12,7 @@ import dev.aigw.provider.BalanceInfo
 import dev.aigw.provider.ChatRequest
 import dev.aigw.provider.ChatResult
 import dev.aigw.provider.CheckinResult
+import dev.aigw.provider.DisplayNameSupport
 import dev.aigw.provider.CredentialImportSupport
 import dev.aigw.provider.CustomProvider
 import dev.aigw.provider.DeviceAuthPoll
@@ -1513,6 +1514,22 @@ class Engine(val dataDir: File) {
     }
 
     /** 刷新单个账号的积分余额；未知余额不会覆盖已存值。 */
+    /**
+     * 从上游刷新账号显示名，成功则回写账号池。
+     *
+     * 只在用户进详情页时触发，失败静默——名字过期不影响任何功能。
+     */
+    fun refreshDisplayName(account: ProviderAccount): Boolean {
+        val provider = providerById[account.providerId] as? DisplayNameSupport ?: return false
+        val name = runCatching { provider.fetchDisplayName(account) }.getOrNull()
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: return false
+        if (name == account.displayName) return false
+        pool.add(account.copy(displayName = name))
+        return true
+    }
+
     fun refreshBalance(account: ProviderAccount): Result<BalanceInfo> {
         val provider = providerById[account.providerId] as? AccountActivitySupport
             ?: return Result.failure(IllegalStateException("该供应商不支持余额查询"))

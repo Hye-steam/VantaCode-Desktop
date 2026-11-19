@@ -7,6 +7,7 @@ import dev.aigw.provider.AccountActivitySupport
 import dev.aigw.provider.ApiError
 import dev.aigw.provider.BalanceInfo
 import dev.aigw.provider.CheckinResult
+import dev.aigw.provider.DisplayNameSupport
 import dev.aigw.provider.ChatRequest
 import dev.aigw.provider.ChatResult
 import dev.aigw.provider.Provider
@@ -39,7 +40,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * - 会话 id 从 SSE_ACK.ack_client_meta 取，多轮时要回传
  * - 收尾看 SSE_REPLY_END，msg_finish_attr.brief 是完整答案（可兜底）
  */
-class DoubaoProvider : Provider, AccountActivitySupport {
+class DoubaoProvider : Provider, AccountActivitySupport, DisplayNameSupport {
 
     override val id = ID
     override val displayName = "豆包"
@@ -1055,6 +1056,26 @@ private const val CHAT_URL = "https://www.doubao.com/chat/completion"
         com.google.gson.JsonPrimitive(s).toString()
 
     // ---------- 账号运营 ----------
+
+    /** 从 `/passport/account/info` 取真实昵称；用户没改过时会返回「用户+数字」。 */
+    override fun fetchDisplayName(account: ProviderAccount): String? {
+        val cred = runCatching { parseCred(account) }.getOrNull() ?: return null
+        val r = runCatching {
+            Http.get(
+                "https://www.doubao.com/passport/account/info",
+                mapOf(
+                    "Cookie" to cred.cookie,
+                    "Referer" to "https://www.doubao.com/chat/",
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+                ),
+            )
+        }.getOrNull() ?: return null
+        if (!r.ok) return null
+        val root = runCatching { JsonParser.parseString(r.body).asJsonObject }.getOrNull() ?: return null
+        return root.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+            ?.get("screen_name")?.takeIf { it.isJsonPrimitive }?.asString
+    }
 
     /**
      * 豆包没有传统签到，额度按天/按月自动派发。

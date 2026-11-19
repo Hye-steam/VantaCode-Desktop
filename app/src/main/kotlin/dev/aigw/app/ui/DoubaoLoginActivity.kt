@@ -148,12 +148,16 @@ class DoubaoLoginActivity : Activity() {
         }.toString()
         // 同一个 device_id 视为同一账号，重复登录时覆盖而不是堆叠
         val uid = deviceId.hashCode().toUInt().toString(16)
+        // 用上游的 screen_name 做显示名；取不到就退回 device_id 尾号，不影响保存
+        val name = runCatching { fetchScreenName(cookie) }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: ("豆包 " + deviceId.takeLast(6))
         runCatching {
             app.engine.pool.add(
                 ProviderAccount(
                     providerId = "doubao",
                     uid = uid,
-                    displayName = "豆包 " + deviceId.takeLast(6),
+                    displayName = name,
                     apiKey = "",
                     baseUrl = "",
                     secret = secret,
@@ -164,6 +168,34 @@ class DoubaoLoginActivity : Activity() {
         }
         hint?.text = "账号已保存"
         finish()
+    }
+
+    /** 从 `/passport/account/info` 取真实昵称（豆包默认名形如「用户6324…」）。 */
+    private fun fetchScreenName(cookie: String): String? {
+        val conn = (java.net.URL("https://www.doubao.com/passport/account/info")
+            .openConnection() as java.net.HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 15_000
+            setRequestProperty("Cookie", cookie)
+            setRequestProperty("Referer", "https://www.doubao.com/chat/")
+            setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+            )
+        }
+        return try {
+            if (conn.responseCode !in 200..299) return null
+            val text = conn.inputStream.readBytes().toString(Charsets.UTF_8)
+            val obj = runCatching {
+                com.google.gson.JsonParser.parseString(text).asJsonObject
+            }.getOrNull() ?: return null
+            obj.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+                ?.get("screen_name")?.takeIf { it.isJsonPrimitive }?.asString
+        } catch (_: Exception) {
+            null
+        } finally {
+            runCatching { conn.disconnect() }
+        }
     }
 
     override fun onDestroy() {

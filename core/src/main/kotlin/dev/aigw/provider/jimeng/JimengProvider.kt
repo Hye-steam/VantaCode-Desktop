@@ -8,6 +8,7 @@ import dev.aigw.provider.BalanceInfo
 import dev.aigw.provider.ChatRequest
 import dev.aigw.provider.ChatResult
 import dev.aigw.provider.CheckinResult
+import dev.aigw.provider.DisplayNameSupport
 import dev.aigw.provider.Provider
 import dev.aigw.provider.ProviderAccount
 import dev.aigw.provider.SseSink
@@ -29,7 +30,7 @@ import kotlin.random.Random
  * 生成是异步的：先提交拿 history_record_id，再轮询 get_history_by_ids 直到出图。
  * 返回的 image_url 是临时的（几小时失效），调用方必须立刻下载转存。
  */
-class JimengProvider : Provider, WebTokenSupport, AccountActivitySupport {
+class JimengProvider : Provider, WebTokenSupport, AccountActivitySupport, DisplayNameSupport {
 
     override val id = ID
     override val displayName = "即梦"
@@ -87,12 +88,30 @@ class JimengProvider : Provider, WebTokenSupport, AccountActivitySupport {
 
         val secret = JsonObject().apply { addProperty("cookie", cookie) }.toString()
         val uid = sid.take(16)
+        // 昵称从上游取；拿不到时退回 sid 前缀，不影响登录
+        val name = runCatching { fetchUserName(cookie) }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: ("即梦 " + sid.take(6))
         return ProviderAccount(
             providerId = ID,
             uid = uid,
-            displayName = "即梦 " + sid.take(6),
+            displayName = name,
             secret = secret,
         )
+    }
+
+    override fun fetchDisplayName(account: ProviderAccount): String? {
+        val cookie = cookieOf(account) ?: return null
+        return fetchUserName(cookie)
+    }
+
+    /** 取当前登录账号的昵称（上游默认名形如「用户2498…」）。 */
+    private fun fetchUserName(cookie: String): String? {
+        val r = call("POST", "/mweb/v1/get_user_info", cookie, JsonObject())
+        if (!r.ok) return null
+        val root = runCatching { JsonParser.parseString(r.body).asJsonObject }.getOrNull() ?: return null
+        return root.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+            ?.get("name")?.takeIf { it.isJsonPrimitive }?.asString
     }
 
     // ---------- 模型 ----------
@@ -108,6 +127,8 @@ class JimengProvider : Provider, WebTokenSupport, AccountActivitySupport {
 
     override fun balance(account: ProviderAccount): Result<BalanceInfo> {
         val cookie = cookieOf(account) ?: return Result.failure(IllegalStateException("凭证缺失"))
+        // 进详情页看到的就是最新额度：先试着领一次当日赠送，已领过时上游返回 0 无副作用
+        runCatching { ensureCredit(cookie) }
         val r = runCatching {
             call("POST", "/commerce/v1/benefits/user_credit", cookie, JsonObject().apply {
                 addProperty("aid", AID.toInt())

@@ -193,6 +193,17 @@ data class ModelInfo(
     val tags: List<String> = emptyList(),
 )
 
+/**
+ * 能从上游取回账号显示名的供应商。
+ *
+ * 登录时拿到的名字可能过期（用户改了昵称），也可能当时没取到而退回了
+ * uid 片段。界面可以在进详情页时调一次，把名字刷新成上游的当前值。
+ */
+interface DisplayNameSupport {
+    /** 返回上游的显示名；取不到返回 null（调用方保留现有名字）。 */
+    fun fetchDisplayName(account: ProviderAccount): String?
+}
+
 /** 供应商可提供比模型 ID 更丰富的展示信息（上下文、倍率、能力标签）。 */
 interface ModelCatalogSupport {
     fun modelCatalog(account: ProviderAccount): List<ModelInfo>

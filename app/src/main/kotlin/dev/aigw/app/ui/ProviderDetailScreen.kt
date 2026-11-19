@@ -69,8 +69,13 @@ fun ProviderAccountsScreen(providerId: String, vm: AppViewModel, onBack: () -> U
     val kind = detailKindByName(providerId)
     val state = vm.state
     val accounts = state.accounts.filter { it.providerId == kind.providerId }
-    // 豆包额度在池内各账号上，进页面自动拉一次，省得列表一直「未知」
+    // 额度存在池内各账号上，进页面自动拉一次，省得列表一直「未知」
     LaunchedEffect(kind.providerId) {
+        accounts.forEach { vm.refreshAccountBalance(kind.providerId, it.uid) }
+    }
+    // 显示名可能随上游变化（用户改了昵称），进页面刷新一次
+    LaunchedEffect(kind.providerId) {
+        vm.refreshDisplayNames(kind.providerId)
     }
     val clipboard = LocalClipboardManager.current
     var showAdd by remember { mutableStateOf(false) }

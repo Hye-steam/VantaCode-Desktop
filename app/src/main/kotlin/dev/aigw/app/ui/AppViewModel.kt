@@ -1252,6 +1252,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 单账号刷新余额（供应商详情页用）。 */
+    /**
+     * 进详情页时把账号显示名刷新成上游当前值。
+     *
+     * 静默执行：取不到就保留原名，失败不提示用户，也不影响任何功能。
+     */
+    fun refreshDisplayNames(providerId: String) {
+        viewModelScope.launch {
+            val changed = withContext(Dispatchers.IO) {
+                engine.pool.all()
+                    .filter { it.account.providerId == providerId }
+                    .count { engine.refreshDisplayName(it.account) }
+            }
+            if (changed > 0) refreshAll()
+        }
+    }
+
     fun refreshAccountBalance(providerId: String, uid: String) {
         val entry = engine.pool.get(providerId, uid)
         if (entry == null) {
