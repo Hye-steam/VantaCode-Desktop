@@ -77,6 +77,7 @@ internal enum class DetailKind(
     Chatglm("智谱清言", "GLM 系列模型", "chatglm", dev.aigw.app.R.drawable.ic_provider_chatglm),
     FreePool("免费池", "免登录公共通道", "freepool", dev.aigw.app.R.drawable.ic_provider_freepool),
     Doubao("豆包", "Cookie 直连 · 工作模式", "doubao", dev.aigw.app.R.drawable.ic_provider_doubao),
+    Jimeng("即梦", "字节图片生成 · 每日 66 积分", "jimeng", dev.aigw.app.R.drawable.ic_provider_jimeng),
     Relay("自定义供应商", "聚合接入", "custom", dev.aigw.app.R.drawable.ic_provider_relay),
     ;
 
@@ -98,6 +99,7 @@ internal fun providerIconBg(kind: DetailKind): Color = when (kind) {
     DetailKind.Raccoon -> LoopColors.accentBlueSoft
     DetailKind.Chatglm -> LoopColors.accentBlueSoft
     DetailKind.Doubao -> LoopColors.accentBlueSoft
+    DetailKind.Jimeng -> LoopColors.brandSoft
     DetailKind.FreePool -> LoopColors.accentGreenSoft
     DetailKind.Relay -> LoopColors.brandSoft
     // 官方图标自带蓝紫底，再套一层底色会露出一圈边

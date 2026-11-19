@@ -118,6 +118,12 @@ private enum class ProviderKind(
         providerId = "doubao",
         logoRes = R.drawable.ic_provider_doubao,
     ),
+    Jimeng(
+        title = "即梦",
+        tagline = "字节图片生成 · 每日 66 积分",
+        providerId = "jimeng",
+        logoRes = R.drawable.ic_provider_jimeng,
+    ),
     Relay(
         title = "自定义供应商",
         tagline = "填 Base URL 与密钥即可添加",
@@ -336,6 +342,7 @@ private fun providerIconBg(kind: ProviderKind): Color = when (kind) {
     ProviderKind.Mimo -> LoopColors.accentOrangeSoft
     ProviderKind.Chatglm -> LoopColors.accentBlueSoft
     ProviderKind.Doubao -> LoopColors.accentBlueSoft
+    ProviderKind.Jimeng -> LoopColors.brandSoft
     ProviderKind.FreePool -> LoopColors.accentGreenSoft
     ProviderKind.Relay -> LoopColors.brandSoft
 }

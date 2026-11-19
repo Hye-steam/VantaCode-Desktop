@@ -10,6 +10,7 @@ import fi.iki.elonen.NanoHTTPD
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
 import java.nio.charset.StandardCharsets
+import dev.aigw.util.Http
 
 /**
  * 网关 HTTP 服务：NanoHTTPD 实现（Android 上验证过的纯 Java 服务端，
@@ -75,6 +76,9 @@ class GatewayHttpServer(private val engine: Engine) {
                 if (session.method == Method.GET && session.uri == "/v1/media") {
                     return handleMedia(session)
                 }
+                if (session.method == Method.GET && session.uri.startsWith("/v1/media/blob/")) {
+                    return handleBlob(session)
+                }
                 if (!authorized(session)) {
                     engine.eventLog.debug("网关", "鉴权失败：${session.method} ${session.uri}")
                     return jsonResponse(Response.Status.UNAUTHORIZED, errorJson("invalid_api_key", "Invalid API key provided"))
@@ -82,6 +86,8 @@ class GatewayHttpServer(private val engine: Engine) {
                 val uri = session.uri
                 when {
                     session.method == Method.POST && uri == "/v1/chat/completions" -> handleChat(session)
+                    session.method == Method.POST &&
+                        (uri == "/v1/images/generations" || uri == "/images/generations") -> handleImages(session)
                     session.method == Method.GET && uri == "/v1/models" -> {
                         val force = session.queryParameterString?.contains("force=1") == true
                         jsonResponse(Response.Status.OK, engine.listModels(force))
@@ -115,6 +121,26 @@ class GatewayHttpServer(private val engine: Engine) {
          * 走的是同一条 HTTP 路径给客户端，好处是绕开客户端对外域名的各种策略，
          * 也不受签名 URL 的长度和特殊字符影响。
          */
+        /** 网关本地缓存的媒体（即梦这类上游链接会过期的图片）。 */
+        private fun handleBlob(session: IHTTPSession): Response {
+            val id = session.uri.removePrefix("/v1/media/blob/").substringBefore('?')
+            val bytes = MediaProxy.load(id)
+                ?: return jsonResponse(Response.Status.NOT_FOUND, errorJson("not_found", "blob missing"))
+            val type = when {
+                id.endsWith(".png") -> "image/png"
+                id.endsWith(".webp") -> "image/webp"
+                else -> "image/jpeg"
+            }
+            return cors(
+                newFixedLengthResponse(
+                    Response.Status.OK,
+                    type,
+                    java.io.ByteArrayInputStream(bytes),
+                    bytes.size.toLong(),
+                ),
+            )
+        }
+
         private fun handleMedia(session: IHTTPSession): Response {
             val raw = session.parameters["u"]?.firstOrNull().orEmpty()
             if (raw.isEmpty()) {
@@ -259,6 +285,52 @@ class GatewayHttpServer(private val engine: Engine) {
             }.apply { isDaemon = true }.start()
 
             return response
+        }
+
+        /**
+         * 图片生成（OpenAI 兼容）。
+         *
+         * 目前只有 OVHcloud 的 SDXL 支持这条路，匿名 2 次/分钟。
+         * 它返回 b64_json，这里原样透传，客户端自己解码。
+         */
+        private fun handleImages(session: IHTTPSession): Response {
+            val bodyText = readUtf8Body(session)
+            val body = runCatching { JsonParser.parseString(bodyText).asJsonObject }.getOrElse {
+                return jsonResponse(Response.Status.BAD_REQUEST, errorJson("invalid_request", "body must be a JSON object"))
+            }
+            val prompt = body.get("prompt")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+            if (prompt.isBlank()) {
+                return jsonResponse(Response.Status.BAD_REQUEST, errorJson("invalid_request", "prompt is required"))
+            }
+            val size = body.get("size")?.takeIf { it.isJsonPrimitive }?.asString ?: "1024x1024"
+            val n = body.get("n")?.takeIf { it.isJsonPrimitive }?.asInt ?: 1
+
+            val upstream = JsonObject().apply {
+                addProperty("model", "stable-diffusion-xl-base-v10")
+                addProperty("prompt", prompt)
+                addProperty("n", n.coerceIn(1, 4))
+                addProperty("size", size)
+            }
+            val sb = StringBuilder()
+            val r = Http.postStream(
+                url = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/images/generations",
+                headers = mapOf("Content-Type" to "application/json"),
+                json = upstream.toString(),
+                timeoutMs = 180_000,
+                onLine = { line -> sb.append(line); true },
+                onDone = {},
+            )
+            if (!r.ok) {
+                engine.eventLog.warn("图片", "OVHcloud 返回 ${r.status}")
+                return jsonResponse(
+                    Response.Status.lookup(r.status) ?: Response.Status.INTERNAL_ERROR,
+                    errorJson("upstream_error", "OVHcloud ${r.status}"),
+                )
+            }
+            engine.eventLog.info("图片", "OVHcloud SDXL · ${prompt.take(40)} · $size · n=$n")
+            val parsed = runCatching { JsonParser.parseString(sb.toString()).asJsonObject }.getOrNull()
+                ?: return jsonResponse(Response.Status.INTERNAL_ERROR, errorJson("upstream_error", "upstream returned non-JSON"))
+            return jsonResponse(Response.Status.OK, parsed)
         }
 
         private fun handleCredits(): Response {

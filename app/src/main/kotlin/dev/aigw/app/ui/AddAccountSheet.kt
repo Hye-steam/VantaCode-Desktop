@@ -286,6 +286,24 @@ internal fun AddAccountSheet(
                         showDoubaoForm = true
                     }
                 }
+                DetailKind.Jimeng -> {
+                    // 即梦和豆包一样靠 Cookie，但它的签名算法是固定的，不需要页面里
+                    // 补设备标识，所以登录成功后直接就能用，不用再弹二次表单。
+                    val jctx = androidx.compose.ui.platform.LocalContext.current
+                    OpButton("一键登录即梦", Icons.Outlined.Login, primary = true) {
+                        val host = jctx.findActivity()
+                        val intent = android.content.Intent(host ?: jctx, JimengLoginActivity::class.java)
+                        if (host == null) {
+                            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        val err = runCatching { (host ?: jctx).startActivity(intent) }.exceptionOrNull()
+                        android.widget.Toast.makeText(
+                            jctx,
+                            if (err == null) "正在打开即梦登录页…" else "无法打开登录页：${err.message}",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
                 DetailKind.FreePool -> {
                     OpButton("一键启用免费池", Icons.Outlined.CloudDownload, primary = true) {
                         vm.addFreePoolAccount()

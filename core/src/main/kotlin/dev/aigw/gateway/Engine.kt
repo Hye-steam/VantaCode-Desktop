@@ -36,6 +36,7 @@ import dev.aigw.provider.codebuddy.CodeBuddyProvider
 import dev.aigw.provider.chatglm.ChatglmProvider
 import dev.aigw.provider.deepseek.DeepSeekProvider
 import dev.aigw.provider.doubao.DoubaoProvider
+import dev.aigw.provider.jimeng.JimengProvider
 import dev.aigw.provider.freepool.FreePoolProvider
 import dev.aigw.provider.loomy.LoomyProvider
 import dev.aigw.provider.mimo.MimoProvider
@@ -104,6 +105,7 @@ class Engine(val dataDir: File) {
         ),
         FreePoolProvider(),
         DoubaoProvider(),
+        JimengProvider(),
     )
     private val providerById: Map<String, Provider> = providers.associateBy { it.id }
     private val gates = ConcurrentHashMap<String, Semaphore>()
@@ -312,6 +314,14 @@ class Engine(val dataDir: File) {
             }
             return routes
         }
+        if (prefix == JimengProvider.ID) {
+            if (!isProviderEnabled(JimengProvider.ID)) return routes
+            if (!modelAvailable(JimengProvider.ID, actual)) return routes
+            pool.available(JimengProvider.ID).forEach { e ->
+                routes.add(Route(e.account, actual, "jimeng:${e.account.uid}"))
+            }
+            return routes
+        }
         if (prefix == FreePoolProvider.ID) {
             if (!isProviderEnabled(FreePoolProvider.ID)) return routes
             // 免费池下挂多个渠道，模型名是「渠道/模型」两级；
@@ -368,6 +378,7 @@ class Engine(val dataDir: File) {
         prefix == ChatglmProvider.ID -> ChatglmProvider.ID
         prefix == FreePoolProvider.ID -> FreePoolProvider.ID
         prefix == DoubaoProvider.ID -> DoubaoProvider.ID
+        prefix == JimengProvider.ID -> JimengProvider.ID
         else -> null
     }
 

@@ -88,4 +88,43 @@ object MediaProxy {
     }
 
     fun decode(raw: String): String? = runCatching { URLDecoder.decode(raw, "UTF-8") }.getOrNull()
+
+    // ---------- 本地缓存（blob） ----------
+
+    /**
+     * 上游链接会过期的媒体（即梦的图片带 x-expires 签名）先落到本地，
+     * 再把网关自己的地址交给客户端，避免几小时后整段对话变成破图。
+     *
+     * 目录取 tmpdir：Android 上就是应用缓存目录，系统会自己回收。
+     */
+    private val blobDir: java.io.File by lazy {
+        java.io.File(System.getProperty("java.io.tmpdir") ?: ".", "aigw-blob").apply { mkdirs() }
+    }
+
+    /** 存一段媒体字节，返回可直接拼进 `/v1/media/blob/<id>` 的 id。 */
+    fun store(bytes: ByteArray, ext: String = "jpg"): String? {
+        return runCatching {
+            val id = java.util.UUID.randomUUID().toString().replace("-", "") + "." + ext
+            val file = java.io.File(blobDir, id)
+            file.writeBytes(bytes)
+            // 顺手清掉一天前的缓存，避免无限增长
+            val cutoff = System.currentTimeMillis() - 24 * 3600_000L
+            blobDir.listFiles()?.forEach { f ->
+                if (f.isFile && f.lastModified() < cutoff) runCatching { f.delete() }
+            }
+            id
+        }.getOrNull()
+    }
+
+    /** 按 id 取回媒体字节；不存在返回 null。 */
+    fun load(id: String): ByteArray? {
+        // 只允许「32 位十六进制 + 扩展名」，挡住路径穿越
+        if (!id.matches(Regex("^[0-9a-f]{32}\\.[a-z0-9]{2,5}$"))) return null
+        val file = java.io.File(blobDir, id)
+        if (!file.isFile) return null
+        return runCatching { file.readBytes() }.getOrNull()
+    }
+
+    /** 网关自身地址，用于生成 blob 链接。 */
+    fun blobUrl(id: String): String = "http://127.0.0.1:$port/v1/media/blob/$id"
 }

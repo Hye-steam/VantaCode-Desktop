@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 即梦：紫地白星的简化标记，只求在列表里可辨识。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#7C5CFF"
+        android:pathData="M14,4h20a10,10 0,0 1,10 10v20a10,10 0,0 1,-10 10h-20a10,10 0,0 1,-10 -10v-20a10,10 0,0 1,10 -10z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,11l3.2,8.1 8.6,0.7 -6.6,5.6 2,8.4 -7.2,-4.5 -7.2,4.5 2,-8.4 -6.6,-5.6 8.6,-0.7z" />
+    <path
+        android:fillColor="#E4DBFF"
+        android:pathData="M35,31.5l1.1,2.8 2.9,0.2 -2.2,1.9 0.7,2.8 -2.5,-1.5 -2.5,1.5 0.7,-2.8 -2.2,-1.9 2.9,-0.2z" />
+</vector>
