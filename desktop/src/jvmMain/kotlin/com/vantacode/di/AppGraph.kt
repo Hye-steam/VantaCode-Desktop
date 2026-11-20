@@ -630,8 +630,9 @@ object AppGraph {
     private val pluginSystemScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        // 与 McpManager 相同：在进程级作用域内把插件声明的动态工具同步进 toolRegistry。
-        pluginToolManager.start(pluginSystemScope)
+        // 注意：pluginToolManager.start() 不能在 init 里调用——它会在 <clinit> 阶段
+        // 过早触发 toolRegistry → mcpConfigRepository 的 lazy 依赖链（此时其它 lazy
+        // 字段尚未初始化完），导致 NPE / ExceptionInInitializerError。改由 DesktopApp.onCreate 调用。
         // 让插件贡献的技能 / 子代理进入既有的 SkillSource / AgentDefinitionSource 聚合链。
         skillRepository.addSource(pluginSkillSource)
         agentDefinitionRepository.addSource(pluginAgentSource)

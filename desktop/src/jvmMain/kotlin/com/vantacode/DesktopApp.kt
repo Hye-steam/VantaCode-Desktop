@@ -66,6 +66,8 @@ object DesktopApp {
         // app.started 拉起常驻插件。少了这一步，声明 runtime 的插件进程不会自己起来。
         appScope.launch {
             runCatching {
+                // 注册插件声明的动态工具（必须在 AppGraph 完全构造后调用，见 AppGraph.init 注释）。
+                AppGraph.pluginToolManager.start(appScope)
                 AppGraph.pluginManager.refresh()
                 AppGraph.pluginHookDispatcher.dispatchAppStarted(
                     com.vantacode.core.platform.PlatformInfo.VERSION_NAME
