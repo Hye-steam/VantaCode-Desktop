@@ -94,18 +94,36 @@ class PluginSystemService @Inject constructor(
         return ok()
     }
 
-    /** 用系统浏览器或其他已注册的 App 打开 http/https 链接。 */
+    /**
+     * 用浏览器打开 http/https 链接。
+     *
+     * 按「夸克 → UC → Chrome → 系统默认」顺序试：部分登录页依赖较新的网页内核，
+     * 系统 WebView/默认浏览器常常太旧（本机 WebView 只到 Chrome 96），
+     * 会导致登录页布局崩坏、按钮点不动。指定包名启动失败就降级到下一个。
+     */
     suspend fun openUrl(pluginId: String, url: String): JsonElement {
         ensureActive(pluginId)
         val target = requireHttpUrl(url)
         withContext(Dispatchers.Main) {
-            try {
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(target))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            } catch (e: ActivityNotFoundException) {
-                throw PluginHostException("NO_ACTIVITY", "no activity to open url")
+            val base = Intent(Intent.ACTION_VIEW, Uri.parse(target))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            var opened = false
+            for (pkg in PREFERRED_BROWSERS) {
+                val intent = Intent(base).setPackage(pkg)
+                // 用 resolveActivity 判断能不能接；直接 startActivity 抛异常会刷一屏日志
+                if (context.packageManager.resolveActivity(intent, 0) == null) continue
+                val ok = runCatching { context.startActivity(intent) }.isSuccess
+                if (ok) {
+                    opened = true
+                    break
+                }
+            }
+            if (!opened) {
+                try {
+                    context.startActivity(base)
+                } catch (e: ActivityNotFoundException) {
+                    throw PluginHostException("NO_ACTIVITY", "no activity to open url")
+                }
             }
         }
         return ok()
@@ -194,5 +212,17 @@ class PluginSystemService @Inject constructor(
         const val MAX_LOG_MESSAGE_CHARS = 2000
         const val MAX_LOG_TAG_CHARS = 64
         const val DEFAULT_TAG_PREFIX = "plugin:"
+
+        /**
+         * 优先尝试的浏览器包名，按顺序降级。
+         * 夸克/UC 的网页内核比系统 WebView 新很多，很多 OAuth 登录页在旧内核上直接排版崩坏。
+         */
+        val PREFERRED_BROWSERS = listOf(
+            "com.quark.browser",
+            "com.UCMobile",
+            "com.android.chrome",
+            "com.android.browser",
+            "com.miui.browser"
+        )
     }
 }

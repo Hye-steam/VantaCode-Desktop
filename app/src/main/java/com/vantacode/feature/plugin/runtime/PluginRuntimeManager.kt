@@ -68,7 +68,10 @@ class PluginRuntimeManager @Inject constructor(
     private val systemService: PluginSystemService,
     private val introspectionService: PluginIntrospectionService,
     private val toolService: PluginToolService,
-    private val httpService: PluginHttpService
+    private val httpService: PluginHttpService,
+    /** 插件拉到模型后回写到自己的供应商记录；用 Provider 避免与
+     *  PluginInstallService 形成循环依赖（后者依赖本类）。 */
+    private val providerRegistrar: dagger.Lazy<PluginProviderRegistrar>
 ) {
 
     private class Entry(
@@ -356,6 +359,18 @@ class PluginRuntimeManager @Inject constructor(
                 secretStore.delete(pluginId, PluginHostPaths.requireString(params, "key"))
             }
             "host.secrets.list" -> hostCall { secretStore.list(pluginId) }
+            // 插件拉到模型后调这个写回供应商，使用者不用再去「拉取模型」里手动点
+            "host.provider.syncModels" -> hostCall {
+                val providerId = PluginHostPaths.requireString(params, "providerId")
+                val models = (params["models"] as? kotlinx.serialization.json.JsonArray)
+                    ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                    .orEmpty()
+                val count = providerRegistrar.get().syncModels(pluginId, providerId, models)
+                kotlinx.serialization.json.buildJsonObject {
+                    put("ok", true)
+                    put("count", count)
+                }
+            }
             "host.tools.list" -> hostCall {
                 introspectionService.listTools(
                     pluginId,

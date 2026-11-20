@@ -24,6 +24,17 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- 插件打开授权页时要按包名试浏览器；Android 11+ 不声明就查不到，
+             resolveActivity 会一律返回 null，夸克优先的降级链就全失效了。 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <package android:name="com.quark.browser" />
+        <package android:name="com.UCMobile" />
+        <package android:name="com.android.chrome" />
+        <package android:name="com.android.browser" />
+        <package android:name="com.miui.browser" />
     </queries>
 
     <application

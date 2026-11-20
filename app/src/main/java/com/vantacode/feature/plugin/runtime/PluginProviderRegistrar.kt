@@ -55,6 +55,31 @@ class PluginProviderRegistrar @Inject constructor(
         if (ids.isNotEmpty()) providerRepository.deleteProviders(ids)
     }
 
+    /**
+     * 把插件拉到的可用模型写进对应供应商。
+     *
+     * 只动 models / defaultModel 两项：地址、Key、排序、自定义头都是用户可能改过的，
+     * 整条覆盖会把使用者的调整回滚成清单默认值。
+     * 供应商不存在时跳过（说明插件没声明这一家）。
+     */
+    suspend fun syncModels(pluginId: String, providerId: String, models: List<String>): Int {
+        val globalId = PluginProviderIds.idOf(pluginId, providerId)
+        val all = providerRepository.getAllProviders().first()
+        val target = all.firstOrNull { it.id == globalId } ?: return 0
+        if (models.isEmpty()) return 0
+        val cleaned = models.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (cleaned.isEmpty()) return 0
+        // 默认模型只在当前为空或已不在新列表里时才改，不打断用户已选的
+        val keepDefault = target.defaultModel.takeIf { it.isNotBlank() && it in cleaned }
+        providerRepository.saveProvider(
+            target.copy(
+                models = cleaned,
+                defaultModel = keepDefault ?: cleaned.first()
+            )
+        )
+        return cleaned.size
+    }
+
     private suspend fun pluginProviderIds(pluginId: String): List<String> =
         providerRepository.getAllProviders().first()
             .map { it.id }
