@@ -2721,14 +2721,15 @@ class AIAgentViewModel @Inject constructor(
             }.timeInMillis
             val today = loadUsageSummary(todayStart)
             val allTime = loadUsageSummary(0L)
+            val thisSession = loadUsageSummary(0L, sessionId = sid)
             val table = buildString {
-                appendLine("| 项目 | 今日 | 累计 |")
-                appendLine("|---|---|---|")
-                appendLine("| 调用次数 | ${today.calls} | ${allTime.calls} |")
-                appendLine("| 输入 tokens | ${formatTokenCount(today.inputTokens)} | ${formatTokenCount(allTime.inputTokens)} |")
-                appendLine("| 输出 tokens | ${formatTokenCount(today.outputTokens)} | ${formatTokenCount(allTime.outputTokens)} |")
-                appendLine("| 缓存命中 tokens | ${formatTokenCount(today.cachedInputTokens)} | ${formatTokenCount(allTime.cachedInputTokens)} |")
-                appendLine("| 预估费用 | ${formatCostUsd(today.costUsd)} | ${formatCostUsd(allTime.costUsd)} |")
+                appendLine("| 项目 | 今日 | 累计 | 本会话 |")
+                appendLine("|---|---|---|---|")
+                appendLine("| 调用次数 | ${today.calls} | ${allTime.calls} | ${thisSession.calls} |")
+                appendLine("| 输入 tokens | ${formatTokenCount(today.inputTokens)} | ${formatTokenCount(allTime.inputTokens)} | ${formatTokenCount(thisSession.inputTokens)} |")
+                appendLine("| 输出 tokens | ${formatTokenCount(today.outputTokens)} | ${formatTokenCount(allTime.outputTokens)} | ${formatTokenCount(thisSession.outputTokens)} |")
+                appendLine("| 缓存命中 tokens | ${formatTokenCount(today.cachedInputTokens)} | ${formatTokenCount(allTime.cachedInputTokens)} | ${formatTokenCount(thisSession.cachedInputTokens)} |")
+                appendLine("| 预估费用 | ${formatCostUsd(today.costUsd)} | ${formatCostUsd(allTime.costUsd)} | ${formatCostUsd(thisSession.costUsd)} |")
             }
             sessionUseCase.touch(sid, messagePersistenceUseCase.nextTimestamp())
             messagePersistenceUseCase.persist(sid, MessageRole.ASSISTANT, table.trimEnd(), isContextExcluded = true)
@@ -2899,10 +2900,10 @@ class AIAgentViewModel @Inject constructor(
     )
 
     /** 汇总自 [start] 起的调用次数、token 与预估费用；费用按「渠道 + 模型」分组逐组估算，才取得到自定义单价。 */
-    private suspend fun loadUsageSummary(start: Long): UsageSummary = withContext(Dispatchers.IO) {
-        val summary = llmCallRecordDao.getSummary(start).first()
+    private suspend fun loadUsageSummary(start: Long, sessionId: String? = null): UsageSummary = withContext(Dispatchers.IO) {
+        val summary = llmCallRecordDao.getSummary(start, sessionId = sessionId).first()
         val providerTypes = aiProviderRepository.getAllProviders().first().associate { it.id to it.type }
-        val cost = llmCallRecordDao.getModelProviderCostStats(start).first().sumOf { stat ->
+        val cost = llmCallRecordDao.getModelProviderCostStats(start, sessionId = sessionId).first().sumOf { stat ->
             val model = stat.model ?: return@sumOf 0.0
             modelCostCalculator.costUsd(
                 providerId = stat.providerId.orEmpty(),

@@ -75,6 +75,8 @@ internal object PluginWebViewFactory {
 
         return WebView(ContextThemeWrapper(context, webViewThemeRes(dark))).apply {
             settings.javaScriptEnabled = true
+            // 桌宠这类插件页要自动播放循环视频；默认策略要求用户手势，会一直停在第 0 帧
+            settings.mediaPlaybackRequiresUserGesture = false
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.domStorageEnabled = false
@@ -202,6 +204,10 @@ internal object PluginWebViewFactory {
         "jpg", "jpeg" -> "image/jpeg"
         "gif" -> "image/gif"
         "webp" -> "image/webp"
+        "webm" -> "video/webm"
+        "mp4", "m4v" -> "video/mp4"
+        "m4a" -> "audio/mp4"
+        "ogg", "ogv" -> "video/ogg"
         "svg" -> "image/svg+xml"
         "woff" -> "font/woff"
         "woff2" -> "font/woff2"

@@ -9,6 +9,7 @@ import com.vantacode.feature.agent.data.local.dao.AgentMessageDao
 import com.vantacode.feature.agent.data.local.dao.ChatSessionDao
 import com.vantacode.feature.agent.data.local.dao.CheckpointDao
 import com.vantacode.feature.agent.data.local.dao.LlmCallRecordDao
+import com.vantacode.feature.schedule.data.dao.ScheduledTaskDao
 import com.vantacode.feature.agent.data.local.dao.TodoItemDao
 import com.vantacode.feature.backup.data.local.dao.BackupTargetDao
 import com.vantacode.feature.settings.data.local.dao.AIProviderDao
@@ -170,6 +171,12 @@ object AgentModule {
     @Singleton
     fun provideLlmCallRecordDao(database: AgentDatabase): LlmCallRecordDao {
         return database.llmCallRecordDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideScheduledTaskDao(database: AgentDatabase): ScheduledTaskDao {
+        return database.scheduledTaskDao()
     }
 
     @Provides

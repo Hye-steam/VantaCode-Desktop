@@ -553,6 +553,20 @@ class StatefulAgentWorkflow @Inject constructor(
         } else 0
         var overflowRecoveryAttempted = false
 
+        // 插件 hook：一次运行的生命周期事件从这里开始发，桌宠等插件靠它切状态
+        val hookRunId = currentContext.inputMessageId.ifBlank { java.util.UUID.randomUUID().toString() }
+        val hookScope = "main"
+        var hookToolCalls = 0
+        currentContext.sessionId?.let { sid ->
+            pluginHookDispatcher.dispatchRunStarted(
+                sessionId = sid,
+                runId = hookRunId,
+                mode = currentContext.mode.name.lowercase(),
+                scope = hookScope,
+                agentName = null
+            )
+        }
+
         while (!state.isFinished && actionQueue.isNotEmpty()) {
             val action = actionQueue.removeFirst()
             val (newState, effects) = reduce(state, action)
@@ -773,6 +787,7 @@ class StatefulAgentWorkflow @Inject constructor(
                         // 并行执行本批已批准的工具。先统一记录 checkpoint（editFile/writeFile 修改前快照），
                         // 再并行执行；mode 切换检查在结果收集后于主协程串行处理（planApproval 单例）。
                         val toolCalls = effect.toolCalls
+                        hookToolCalls += toolCalls.size
                         toolCalls.forEach { toolCall ->
                             if (toolCall.name == "editFile" || toolCall.name == "writeFile") {
                                 (toolCall.arguments["path"] as? JsonPrimitive)?.contentOrNull?.let { path ->
@@ -790,6 +805,18 @@ class StatefulAgentWorkflow @Inject constructor(
                                 val pathLocks = ConcurrentHashMap<String, Mutex>()
                                 toolCalls.map { toolCall ->
                                     async {
+                                        val toolStartedNs = System.nanoTime()
+                                        currentContext.sessionId?.let { sid ->
+                                            pluginHookDispatcher.dispatchToolStarted(
+                                                sessionId = sid,
+                                                runId = hookRunId,
+                                                callId = toolCall.id,
+                                                toolName = toolCall.name,
+                                                mode = currentContext.mode.name.lowercase(),
+                                                scope = hookScope,
+                                                agentName = null
+                                            )
+                                        }
                                         val run: suspend () -> ToolRunResult = {
                                             val tool = toolRegistry.getTool(toolCall.name)
                                             if (tool is StreamingAgentTool) {
@@ -801,8 +828,22 @@ class StatefulAgentWorkflow @Inject constructor(
                                         // 同一批里针对同一路径的调用必须串行：并行会让「读-改-写」互相覆盖，
                                         // 并让写入方的回读校验看到别人的内容而误报失败。不同路径仍并行。
                                         val path = (toolCall.arguments["path"] as? JsonPrimitive)?.contentOrNull
-                                        if (path.isNullOrBlank()) run()
+                                        val hookResult = if (path.isNullOrBlank()) run()
                                         else pathLocks.computeIfAbsent(path) { Mutex() }.withLock { run() }
+                                        currentContext.sessionId?.let { sid ->
+                                            pluginHookDispatcher.dispatchToolFinished(
+                                                sessionId = sid,
+                                                runId = hookRunId,
+                                                callId = toolCall.id,
+                                                toolName = toolCall.name,
+                                                mode = currentContext.mode.name.lowercase(),
+                                                scope = hookScope,
+                                                agentName = null,
+                                                status = if (hookResult.isError) "error" else "success",
+                                                durationMs = ((System.nanoTime() - toolStartedNs) / 1_000_000L).toInt()
+                                            )
+                                        }
+                                        hookResult
                                     }
                                 }.awaitAll()
                             }
@@ -905,7 +946,20 @@ class StatefulAgentWorkflow @Inject constructor(
         
         // 出错时只发 Failed：以前无条件再补一个 Completed，会让下游把同一次结束当成两次
         // （群聊里表现为「[执行失败]」后面紧跟一条「[执行结果]」）。收尾清理已移入 Failed 分支。
+        // 运行结束：桌宠收到这个事件才会从 work/busy 退回待机
         val finalError = state.error
+        currentContext.sessionId?.let { sid ->
+            pluginHookDispatcher.dispatchRunFinished(
+                sessionId = sid,
+                runId = hookRunId,
+                mode = currentContext.mode.name.lowercase(),
+                scope = hookScope,
+                agentName = null,
+                status = if (finalError != null) "error" else "success",
+                toolCalls = hookToolCalls,
+                errorCode = state.errorCode?.takeIf { finalError != null }
+            )
+        }
         if (finalError != null) {
             send(AgentEvent.Failed(finalError, state.errorCode))
         } else {
@@ -1440,6 +1494,18 @@ class StatefulAgentWorkflow @Inject constructor(
                             "PLUGIN_DENIED"
                         )
                     else -> Unit
+                }
+                // 权限弹窗即将弹出：先广播给插件，桌宠借此切到「需要授权」
+                runCatching {
+                    pluginHookDispatcher.dispatchPermissionRequested(
+                        sessionId = sessionId,
+                        runId = callId,
+                        callId = callId,
+                        toolName = tool.name,
+                        mode = mode.name,
+                        scope = "project",
+                        agentName = null
+                    )
                 }
                 when (permissionManager.awaitApproval(request)) {
                     PermissionChoice.REJECT -> PermissionCheckResult(false, "用户拒绝执行该工具", "USER_REJECTED")

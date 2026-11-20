@@ -157,6 +157,9 @@ object PluginHookEvents {
     /** 宿主判定需要使用者确认后、弹窗前的代审核。 */
     const val AGENT_PERMISSION_REVIEW = "agent.permission.review"
 
+    /** 权限确认框已弹出，等待使用者决策；桌宠等插件用它提示「需要授权」。 */
+    const val AGENT_PERMISSION_REQUESTED = "agent.permission.requested"
+
     /** 插件安装或版本替换完成；只派发给该插件自身。 */
     const val PLUGIN_INSTALLED = "plugin.installed"
 
@@ -197,6 +200,7 @@ object PluginHookEvents {
         AGENT_TOOL_AFTER,
         AGENT_HTTP_BEFORE,
         AGENT_PERMISSION_REVIEW,
+        AGENT_PERMISSION_REQUESTED,
         PLUGIN_INSTALLED,
         PLUGIN_UNINSTALLED,
         PLUGIN_ENABLED,

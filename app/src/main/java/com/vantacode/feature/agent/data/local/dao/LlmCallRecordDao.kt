@@ -213,13 +213,15 @@ interface LlmCallRecordDao {
         WHERE createdAt >= :start AND model IS NOT NULL AND model != ''
           AND (:providerId IS NULL OR providerId = :providerId)
           AND (:model IS NULL OR model = :model)
+          AND (:sessionId IS NULL OR sessionId = :sessionId)
         GROUP BY providerId, model
         """
     )
     fun getModelProviderCostStats(
         start: Long,
         providerId: String? = null,
-        model: String? = null
+        model: String? = null,
+        sessionId: String? = null
     ): Flow<List<ModelProviderCostStats>>
 
     /** 周期整体汇总（无 GROUP BY，恒返回一行）。 */
@@ -238,12 +240,14 @@ interface LlmCallRecordDao {
         WHERE createdAt >= :start
           AND (:providerId IS NULL OR providerId = :providerId)
           AND (:model IS NULL OR model = :model)
+          AND (:sessionId IS NULL OR sessionId = :sessionId)
         """
     )
     fun getSummary(
         start: Long,
         providerId: String? = null,
-        model: String? = null
+        model: String? = null,
+        sessionId: String? = null
     ): Flow<CallSummary>
 
     /** 当前周期调用总数，供分页显示总页数。 */

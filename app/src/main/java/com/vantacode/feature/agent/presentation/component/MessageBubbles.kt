@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -362,7 +363,7 @@ internal fun AgentMessageItem(
                                         Text(
                                             text = message.content,
                                             color = chatUserBubbleTextColor(),
-                                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 21.sp),
                                             modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
                                         )
                                     }
@@ -616,9 +617,13 @@ private fun MessageActionIconButton(
     tint: Color,
     onClick: () -> Unit
 ) {
+    // 视觉仍是 24dp，不改变行高；minimumInteractiveComponentSize 只扩大可点范围，
+    // 让 14dp 的小图标也满足 48dp 触控热区（单手操作时不容易点空）。
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(24.dp),
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .size(24.dp),
         colors = IconButtonDefaults.iconButtonColors(contentColor = tint),
     ) {
         Icon(icon, contentDescription = contentDescription, modifier = Modifier.size(14.dp))

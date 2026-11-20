@@ -86,6 +86,7 @@ import com.vantacode.core.theme.Brand
 import com.vantacode.core.theme.Radius
 import com.vantacode.core.theme.Spacing
 import com.vantacode.core.theme.semanticColors
+import com.vantacode.core.ui.AppTransitions
 import com.vantacode.core.ui.rememberImeBottomInset
 import com.vantacode.feature.onboarding.domain.OnboardingStep
 import com.vantacode.feature.onboarding.presentation.onboardingTarget
@@ -112,9 +113,12 @@ import com.vantacode.feature.settings.domain.model.ModelMetadata
 import com.vantacode.feature.settings.domain.model.modelMetadataKey
 import com.vantacode.feature.settings.domain.model.ProviderDashboardState
 import com.vantacode.feature.workspace.presentation.WorkspaceViewModel
+import com.vantacode.feature.agent.presentation.voice.VoiceInputButton
+import com.vantacode.feature.agent.presentation.voice.VoiceInputState
 import com.vantacode.feature.workspace.presentation.component.WorkspaceIconButton
 import com.vantacode.core.ui.ExpandableChevronIcon
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Mic
 import compose.icons.feathericons.AlertCircle
 import compose.icons.feathericons.ArrowUp
 import compose.icons.feathericons.Check
@@ -176,6 +180,8 @@ internal fun ChatInputBar(
     onUploadImage: () -> Unit,
     onTakePhoto: () -> Unit,
     onUploadApp: (String, String, String) -> Unit,
+    /** 语音输入状态；为 null 时不渲染麦克风按钮（如设备无识别引擎）。 */
+    voiceInput: VoiceInputState? = null,
     slashCommands: List<SlashCommand> = emptyList(),
     fileMentionState: FileMentionState = FileMentionState.Idle,
     onFileMentionOpen: () -> Unit = {},
@@ -638,6 +644,13 @@ internal fun ChatInputBar(
                             )
                         }
                     }
+                    voiceInput?.let { voice ->
+                        VoiceInputButton(
+                            enabled = !isBusy,
+                            isListening = voice.isListening,
+                            onToggle = voice.onToggle
+                        )
+                    }
                     UploadIconButton(
                         enabled = !isBusy,
                         icon = FeatherIcons.Plus,
@@ -1004,7 +1017,7 @@ internal fun ToolPermissionPanel(
             AnimatedVisibility(
                 visible = effectiveExpanded,
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+                exit = AppTransitions.barExit
             ) {
                 Column {
                     Spacer(Modifier.height(Spacing.sm))
@@ -1162,7 +1175,7 @@ private fun ErrorBubble(message: String) {
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+                exit = AppTransitions.barExit
             ) {
                 Column {
                     Spacer(Modifier.height(Spacing.sm))
@@ -1242,7 +1255,7 @@ internal fun PlanApprovalPanel(
             AnimatedVisibility(
                 visible = effectiveExpanded,
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+                exit = AppTransitions.barExit
             ) {
                 Column {
                     // 多会话并行时标注这份计划属于哪个会话，避免用户批错对象

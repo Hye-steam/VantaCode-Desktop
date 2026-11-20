@@ -88,6 +88,7 @@ import com.vantacode.feature.settings.data.repository.BackgroundSettingsReposito
 import com.vantacode.feature.settings.domain.model.AIProviderConfig
 import com.vantacode.feature.settings.domain.model.ModelMetadata
 import com.vantacode.feature.settings.presentation.SettingsViewModel
+import com.vantacode.feature.schedule.presentation.component.ScheduledTasksSection
 import com.vantacode.feature.settings.presentation.ShizukuViewModel
 import com.vantacode.feature.settings.presentation.SkillImportState
 import com.vantacode.feature.settings.presentation.SkillUiEntry
@@ -97,6 +98,7 @@ import com.vantacode.feature.settings.presentation.SubAgentUiEntry
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.BarChart2
+import compose.icons.feathericons.Clock
 import compose.icons.feathericons.Book
 import compose.icons.feathericons.BookOpen
 import compose.icons.feathericons.Box
@@ -174,6 +176,7 @@ internal enum class SettingsSection(@param:StringRes val titleRes: Int) {
     RemoteServers(R.string.settings_remote_servers),
     Storage(R.string.settings_storage),
     TokenStats(R.string.settings_token_stats_title),
+    ScheduledTasks(R.string.settings_scheduled_tasks),
     Backup(R.string.settings_backup),
     About(R.string.settings_about)
 }
@@ -699,6 +702,9 @@ fun SettingsScreen(
             // 它的构造即触发一次全盘统计，不能提到 SettingsScreen 顶层（那样每次进设置页都会扫盘）。
             val storageViewModel: com.vantacode.feature.settings.presentation.StorageViewModel? =
                 if (current == SettingsSection.Storage) androidx.hilt.navigation.compose.hiltViewModel() else null
+            // 定时任务页同理：只在进入该分区时创建，避免每次进设置都建一个用不到的 ViewModel
+            val scheduleViewModel: com.vantacode.feature.schedule.presentation.ScheduleViewModel? =
+                if (current == SettingsSection.ScheduledTasks) androidx.hilt.navigation.compose.hiltViewModel() else null
             Scaffold(
         containerColor = settingsPageBackground(),
         topBar = {
@@ -1261,6 +1267,18 @@ fun SettingsScreen(
                     onClearFilters = { viewModel.clearTokenStatsFilters() }
                 )
                 SettingsSection.Storage -> storageViewModel?.let { StorageSectionHost(viewModel = it) }
+                SettingsSection.ScheduledTasks -> scheduleViewModel?.let { scheduleVm ->
+                    val tasks by scheduleVm.tasks.collectAsStateWithLifecycle()
+                    ScheduledTasksSection(
+                        tasks = tasks,
+                        onSave = { id, title, prompt, interval, root ->
+                            scheduleVm.save(id, title, prompt, interval, root)
+                        },
+                        onToggle = { task, enabled -> scheduleVm.setEnabled(task, enabled) },
+                        onDelete = { scheduleVm.delete(it) },
+                        onRunNow = { scheduleVm.runNow(it) }
+                    )
+                }
                 SettingsSection.ProviderEditor -> {} // 已在上方 early return 处理
                 SettingsSection.SkillEditor -> {} // 已在上方 early return 处理
                 SettingsSection.SubAgentEditor -> {} // 已在上方 early return 处理
@@ -1898,6 +1916,12 @@ internal fun SettingsMenu(
                 icon = FeatherIcons.BarChart2,
                 title = stringResource(SettingsSection.TokenStats.titleRes),
                 onClick = { onOpen(SettingsSection.TokenStats) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Clock,
+                title = stringResource(SettingsSection.ScheduledTasks.titleRes),
+                onClick = { onOpen(SettingsSection.ScheduledTasks) }
             )
             SettingsDivider()
             SettingsRow(

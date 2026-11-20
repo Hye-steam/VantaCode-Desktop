@@ -54,6 +54,7 @@ import com.vantacode.R
 import com.vantacode.feature.settings.domain.model.AIProviderConfig
 import com.vantacode.feature.settings.domain.model.AdaptiveCardAction
 import com.vantacode.feature.settings.domain.model.ProviderDashboardState
+import com.vantacode.core.ui.AppTransitions
 import com.vantacode.core.ui.ExpandableChevronIcon
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.AlertCircle
@@ -242,7 +243,7 @@ fun ProviderDashboardBar(
                     AnimatedVisibility(
                         visible = effectiveExpanded,
                         enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                        exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+                        exit = AppTransitions.barExit
                     ) {
                         Column(
                             modifier = Modifier

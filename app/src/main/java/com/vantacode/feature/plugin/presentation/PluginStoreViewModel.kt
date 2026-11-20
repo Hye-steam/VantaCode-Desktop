@@ -220,7 +220,7 @@ class PluginStoreViewModel @Inject constructor(
                 val candidates = client.rankCandidates(asset)
                 _state.update { it.copy(installStage = PluginInstallStage.DOWNLOADING) }
                 _state.update { it.copy(downloadProgress = null, downloadedBytes = null) }
-                val packageFile = client.download(asset, candidates) { received, total ->
+                val onProgress: (Long, Long) -> Unit = { received, total ->
                     _state.update {
                         it.copy(
                             downloadProgress = if (total > 0) {
@@ -229,6 +229,18 @@ class PluginStoreViewModel @Inject constructor(
                             downloadedBytes = received
                         )
                     }
+                }
+                val packageFile = try {
+                    client.download(asset, candidates, onProgress)
+                } catch (e: Exception) {
+                    // 本地索引缓存指向已被同步脚本删掉的旧包时，镜像全 404；
+                    // 此时强制重拉一次索引，用新地址重试，而不是让用户手动下拉刷新。
+                    if (!e.message.orEmpty().contains("404")) throw e
+                    FileLogger.w(TAG, "插件包 404，刷新索引后重试: ${item.plugin.id}")
+                    val fresh = client.fetchIndex(item.source, forceRefresh = true).index.plugins
+                        .firstOrNull { it.id == item.plugin.id } ?: throw e
+                    val retryAsset = client.resolveRelease(fresh)
+                    client.download(retryAsset, client.rankCandidates(retryAsset), onProgress)
                 }
                 _state.update { it.copy(downloadProgress = null, downloadedBytes = null) }
                 val result = packageFile.file.inputStream().use { manager.preview(it) }

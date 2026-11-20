@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vantacode.R
 import com.vantacode.core.theme.Spacing
+import com.vantacode.core.ui.AppTransitions
 import com.vantacode.core.ui.ImageViewerHost
 import com.vantacode.core.ui.LocalImageViewer
 import com.vantacode.core.ui.readableContentMaxWidth
@@ -90,6 +91,7 @@ import com.vantacode.feature.agent.presentation.AIAgentViewModel
 import com.vantacode.feature.agent.presentation.MessageRole
 import com.vantacode.feature.agent.presentation.QueuedRequest
 import com.vantacode.feature.agent.presentation.hasVisibleContent
+import com.vantacode.feature.agent.presentation.voice.rememberVoiceInput
 import com.vantacode.feature.onboarding.domain.OnboardingStep
 import com.vantacode.feature.onboarding.presentation.onboardingTarget
 import com.vantacode.feature.settings.presentation.SettingsViewModel
@@ -1809,7 +1811,26 @@ fun AIChatPanel(
                 }
             }
 
+            // 语音识别：中间结果覆盖式写回输入框（记住开始前的草稿前缀），最终结果落定后清空临时区
+            var voiceBaseDraft by remember { mutableStateOf<String?>(null) }
+            val voiceInput = rememberVoiceInput(
+                onPartial = { partial ->
+                    val base = voiceBaseDraft ?: inputText.also { voiceBaseDraft = it }
+                    viewModel.updateInputDraft(if (base.isBlank()) partial else "$base $partial")
+                },
+                onFinal = { text ->
+                    val base = voiceBaseDraft ?: inputText
+                    viewModel.updateInputDraft(if (base.isBlank()) text else "$base $text")
+                    voiceBaseDraft = null
+                },
+                onError = { message ->
+                    voiceBaseDraft = null
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            ).takeIf { it.isAvailable }
+
             ChatInputBar(
+                voiceInput = voiceInput,
                 value = inputText,
                 onValueChange = viewModel::updateInputDraft,
                 onSend = sendMessage,
@@ -1925,12 +1946,8 @@ fun AIChatPanel(
                     .fillMaxWidth()
                     .padding(bottom = with(LocalDensity.current) { floatingLayerHeightPx.toDp() } + Spacing.xs)
                     .onGloballyPositioned { permissionPanelHeightPx = if (pendingPermission != null) it.size.height else 0 },
-                enter = fadeIn(tween(220)) +
-                        slideInVertically(tween(220)) { it / 3 } +
-                        scaleIn(initialScale = 0.96f, animationSpec = tween(220)),
-                exit = fadeOut(tween(160)) +
-                       slideOutVertically(tween(160)) { it / 3 } +
-                       scaleOut(targetScale = 0.96f, animationSpec = tween(160))
+                enter = AppTransitions.panelEnter,
+                exit = AppTransitions.panelExit
             ) {
                 permissionForPanel?.let { request ->
                     ToolPermissionPanel(

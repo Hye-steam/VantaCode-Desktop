@@ -34,7 +34,7 @@ data class PluginIndexSource(
 
 object PluginIndexDefaults {
     /** 插件开发文档；与商店索引同仓库，随文档提交一起更新。 */
-    const val DEV_DOCS_URL = "https://github.com/xzyy03/Muse-Plugins-Store/blob/main/docs/plugin-dev.md"
+    const val DEV_DOCS_URL = "https://github.com/xzyy03/Nox-Plugins-Store/blob/main/docs/plugin-dev.md"
     const val OFFICIAL_URL = "https://raw.githubusercontent.com/Hye-steam/Vanta-Plugins-Store/main/index.json"
     const val OFFICIAL_NAME = "Vanta Plugin Store"
     const val OFFICIAL_ID = "aicode.official"

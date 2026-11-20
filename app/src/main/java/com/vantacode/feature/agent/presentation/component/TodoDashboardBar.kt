@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +42,7 @@ import com.vantacode.core.theme.Radius
 import com.vantacode.core.theme.Spacing
 import com.vantacode.feature.agent.domain.model.TodoItem
 import com.vantacode.feature.agent.domain.model.TodoStatus
+import com.vantacode.core.ui.AppTransitions
 import com.vantacode.core.ui.ExpandableChevronIcon
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.CheckSquare
@@ -170,7 +169,7 @@ fun TodoDashboardBar(
             AnimatedVisibility(
                 visible = effectiveExpanded,
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+                exit = AppTransitions.barExit
             ) {
                 Column {
                     Spacer(Modifier.height(Spacing.xs))

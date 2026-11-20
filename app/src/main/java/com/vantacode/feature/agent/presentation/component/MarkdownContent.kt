@@ -151,7 +151,8 @@ internal fun MarkdownContent(
     val typography = MaterialTheme.typography
     // compact：正文、列表用 bodySmall，标题降一档，用于思考气泡等次要文本区域
     val body = if (compact) typography.bodySmall else typography.bodyMedium
-    val bodyLineHeight = if (compact) 18.sp else 20.sp
+    // 正文行高 1.5 倍是中文可读性的下限；14sp 对应 21sp，20sp 只有 1.43 倍，长段落会显得挤
+    val bodyLineHeight = if (compact) 18.sp else 21.sp
     val codeSize = if (compact) 12.sp else 13.sp
     val mdTypography = markdownTypography(
         h1 = (if (compact) typography.titleMedium else typography.headlineSmall).copy(fontWeight = FontWeight.Bold, color = color),
@@ -458,6 +459,6 @@ private fun PlainMarkdownText(
     Text(
         text = text,
         modifier = modifier,
-        style = MaterialTheme.typography.bodyMedium.copy(color = color, lineHeight = 20.sp)
+        style = MaterialTheme.typography.bodyMedium.copy(color = color, lineHeight = 21.sp)
     )
 }

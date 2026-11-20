@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,6 +51,7 @@ import com.vantacode.feature.agent.domain.tool.question.SingleAnswer
 import com.vantacode.feature.agent.domain.tool.question.UserQuestionAnswer
 import androidx.compose.ui.res.stringResource
 import com.vantacode.R
+import com.vantacode.core.ui.AppTransitions
 import com.vantacode.core.ui.AppTextField
 import com.vantacode.core.ui.ExpandableChevronIcon
 import compose.icons.FeatherIcons
@@ -148,7 +147,7 @@ fun AskUserQuestionPanel(
             AnimatedVisibility(
                 visible = effectiveExpanded,
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
-                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+                exit = AppTransitions.barExit
             ) {
                 Column(
                     modifier = Modifier

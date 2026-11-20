@@ -287,6 +287,26 @@ class PluginHookDispatcher @Inject constructor(
     }
 
     /** 一次工具调用真正开始执行。 */
+    fun dispatchPermissionRequested(
+        sessionId: String?,
+        runId: String,
+        callId: String,
+        toolName: String,
+        mode: String,
+        scope: String,
+        agentName: String?
+    ) {
+        if (sessionId == null) return
+        dispatch(
+            event = PluginHookEvents.AGENT_PERMISSION_REQUESTED,
+            payload = payload(runId, sessionId, mode, scope, agentName) {
+                put("callId", callId)
+                put("toolName", toolName)
+            }
+        )
+    }
+
+    /** 一次工具调用真正开始执行。 */
     fun dispatchToolStarted(
         sessionId: String?,
         runId: String,

@@ -11,7 +11,8 @@ export ANDROID_HOME=${ANDROID_HOME:-/root/android/sdk}
 sh ./gradlew assembleArmsoloRelease --console=plain \
     -PtestBuild=false \
     -Dkotlin.compiler.execution.strategy=in-process \
-    -Dorg.gradle.jvmargs=-Xmx3g "$@"
+    -Dorg.gradle.jvmargs="-Xmx2560m -XX:MaxMetaspaceSize=768m" \
+    --max-workers=2 --no-parallel "$@"
 
 APK=app/build/outputs/apk/armsolo/release/app-armsolo-release.apk
 OUT="$(dirname "$0")/../Download/VantaCode-release-$(date +%m%d-%H%M).apk"

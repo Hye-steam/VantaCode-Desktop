@@ -1,11 +1,14 @@
 package com.vantacode.feature.plugin.presentation
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
@@ -65,6 +68,10 @@ internal fun PluginsScreen(
     var showUninstallConfirm by remember { mutableStateOf(false) }
 
     val inDetail = detailPluginId != null || devProject != null || storeItem != null
+    // 本地导入：绕过商店下载，直接选一个 zip 安装
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let(viewModel::import) }
     BackHandler(enabled = inDetail) {
         when {
             storeItem != null -> storeItem = null
@@ -110,6 +117,12 @@ internal fun PluginsScreen(
                             )
                         }
                     } else if (storeItem == null && devProject == null) {
+                        IconButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = stringResource(R.string.plugins_import)
+                            )
+                        }
                         IconButton(onClick = { showSettings = true }) {
                             Icon(
                                 Icons.Filled.Settings,

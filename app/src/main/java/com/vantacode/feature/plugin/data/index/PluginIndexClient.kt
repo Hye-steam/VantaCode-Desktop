@@ -49,12 +49,12 @@ class PluginIndexClient @Inject constructor(
     private val storeSettings: PluginStoreSettingsRepository,
     private val mirrorSelector: GitHubMirrorSelector
 ) {
-    // 索引很小，但插件包可能有几 MB；弱网下 20 秒整包超时会让下载反复失败、
-    // 界面一直停在「正在下载插件包…」。这里按整包放宽，读超时也放大到 30 秒。
+    // 索引很小，但插件包可能有几 MB；弱网下整包超时太紧会让下载反复失败。
+    // 逐个地址的下限分别控制：读超时只约束「多久没收到数据」，死镜像最多卡 15 秒就被换掉。
     private val http = client.newBuilder()
-        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .callTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
+        .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
         .cache(null)
         .build()
 
