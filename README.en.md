@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/icon.webp" width="112" alt="VantaCode" />
+  <img src="docs/icon.png" width="112" alt="VantaCode" />
   <h1 align="center">VantaCode</h1>
   <p align="center">
     Universal AI Coding Agent for Android · Linux dev environment · Local & remote SSH
@@ -27,20 +27,28 @@ We recently discovered that a closed-source commercial app makes extensive use o
 <p align="center">
   <table>
     <tr>
-      <td align="center"><img src="docs/screenshots/home.png" alt="VantaCode home - AI chat interface with code generation and Markdown rendering" width="270"/></td>
-      <td align="center"><img src="docs/screenshots/git.png" alt="VantaCode Git integration - visual commit history and branch management" width="270"/></td>
+      <td align="center"><img src="docs/screenshots/chat-light.jpg" alt="VantaCode chat in light theme - new session with model picker and voice input" width="270"/></td>
+      <td align="center"><img src="docs/screenshots/chat-dark.jpg" alt="VantaCode chat in dark theme - new session with animated background" width="270"/></td>
     </tr>
     <tr>
-      <td align="center">Home · AI Chat</td>
-      <td align="center">Git · Commit History</td>
+      <td align="center">Chat · Light</td>
+      <td align="center">Chat · Dark</td>
     </tr>
     <tr>
-      <td align="center"><img src="docs/screenshots/container.png" alt="VantaCode container settings - container image management" width="270"/></td>
-      <td align="center"><img src="docs/screenshots/models.png" alt="VantaCode model list - multi-provider model management" width="270"/></td>
+      <td align="center"><img src="docs/screenshots/plugins.jpg" alt="VantaCode plugin manager - installed plugins with official and community badges" width="270"/></td>
+      <td align="center"><img src="docs/screenshots/skill-market.jpg" alt="VantaCode online skill market - searchable skill list sorted by stars" width="270"/></td>
     </tr>
     <tr>
-      <td align="center">Container · Image Manager</td>
-      <td align="center">Models · Provider List</td>
+      <td align="center">Plugins · Manager</td>
+      <td align="center">Skill Market</td>
+    </tr>
+    <tr>
+      <td align="center"><img src="docs/screenshots/teams.jpg" alt="VantaCode teams - compose sub-agents into a team for multi-perspective discussion" width="270"/></td>
+      <td align="center"><img src="docs/screenshots/scheduled-tasks.jpg" alt="VantaCode scheduled tasks - let the agent run on a timer in the background" width="270"/></td>
+    </tr>
+    <tr>
+      <td align="center">Teams · Multi-Agent</td>
+      <td align="center">Scheduled Tasks</td>
     </tr>
   </table>
 </p>
@@ -96,7 +104,9 @@ There is nothing to set up beforehand: install the app, configure a model under 
 ### Experience
 
 - **Tablet & large screen** — Layout adapts to window width: a persistent sidebar on wide screens with code or terminal beside the chat, falling back to a single pane when narrow
-- **Token stats** — Usage and cost estimates per provider and model, with a drill-down into individual calls
+- **Token stats** — Usage and cost estimates per provider, model and session, with a drill-down into individual calls
+- **Scheduled tasks** — Hand the agent a prompt and an interval; it runs unattended in the background and records the outcome per run
+- **Voice input** — Dictate into the chat box with the system speech recognizer: no network round-trip and no extra cost, with live partial results
 - **Appearance & language** — Light/dark themes, preset color schemes, Material You colors, custom background images, and a bilingual (Chinese/English) UI
 - **Network proxy** — Configure a global proxy and per-provider proxies separately
 - **Backup & Restore** — Encrypted export/import of provider configs, credentials, chat history and workspace files
