@@ -37,6 +37,7 @@ import dev.aigw.provider.codebuddy.CodeBuddyProvider
 import dev.aigw.provider.chatglm.ChatglmProvider
 import dev.aigw.provider.deepseek.DeepSeekProvider
 import dev.aigw.provider.doubao.DoubaoProvider
+import dev.aigw.provider.chatgpt.ChatGptProvider
 import dev.aigw.provider.jimeng.JimengProvider
 import dev.aigw.provider.freepool.FreePoolProvider
 import dev.aigw.provider.loomy.LoomyProvider
@@ -107,6 +108,7 @@ class Engine(val dataDir: File) {
         FreePoolProvider(),
         DoubaoProvider(),
         JimengProvider(),
+        ChatGptProvider(),
     )
     private val providerById: Map<String, Provider> = providers.associateBy { it.id }
     private val gates = ConcurrentHashMap<String, Semaphore>()
@@ -323,6 +325,14 @@ class Engine(val dataDir: File) {
             }
             return routes
         }
+        if (prefix == ChatGptProvider.ID) {
+            if (!isProviderEnabled(ChatGptProvider.ID)) return routes
+            if (!modelAvailable(ChatGptProvider.ID, actual)) return routes
+            pool.available(ChatGptProvider.ID).forEach { e ->
+                routes.add(Route(e.account, actual, "chatgpt:${e.account.uid}"))
+            }
+            return routes
+        }
         if (prefix == FreePoolProvider.ID) {
             if (!isProviderEnabled(FreePoolProvider.ID)) return routes
             // 免费池下挂多个渠道，模型名是「渠道/模型」两级；
@@ -380,6 +390,7 @@ class Engine(val dataDir: File) {
         prefix == FreePoolProvider.ID -> FreePoolProvider.ID
         prefix == DoubaoProvider.ID -> DoubaoProvider.ID
         prefix == JimengProvider.ID -> JimengProvider.ID
+        prefix == ChatGptProvider.ID -> ChatGptProvider.ID
         else -> null
     }
 
@@ -563,6 +574,40 @@ class Engine(val dataDir: File) {
      * 把 refresh_token 轮换两次。
      */
     @Synchronized
+    /**
+     * 用粘贴回来的回调地址完成登录。
+     *
+     * 与 [completeBrowserLogin] 的区别：不依赖「本机回调服务已收到请求」这件事，
+     * 也不要求登录流程还活着（进程重启过也能用）。
+     *
+     * 支持两种输入：完整 URL，或只给 code（此时用最近一次的登录上下文）。
+     */
+    fun pasteBrowserCallback(raw: String): ProviderAccount {
+        // 进程可能重启过：没有进行中的登录时默认按 ChatGPT 处理（唯一提供粘贴入口的供应商）
+        val providerId = browserLoginProviderId ?: "chatgpt"
+        val provider = providerById[providerId] as? WebCallbackSupport
+            ?: throw IllegalStateException("供应商 $providerId 不支持回调登录")
+
+        val text = raw.trim()
+        val url = when {
+            text.startsWith("http") -> text
+            // 只给了 code：补成完整回调地址，state 由供应商自己找回
+            else -> "http://localhost:${provider.callbackPort}${provider.callbackPath}?code=$text"
+        }
+        val account = try {
+            provider.completeWebLogin(url)
+        } catch (e: Exception) {
+            eventLog.error("登录", "粘贴回调失败：${e.message}")
+            throw e
+        }
+        pool.add(account)
+        browserLoginAccount = account
+        browserLoginOk = true
+        browserLoginResult = account.displayName
+        eventLog.success("登录", "登录成功：${account.displayName}")
+        return account
+    }
+
     fun completeBrowserLogin(callbackUrl: String): ProviderAccount {
         browserLoginAccount?.let { return it }
         val providerId = browserLoginProviderId ?: throw IllegalStateException("没有进行中的浏览器登录")
@@ -888,9 +933,18 @@ class Engine(val dataDir: File) {
     }
 
     fun chat(bodyIn: JsonObject, sink: SseSink?, sessionId: String? = null): Outcome {
-        // 统一在入口注入系统提示词：所有供应商、所有客户端都走这里，
-        // 放上游各自实现会漏掉一半
-        val body = PromptInject.apply(bodyIn, settings.systemPrompt)
+        // 1) 别名先做：它改的是模型名，必须在路由之前生效，
+        //    否则客户端硬编码的 gpt-4o 会直接 404
+        val rawModel = bodyIn.get("model")?.takeIf { it.isJsonPrimitive }?.asString?.trim().orEmpty()
+        val aliased = RequestRewriter.resolveAlias(rawModel, settings)
+        if (aliased != rawModel) {
+            eventLog.debug("别名", "$rawModel → $aliased")
+            bodyIn.addProperty("model", aliased)
+        }
+
+        // 2) 统一在入口改写请求体：所有供应商、所有客户端都走这里，
+        //    放上游各自实现会漏掉一半
+        val body = RequestRewriter.apply(bodyIn, settings)
         val model = body.get("model")?.asString?.trim().orEmpty()
         if (model.isEmpty()) {
             return Outcome.Error(
@@ -934,6 +988,24 @@ class Engine(val dataDir: File) {
         }
             // 有容量的账号排前面：避免所有请求先排到同一个满载的热号上（会拉高首字延迟）
             .sortedByDescending { gateFor(it.account).availablePermits() > 0 }
+            // 再按用户选的策略微调：上面只保证「有容量优先」，
+            // 同容量的多个号怎么排由策略决定
+            .let { sorted ->
+                AccountSelector.order(
+                    routes = sorted,
+                    key = model,
+                    strategy = settings.accountStrategy,
+                    remainOf = { route ->
+                        pool.get(route.account.providerId, route.account.uid)?.state?.balance
+                            ?.toLong()
+                    },
+                    usageOf = { route ->
+                        // PACE 用「今天该账号被调用的次数」近似消耗速度：
+                        // 调用越多说明消耗越快，越应该往后放
+                        callLog.todayCountOf(route.account.providerId, route.account.uid).toLong()
+                    },
+                )
+            }
         eventLog.debug("路由", "$model 候选 ${candidates.size} 个：${candidates.joinToString(" → ") { it.via }}")
         activeRequests++
 
@@ -1744,6 +1816,17 @@ class Engine(val dataDir: File) {
 
         @Synchronized
         fun recent(n: Int): List<CallRecord> = records.toList().takeLast(n)
+
+        /**
+         * 当日内某账号被调用的次数，用于 PACE 策略估算消耗速度。
+         *
+         * 只数 500 条明细窗口内的记录：对「谁烧得快」的判断已经够用，
+         * 也不必为每个账号额外维护一份持久化计数器。
+         */
+        fun todayCountOf(providerId: String, uid: String): Int {
+            val prefix = "$providerId:$uid"
+            return records.count { it.via == prefix || it.via.startsWith("$prefix:") }
+        }
 
         @Synchronized
         fun clear() {

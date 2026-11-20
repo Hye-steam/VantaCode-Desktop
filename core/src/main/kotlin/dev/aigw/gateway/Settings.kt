@@ -48,6 +48,29 @@ class Settings {
     /** 网关层统一注入的系统提示词；为空表示不注入。 */
     var systemPrompt: String = ""
 
+    /**
+     * 模型别名表：客户端写的模型名 → 真实模型名。
+     *
+     * 客户端常常硬编码 `gpt-4o` 这类名字，而本机上游只有 freepool 里的等价模型，
+     * 靠这张表就能接上，不必改客户端。为空表示不做映射。
+     */
+    var modelAliases: MutableMap<String, String>? = mutableMapOf()
+
+    /** 把 assistant 历史消息里的 `<think>...</think>` 剥掉，减少上下文占用。 */
+    var stripThinkTags: Boolean = false
+
+    /**
+     * 多账号选择策略。
+     *
+     * - ORDER：按添加顺序，始终用第一个可用的
+     * - ROTATE：轮流向下一个账号发，摊薄单号压力
+     * - USAGE：优先用剩余额度最多的
+     * - PACE：优先用消耗最慢的（按调用次数/成功次数估算）
+     *
+     * 默认 ORDER：行为与旧版一致，升级后不会突然改变路由分布。
+     */
+    var accountStrategy: String = "ORDER"
+
     /** 悬浮监测球透明度（0.3-1.0，App 层）。 */
     var bubbleOpacity: Float = 1f
 
@@ -96,6 +119,8 @@ class Settings {
                 if (settings.themeName.isNullOrBlank()) settings.themeName = "默认"
                 if (settings.bubbleOpacity <= 0f) settings.bubbleOpacity = 1f
                 if (settings.regionPrefs == null) settings.regionPrefs = mutableMapOf()
+                if (settings.modelAliases == null) settings.modelAliases = mutableMapOf()
+                if (settings.accountStrategy.isNullOrBlank()) settings.accountStrategy = "ORDER"
                 settings
             } catch (e: Exception) {
                 Log.warn("settings.json 损坏，使用默认：${e.message}")

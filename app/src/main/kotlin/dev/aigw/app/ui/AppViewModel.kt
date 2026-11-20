@@ -14,9 +14,11 @@ import dev.aigw.app.AiGatewayApp
 import dev.aigw.app.data.LanAddresses
 import dev.aigw.app.service.GatewayService
 import dev.aigw.util.Log
+import dev.aigw.gateway.AccountSelector
 import dev.aigw.gateway.Engine
 import dev.aigw.gateway.ProxySettings
 import dev.aigw.gateway.ProxyType
+import dev.aigw.gateway.RequestRewriter
 import dev.aigw.gateway.Settings
 import dev.aigw.provider.CheckinResult
 import dev.aigw.provider.DeviceAuthPoll
@@ -169,6 +171,12 @@ data class UiState(
     val petBubble: Boolean = false,
     /** 网关层统一注入的系统提示词。 */
     val systemPrompt: String = "",
+    /** 模型别名表（客户端模型名 → 真实模型名）。 */
+    val modelAliases: Map<String, String> = emptyMap(),
+    /** 是否剥离 assistant 历史里的 think 标签。 */
+    val stripThinkTags: Boolean = false,
+    /** 多账号选择策略：ORDER / ROTATE / USAGE / PACE。 */
+    val accountStrategy: String = "ORDER",
     /** 悬浮球透明度（0.3-1.0）。 */
     val bubbleOpacity: Float = 1f,
     /** 是否已授予「显示在其它应用上层」权限。 */
@@ -268,6 +276,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     monitorBubble = snap.monitorBubble,
                     petBubble = snap.petBubble,
                     systemPrompt = snap.systemPrompt,
+                    modelAliases = snap.modelAliases,
+                    stripThinkTags = snap.stripThinkTags,
+                    accountStrategy = snap.accountStrategy,
                     bubbleOpacity = snap.bubbleOpacity,
                     canDrawOverlays = snap.canDrawOverlays,
                     events = snap.events,
@@ -317,6 +328,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val monitorBubble: Boolean,
         val petBubble: Boolean,
         val systemPrompt: String,
+        val modelAliases: Map<String, String>,
+        val stripThinkTags: Boolean,
+        val accountStrategy: String,
         val bubbleOpacity: Float,
         val canDrawOverlays: Boolean,
         val events: List<EventUi>,
@@ -413,6 +427,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             monitorBubble = engine.settings.monitorBubble,
             petBubble = engine.settings.petBubble,
             systemPrompt = engine.settings.systemPrompt,
+            modelAliases = engine.settings.modelAliases ?: emptyMap(),
+            stripThinkTags = engine.settings.stripThinkTags,
+            accountStrategy = engine.settings.accountStrategy,
             bubbleOpacity = engine.settings.bubbleOpacity.coerceIn(0.3f, 1f),
             canDrawOverlays = android.provider.Settings.canDrawOverlays(gateway),
             events = engine.eventLog.snapshot().asReversed().map { e ->
@@ -826,6 +843,80 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Trae 登录：网关临时监听本机 51120 接回调，登录页在 WebView 里完成。
      * 回调到达后由网关把凭证存入账号池，界面轮询结果后自动关闭登录页。
      */
+    /**
+     * 通用浏览器回调登录：供应商自己实现 [WebCallbackSupport] 就能用这里。
+     *
+     * 与 [startTraeLogin] 同一套流程（开本地回调服务 + WebLoginActivity），
+     * 区别只是 providerId 由调用方给。
+     */
+    fun startProviderLogin(providerId: String) {
+        viewModelScope.launch {
+            val ticket = withContext(Dispatchers.IO) {
+                runCatching { engine.startBrowserLogin(providerId, "") }
+            }.getOrElse {
+                notify("打开 $providerId 登录失败：${it.message}")
+                return@launch
+            }
+            val ctx = getApplication<Application>()
+            runCatching {
+                ctx.startActivity(
+                    Intent(ctx, WebLoginActivity::class.java)
+                        .putExtra(WebLoginActivity.EXTRA_URL, ticket.loginUrl)
+                        .putExtra(WebLoginActivity.EXTRA_MODE, WebLoginActivity.MODE_CALLBACK)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }.onFailure {
+                notify("打开登录页失败：${it.message}")
+            }
+            watchBrowserLogin()
+        }
+    }
+
+    /**
+     * 生成带 PKCE 的授权链接并复制到剪贴板。
+     *
+     * 用户已在某个浏览器里登录了 ChatGPT 时，WebView 的 Cookie 是隔离的，
+     * 在应用内登录还得重登一遍。把这条链接丢进那个浏览器，它会直接返回 code。
+     */
+    fun copyChatgptAuthUrl() {
+        viewModelScope.launch {
+            val ticket = withContext(Dispatchers.IO) {
+                runCatching { engine.startBrowserLogin("chatgpt", "") }
+            }.getOrElse {
+                notify("生成授权链接失败：${it.message}")
+                return@launch
+            }
+            val clipboard = getApplication<Application>()
+                .getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(
+                android.content.ClipData.newPlainText("ChatGPT 授权链接", ticket.loginUrl),
+            )
+            notify("授权链接已复制，去浏览器粘贴打开")
+        }
+    }
+
+    /**
+     * 从粘贴的回调地址（或裸 code）完成登录。
+     *
+     * 系统浏览器里跳出 localhost 时页面是打不开的，但地址栏里的 code 有效。
+     * 用户把整条 URL 贴回来，这里直接交给引擎换 token。
+     */
+    fun pasteCallbackUrl(raw: String): Boolean {
+        if (raw.isBlank()) {
+            notify("请先粘贴回调地址")
+            return false
+        }
+        return try {
+            val account = engine.pasteBrowserCallback(raw)
+            notify("登录成功：${account.displayName}")
+            refreshAll()
+            true
+        } catch (e: Exception) {
+            notify("登录失败：${e.message}")
+            false
+        }
+    }
+
     fun startTraeLogin(region: String) {
         viewModelScope.launch {
             val ticket = withContext(Dispatchers.IO) {
@@ -1482,6 +1573,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         engine.settings.systemPrompt = text
         Settings.save(engine.dataDir, engine.settings)
         notify(if (text.isBlank()) "已关闭系统提示词注入" else "系统提示词已保存")
+        refreshAll()
+    }
+
+    /**
+     * 保存模型别名表与 think 标签开关。
+     *
+     * @param aliases 每行 `客户端模型名=真实模型名`
+     */
+    fun setRewriteRules(aliases: String, stripThink: Boolean) {
+        val map = mutableMapOf<String, String>()
+        aliases.lines().forEach { line ->
+            val raw = line.trim()
+            if (raw.isEmpty() || raw.startsWith("#")) return@forEach
+            val idx = raw.indexOf('=')
+            if (idx <= 0) return@forEach
+            val from = raw.substring(0, idx).trim()
+            val to = raw.substring(idx + 1).trim()
+            if (from.isNotEmpty() && to.isNotEmpty()) map[from] = to
+        }
+        engine.settings.modelAliases = map
+        engine.settings.stripThinkTags = stripThink
+        Settings.save(engine.dataDir, engine.settings)
+        notify("改写规则已保存（别名 ${map.size} 条）")
+        refreshAll()
+    }
+
+    /** 设置多账号选择策略。 */
+    fun setAccountStrategy(strategy: String) {
+        engine.settings.accountStrategy = strategy
+        Settings.save(engine.dataDir, engine.settings)
+        AccountSelector.reset()
+        notify("账号策略已改为 $strategy")
         refreshAll()
     }
 

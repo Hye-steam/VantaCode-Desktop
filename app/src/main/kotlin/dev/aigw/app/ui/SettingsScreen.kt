@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Link
@@ -80,6 +81,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -110,6 +112,7 @@ fun SettingsScreen(vm: AppViewModel) {
         "net" -> NetSubPage(vm, onBack = { sub = null })
         "conc" -> ConcSubPage(vm, onBack = { sub = null })
         "proxy" -> ProxySubPage(vm, onBack = { sub = null })
+        "rewrite" -> RewriteSubPage(vm, onBack = { sub = null })
         "feedback" -> FeedbackSubPage(vm, onBack = { sub = null })
     }
 
@@ -424,6 +427,7 @@ private fun SettingsMain(
         ) {
             MenuRow(Icons.Outlined.Pets, "桌面宠物", onClick = onBall)
             MenuRow(Icons.Outlined.EditNote, "系统提示词", onClick = onPrompt)
+            MenuRow(Icons.Outlined.SwapHoriz, "请求改写", onClick = { onOpen("rewrite") })
             MenuRow(Icons.Outlined.Mail, "QQ群 1094669183") { onOpen("feedback") }
         }
         Spacer(Modifier.height(140.dp))
@@ -1026,6 +1030,190 @@ private fun IconInput(
 // ------------------------------ 问题反馈子页 ------------------------------
 
 private val CONTACT_OPTIONS = listOf("qq" to "QQ", "wechat" to "微信", "email" to "邮箱")
+
+// ------------------------------ 请求改写子页 ------------------------------
+
+private val accountStrategies = listOf(
+    "ORDER" to "顺序（默认）",
+    "ROTATE" to "轮转",
+    "USAGE" to "按额度",
+    "PACE" to "按消耗",
+)
+
+@Composable
+private fun RewriteSubPage(vm: AppViewModel, onBack: () -> Unit) {
+    var aliasText by rememberSaveable {
+        mutableStateOf(vm.state.modelAliases.entries.joinToString("\n") { "${it.key}=${it.value}" })
+    }
+    var stripThink by rememberSaveable { mutableStateOf(vm.state.stripThinkTags) }
+    var strategy by rememberSaveable { mutableStateOf(vm.state.accountStrategy) }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(LoopColors.bg),
+    ) {
+        SubHeader(title = "请求改写", onBack = onBack)
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+        ) {
+            // ---- 账号策略 ----
+            Text(
+                "账号选择",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = LoopColors.muted,
+            )
+            Spacer(Modifier.height(12.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(LoopColors.surface)
+                    .border(1.dp, LoopColors.line, RoundedCornerShape(22.dp)),
+            ) {
+                accountStrategies.forEachIndexed { index, (value, label) ->
+                    if (index > 0) GroupDivider()
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                strategy = value
+                                vm.setAccountStrategy(value)
+                            }
+                            .padding(horizontal = 20.dp, vertical = 15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                label,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = LoopColors.text,
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                when (value) {
+                                    "ORDER" -> "始终用第一个可用账号，其余作为备份"
+                                    "ROTATE" -> "轮流用各账号，摊薄单个账号压力"
+                                    "USAGE" -> "优先用剩余额度最多的账号"
+                                    else -> "优先用今日调用最少的账号，避免烧光"
+                                },
+                                fontSize = 12.5.sp,
+                                color = LoopColors.muted,
+                                lineHeight = 18.sp,
+                            )
+                        }
+                        if (strategy == value) {
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = LoopColors.brand,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            // ---- 模型别名 ----
+            Text(
+                "模型别名",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = LoopColors.muted,
+            )
+            Spacer(Modifier.height(12.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(LoopColors.surface)
+                    .border(1.dp, LoopColors.line, RoundedCornerShape(22.dp))
+                    .padding(18.dp),
+            ) {
+                Text(
+                    "每行一条，格式 `客户端模型名=真实模型名`。客户端硬编码的模型名会被自动换成真实模型。",
+                    fontSize = 12.5.sp,
+                    lineHeight = 19.sp,
+                    color = LoopColors.muted,
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(LoopColors.fieldBg)
+                        .border(1.dp, LoopColors.line, RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                ) {
+                    if (aliasText.isEmpty()) {
+                        Text(
+                            "gpt-4o=freepool/llm7/gpt-4o-mini\nclaude-3-5-sonnet=doubao/deepseek-v4-pro",
+                            fontSize = 13.sp,
+                            lineHeight = 21.sp,
+                            color = LoopColors.muted,
+                        )
+                    }
+                    BasicTextField(
+                        value = aliasText,
+                        onValueChange = { aliasText = it },
+                        textStyle = TextStyle(
+                            fontSize = 13.sp,
+                            lineHeight = 21.sp,
+                            color = LoopColors.text,
+                            fontFamily = FontFamily.Monospace,
+                        ),
+                        cursorBrush = SolidColor(LoopColors.brand),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            // ---- think 清理 ----
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(LoopColors.surface)
+                    .border(1.dp, LoopColors.line, RoundedCornerShape(22.dp)),
+            ) {
+                CompactSetRow(
+                    title = "清理思考标签",
+                    desc = "剥掉历史消息里的 think 内容，减少上下文占用",
+                    trailing = {
+                        LoopSwitch(checked = stripThink) {
+                            stripThink = it
+                            vm.setRewriteRules(aliasText, it)
+                        }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(LoopColors.brand)
+                    .clickable { vm.setRewriteRules(aliasText, stripThink) }
+                    .padding(vertical = 15.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("保存", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+            Spacer(Modifier.height(60.dp))
+        }
+    }
+}
 
 @Composable
 private fun FeedbackSubPage(vm: AppViewModel, onBack: () -> Unit) {

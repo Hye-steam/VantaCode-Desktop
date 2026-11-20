@@ -124,6 +124,12 @@ private enum class ProviderKind(
         providerId = "jimeng",
         logoRes = R.drawable.ic_provider_jimeng,
     ),
+    Chatgpt(
+        title = "ChatGPT",
+        tagline = "Codex 后端 · 免费账号可用",
+        providerId = "chatgpt",
+        logoRes = R.drawable.ic_provider_chatgpt,
+    ),
     Relay(
         title = "自定义供应商",
         tagline = "填 Base URL 与密钥即可添加",
@@ -343,6 +349,7 @@ private fun providerIconBg(kind: ProviderKind): Color = when (kind) {
     ProviderKind.Chatglm -> LoopColors.accentBlueSoft
     ProviderKind.Doubao -> LoopColors.accentBlueSoft
     ProviderKind.Jimeng -> LoopColors.brandSoft
+    ProviderKind.Chatgpt -> LoopColors.accentGreenSoft
     ProviderKind.FreePool -> LoopColors.accentGreenSoft
     ProviderKind.Relay -> LoopColors.brandSoft
 }

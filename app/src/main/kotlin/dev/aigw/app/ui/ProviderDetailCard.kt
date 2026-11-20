@@ -130,6 +130,7 @@ internal fun SwipeableAccountCard(
         // 豆包的账号名是登录时落库的真实昵称，落到 else 会显示成 uid 的 hash
         DetailKind.Doubao -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         DetailKind.Jimeng -> account.name.takeIf { it.isNotBlank() } ?: account.uid
+        DetailKind.Chatgpt -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         else -> account.uid
     }
     val cooling = account.cooldownUntil > System.currentTimeMillis()
@@ -148,6 +149,7 @@ internal fun SwipeableAccountCard(
         DetailKind.Raccoon -> "商汤 · 小浣熊"
         DetailKind.Mimo -> "小米 AI Studio"
         DetailKind.Jimeng -> "即梦 · 图片生成"
+        DetailKind.Chatgpt -> "Codex 后端 · 文字推理"
         else -> buildString {
             append(if (account.region == "global") "国际版" else "国内版")
             if (account.enterprise) append(" · 企业号")

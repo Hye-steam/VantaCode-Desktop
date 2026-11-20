@@ -1,6 +1,8 @@
 package dev.aigw.app.ui
 
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
@@ -80,6 +82,7 @@ internal fun AddAccountSheet(
     onAddCustom: () -> Unit = {},
 ) {
     var showDoubaoForm by remember { mutableStateOf(false) }
+    var showCallbackPaste by remember { mutableStateOf(false) }
     val enabled = vm.state.providerEnabled[kind.providerId] ?: true
     if (showDoubaoForm) {
         DoubaoAccountDialog(
@@ -92,6 +95,19 @@ internal fun AddAccountSheet(
         )
         // 关键：这里必须提前返回。LoopSheet 内部并不判断 visible，
         // 它永远 fillMaxSize + clickable，会把表单上所有点击吃掉。
+        return
+    }
+    if (showCallbackPaste) {
+        CallbackPasteDialog(
+            onDismiss = { showCallbackPaste = false },
+            onSubmit = { raw ->
+                val ok = vm.pasteCallbackUrl(raw)
+                if (ok) {
+                    showCallbackPaste = false
+                    onDismiss()
+                }
+            },
+        )
         return
     }
     var showLoomyForm by remember { mutableStateOf(false) }
@@ -285,6 +301,25 @@ internal fun AddAccountSheet(
                     OpButton("添加豆包账号", Icons.Outlined.Link, primary = true) {
                         showDoubaoForm = true
                     }
+                }
+                DetailKind.Chatgpt -> {
+                    // 走 OAuth 回调登录（PKCE），复用 Trae 那套 WebLoginActivity + 本地回调
+                    OpButton("登录 ChatGPT", Icons.Outlined.Login, primary = true) {
+                        vm.startProviderLogin("chatgpt")
+                        onDismiss()
+                    }
+                    // 浏览器里已登录 ChatGPT 时，WebView 的 Cookie 是隔离的，用不了。
+                    // 但把带 PKCE 的授权链接丢进那个浏览器，它会直接给出 code。
+                    OpButton("复制授权链接", Icons.Outlined.ContentCopy) {
+                        vm.copyChatgptAuthUrl()
+                        onDismiss()
+                    }
+                    // 系统浏览器里完成授权后，跳转的 localhost 地址打不开，
+                    // 但地址栏里的 code 是有效的：粘回来就能换 token
+                    OpButton("粘贴回调地址", Icons.Outlined.ContentPaste) {
+                        showCallbackPaste = true
+                    }
+                    OpButton("刷新用量", Icons.Outlined.Refresh) { vm.refreshCredits(kind.providerId) }
                 }
                 DetailKind.Jimeng -> {
                     // 即梦和豆包一样靠 Cookie，但它的签名算法是固定的，不需要页面里
@@ -647,6 +682,42 @@ internal fun DoubaoAccountDialog(
                 if (vm.addDoubaoAccount(name.ifBlank { "豆包账号" }, cookie, deviceId, webId)) {
                     onDismiss()
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CallbackPasteDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    LoopSheet(visible = true, onDismiss = onDismiss) {
+        LoopSheetHeader(
+            icon = Icons.Outlined.ContentPaste,
+            iconBg = LoopColors.accentGreenSoft,
+            iconTint = LoopColors.brand,
+            title = "粘贴回调地址",
+            onDismiss = onDismiss,
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+        ) {
+            Text(
+                "在浏览器里完成授权后，地址栏会跳到 http://localhost:1455/... 并显示打不开。" +
+                    "把那个完整地址（或只把 code= 后面那串）复制到这里。",
+                fontSize = 12.5.sp,
+                lineHeight = 19.sp,
+                color = LoopColors.muted,
+            )
+            Spacer(Modifier.height(14.dp))
+            DoubaoField("回调地址或 code", text, lines = 3) { text = it }
+            Spacer(Modifier.height(16.dp))
+            OpButton("确认", Icons.Outlined.Check, primary = true) {
+                onSubmit(text.trim())
             }
         }
     }
