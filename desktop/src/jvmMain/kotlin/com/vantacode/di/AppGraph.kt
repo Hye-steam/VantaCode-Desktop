@@ -163,6 +163,37 @@ import com.vantacode.feature.teams.presentation.TeamsViewModel
 import com.vantacode.feature.credentials.presentation.CredentialViewModel
 import com.vantacode.feature.credentials.data.remote.GitHubDeviceFlowClient
 import com.vantacode.feature.git.domain.GitRepository as GitRepositoryType
+import com.vantacode.feature.agent.domain.provider.ProviderInstanceFactory
+import com.vantacode.feature.plugin.data.PluginBackupPermissionRepository
+import com.vantacode.feature.plugin.data.PluginDevSettingsRepository
+import com.vantacode.feature.plugin.data.PluginStoreSettingsRepository
+import com.vantacode.feature.plugin.data.index.GitHubMirrorSelector
+import com.vantacode.feature.plugin.data.index.PluginIndexClient
+import com.vantacode.feature.plugin.data.index.PluginIndexSourceRepository
+import com.vantacode.feature.plugin.domain.PluginAgentSource
+import com.vantacode.feature.plugin.domain.PluginInstallService
+import com.vantacode.feature.plugin.domain.PluginManager
+import com.vantacode.feature.plugin.domain.PluginSkillSource
+import com.vantacode.feature.plugin.runtime.PluginBackupArchiveService
+import com.vantacode.feature.plugin.runtime.PluginChatService
+import com.vantacode.feature.plugin.runtime.PluginDependencyPreparer
+import com.vantacode.feature.plugin.runtime.PluginEventBus
+import com.vantacode.feature.plugin.runtime.PluginHookDispatcher
+import com.vantacode.feature.plugin.runtime.PluginHttpHookInterceptor
+import com.vantacode.feature.plugin.runtime.PluginHttpService
+import com.vantacode.feature.plugin.runtime.PluginIntrospectionService
+import com.vantacode.feature.plugin.runtime.PluginModelService
+import com.vantacode.feature.plugin.runtime.PluginNotifier
+import com.vantacode.feature.plugin.runtime.PluginProviderRegistrar
+import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
+import com.vantacode.feature.plugin.runtime.PluginSecretStore
+import com.vantacode.feature.plugin.runtime.PluginShizukuRunner
+import com.vantacode.feature.plugin.runtime.PluginSystemService
+import com.vantacode.feature.plugin.runtime.PluginTerminalRunner
+import com.vantacode.feature.plugin.runtime.PluginTipManager
+import com.vantacode.feature.plugin.runtime.PluginToolManager
+import com.vantacode.feature.plugin.runtime.PluginToolService
+import com.vantacode.feature.plugin.tool.PluginTool
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
@@ -178,6 +209,10 @@ import java.io.File
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
+import javax.inject.Provider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /** Process-wide dependency graph; access as AppGraph.xxx. Replaces Hilt. */
 object AppGraph {
@@ -402,6 +437,8 @@ object AppGraph {
             register("memory", memoryTool)
             register("task", taskTool)
             register("messageParent", messageParentTool)
+            // AI 可调用的插件管理工具；插件贡献的动态工具由 PluginToolManager 另行同步。
+            register("plugin", pluginTool)
         }
     }
 
@@ -477,6 +514,127 @@ object AppGraph {
     }
     val updateCheckSettingsRepository: com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository by lazy {
         com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository(context)
+    }
+
+    // ── Plugin system ─────────────────────────────────────────
+    // PluginModelService 需要按供应商配置装配独立 Provider 实例；桌面端该工厂已移植，这里单独接线。
+    private val pluginProviderInstanceFactory: ProviderInstanceFactory by lazy {
+        ProviderInstanceFactory(
+            openAIApi, anthropicApi, geminiApi, providerKeyRotator,
+            modelMetadataService, generalSettingsRepository
+        )
+    }
+
+    val pluginDependencyPreparer: PluginDependencyPreparer by lazy { PluginDependencyPreparer(commandEngine) }
+
+    /** UI（PluginSection）与整个插件系统共用的单例；用接受 ContainerInstaller 的 public @Inject 构造器。 */
+    val pluginManager: PluginManager by lazy { PluginManager(containerInstaller, pluginDependencyPreparer) }
+
+    /** 插件贡献的技能 / 子代理来源，在 init 中注册进 SkillRepository / AgentDefinitionRepository。 */
+    val pluginSkillSource: PluginSkillSource by lazy { PluginSkillSource(pluginManager) }
+    val pluginAgentSource: PluginAgentSource by lazy { PluginAgentSource(pluginManager) }
+
+    val pluginEventBus: PluginEventBus by lazy { PluginEventBus() }
+    val pluginNotifier: PluginNotifier by lazy { PluginNotifier() }
+    val pluginShizukuRunner: PluginShizukuRunner by lazy { PluginShizukuRunner() }
+    val pluginSecretStore: PluginSecretStore by lazy { PluginSecretStore(pluginManager) }
+    val pluginSystemService: PluginSystemService by lazy { PluginSystemService(pluginManager) }
+    val pluginTerminalRunner: PluginTerminalRunner by lazy {
+        PluginTerminalRunner(terminalSessionProvider, pluginManager)
+    }
+    val pluginProviderRegistrar: PluginProviderRegistrar by lazy {
+        PluginProviderRegistrar(pluginManager, aiProviderRepository)
+    }
+
+    val pluginStoreSettingsRepository: PluginStoreSettingsRepository by lazy { PluginStoreSettingsRepository(context) }
+    val pluginDevSettingsRepository: PluginDevSettingsRepository by lazy { PluginDevSettingsRepository(context) }
+    val pluginBackupPermissionRepository: PluginBackupPermissionRepository by lazy {
+        PluginBackupPermissionRepository(context)
+    }
+    val pluginIndexSourceRepository: PluginIndexSourceRepository by lazy { PluginIndexSourceRepository(context) }
+    val gitHubMirrorSelector: GitHubMirrorSelector by lazy { GitHubMirrorSelector() }
+
+    /** UI（PluginSection）直接读取；镜像选择器与商店设置均已在桌面端接线。 */
+    val pluginIndexClient: PluginIndexClient by lazy {
+        PluginIndexClient(okHttpClient, pluginStoreSettingsRepository, gitHubMirrorSelector)
+    }
+
+    val pluginHttpService: PluginHttpService by lazy { PluginHttpService(pluginManager, okHttpClient) }
+    val pluginChatService: PluginChatService by lazy {
+        PluginChatService(
+            context, pluginManager, workspaceRepository, sessionUseCase, chatSessionDao, agentMessageDao,
+            defaultModelSettingsRepository, modelReasoningEffortRepository, toolPermissionManager,
+            askUserQuestionManager, planApprovalManager
+        )
+    }
+    val pluginModelService: PluginModelService by lazy {
+        PluginModelService(
+            pluginManager, aiProviderRepository, pluginProviderInstanceFactory, modelMetadataService,
+            defaultModelSettingsRepository, toolRegistry, fileAccess, pathHomeResolver,
+            workspaceRepository, executionModeHolder
+        )
+    }
+    val pluginIntrospectionService: PluginIntrospectionService by lazy {
+        PluginIntrospectionService(pluginManager, toolRegistry, mcpManager)
+    }
+    val pluginToolService: PluginToolService by lazy {
+        PluginToolService(
+            pluginManager, workspaceRepository, toolRegistry, toolPermissionPolicyEngine,
+            toolPermissionManager, executionModeHolder, remoteSshConnection
+        )
+    }
+
+    // PluginTipManager ↔ PluginRuntimeManager 互为依赖：用 javax.inject.Provider 惰性取，打断初始化环。
+    val pluginTipManager: PluginTipManager by lazy { PluginTipManager(pluginManager, Provider { pluginRuntimeManager }) }
+    val pluginRuntimeManager: PluginRuntimeManager by lazy {
+        PluginRuntimeManager(
+            pluginManager, containerInstaller, nativeCommandEngine, fileAccess, pathHomeResolver,
+            commandEngine, workspaceRepository, executionModeHolder, pluginEventBus, pluginNotifier,
+            pluginTerminalRunner, pluginShizukuRunner, pluginTipManager, pluginChatService,
+            pluginModelService, pluginSecretStore, pluginSystemService, pluginIntrospectionService,
+            pluginToolService, pluginHttpService
+        )
+    }
+    val pluginHookDispatcher: PluginHookDispatcher by lazy {
+        PluginHookDispatcher(pluginManager, pluginRuntimeManager)
+    }
+    val pluginHttpHookInterceptor: PluginHttpHookInterceptor by lazy {
+        PluginHttpHookInterceptor(pluginHookDispatcher)
+    }
+    val pluginInstallService: PluginInstallService by lazy {
+        PluginInstallService(pluginManager, pluginProviderRegistrar, pluginHookDispatcher)
+    }
+    val pluginBackupArchiveService: PluginBackupArchiveService by lazy {
+        PluginBackupArchiveService(
+            pluginManager, pluginRuntimeManager, pluginBackupPermissionRepository,
+            fileAccess, pathHomeResolver
+        )
+    }
+    val pluginToolManager: PluginToolManager by lazy {
+        PluginToolManager(
+            context, pluginManager, toolRegistry, pluginRuntimeManager,
+            pluginTerminalRunner, pluginModelService
+        )
+    }
+
+    /** AI 工具 "plugin" 的单例实现（已注册进 [toolRegistry]）。 */
+    val pluginTool: PluginTool by lazy {
+        PluginTool(
+            pluginManager,
+            Provider { pluginInstallService },
+            Provider { pluginProviderRegistrar },
+            Provider { pluginTerminalRunner }
+        )
+    }
+
+    private val pluginSystemScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // 与 McpManager 相同：在进程级作用域内把插件声明的动态工具同步进 toolRegistry。
+        pluginToolManager.start(pluginSystemScope)
+        // 让插件贡献的技能 / 子代理进入既有的 SkillSource / AgentDefinitionSource 聚合链。
+        skillRepository.addSource(pluginSkillSource)
+        agentDefinitionRepository.addSource(pluginAgentSource)
     }
 
     // ── Backup ────────────────────────────────────────────────

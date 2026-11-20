@@ -20,9 +20,27 @@ class SkillRepository @Inject constructor(
     private val skillConfigRepository: SkillConfigRepository,
     private val fileAccess: FileAccessProvider
 ) {
+    /**
+     * 额外来源（如插件贡献的技能）。只通过 [addSource] 追加，不改动原有两级来源的构造器签名。
+     * 优先级：项目级 > 额外来源 > 全局。
+     */
+    private val extraSources = mutableListOf<SkillSource>()
+
+    /** 追加一个额外技能来源；进程初始化时调用一次。 */
+    fun addSource(source: SkillSource) {
+        extraSources.add(source)
+    }
+
     /** 全部技能（含来源作用域），未过滤禁用；同名技能项目级优先（与 MCP 两级配置一致）。 */
-    fun listAllSkills(): List<SkillEntry> =
-        mergeAll(globalDirectorySkillSource.listSkills(), projectDirectorySkillSource.listSkills())
+    fun listAllSkills(): List<SkillEntry> {
+        val byName = LinkedHashMap<String, SkillEntry>()
+        globalDirectorySkillSource.listSkills().forEach { byName[it.name.lowercase()] = SkillEntry(it, SkillScope.GLOBAL) }
+        extraSources.forEach { source ->
+            source.listSkills().forEach { byName[it.name.lowercase()] = SkillEntry(it, SkillScope.GLOBAL) }
+        }
+        projectDirectorySkillSource.listSkills().forEach { byName[it.name.lowercase()] = SkillEntry(it, SkillScope.PROJECT) }
+        return byName.values.sortedBy { it.skill.name.lowercase() }
+    }
 
     /** 启用的技能列表（注入系统提示词用），禁用技能被过滤。 */
     fun listSkills(): List<Skill> =
@@ -35,6 +53,7 @@ class SkillRepository @Inject constructor(
     fun loadInstructions(name: String): String? {
         if (name.lowercase() in skillConfigRepository.disabledNames()) return null
         return projectDirectorySkillSource.loadInstructions(name)
+            ?: extraSources.firstNotNullOfOrNull { it.loadInstructions(name) }
             ?: globalDirectorySkillSource.loadInstructions(name)
     }
 
