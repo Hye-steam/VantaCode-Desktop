@@ -58,6 +58,9 @@ class AiGatewayApp : Application() {
         super.onCreate()
         createNotificationChannel()
         installCrashLogger()
+        // 首个启动的免费池初始化：放主线程之前，保证首帧就能看到模型
+        runCatching { engine.seedFreePoolIfNeeded() }
+            .onFailure { engine.eventLog.error("设置", "免费池初始化失败：${it.message}") }
         // 智谱清言页面通道：懒加载，提前挂到引擎上（真正请求时才创建 WebView）
         engine.chatglmWebTransport = chatglmTransport
         // App 启动即静默上报一次（不阻塞首帧，失败静默），保证后台能先看到设备

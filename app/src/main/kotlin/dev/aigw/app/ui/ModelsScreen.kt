@@ -196,7 +196,7 @@ fun ModelsScreen(vm: AppViewModel) {
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "添加供应商后自动拉取",
+                        "添加供应商后自动拉取。也可以用免费池：无需登录，直接问",
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                         color = LoopColors.muted,

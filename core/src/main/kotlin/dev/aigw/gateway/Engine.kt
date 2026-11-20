@@ -1895,4 +1895,41 @@ class Engine(val dataDir: File) {
             )
         }
     }
+
+    /**
+     * 首次启动时自动启用免费池。
+     *
+     * 新装的 App 打开模型页是空列表：模型目录是按账号池逐个拉的，而免费池
+     * 虽然免登录，也必须先成为一个账号条目才会被扫到。让用户自己发现
+     * 「要去供应商页点一下免费池」成本太高。
+     *
+     * 只做一次：用户手动删掉后不该再给他加回去。
+     */
+    fun seedFreePoolIfNeeded() {
+        if (settings.freePoolSeeded) return
+        if (pool.enabled(FreePoolProvider.ID).isNotEmpty()) {
+            // 已经有账号（升级自旧版）：直接记标记，不再动账号池
+            settings.freePoolSeeded = true
+            Settings.save(dataDir, settings)
+            return
+        }
+        val account = ProviderAccount(
+            providerId = FreePoolProvider.ID,
+            uid = "free",
+            displayName = "免登录通道",
+        )
+        try {
+            pool.add(account)
+        } catch (e: Exception) {
+            // 写盘失败不置标记，下次启动重试；失败原因写进日志以便排查
+            eventLog.error("设置", "免费池初始化失败：${e.message}")
+            Log.warn("seedFreePool: ${e.stackTraceToString().take(400)}")
+            return
+        }
+        // 标记放在写账号之后：写账号抛异常时下次启动还能重试，
+        // 否则标记先置位会让免费池永久缺失。
+        settings.freePoolSeeded = true
+        Settings.save(dataDir, settings)
+        eventLog.info("设置", "首次启动，已自动启用免费池")
+    }
 }

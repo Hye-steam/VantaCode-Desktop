@@ -74,6 +74,13 @@ class Settings {
     /** 悬浮监测球透明度（0.3-1.0，App 层）。 */
     var bubbleOpacity: Float = 1f
 
+    /**
+     * 是否已经做过首次启动的免费池初始化。
+     *
+     * 只做一次：用户手动删掉免费池后，下次启动不该又给加回去。
+     */
+    var freePoolSeeded: Boolean = false
+
     /** 外观主题名称（App 层）。 */
     var themeName: String = "默认"
 
