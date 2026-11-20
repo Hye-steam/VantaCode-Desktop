@@ -68,7 +68,6 @@ import com.vantacode.feature.agent.domain.tool.skill.LoadSkillTool
 import com.vantacode.feature.agent.domain.tool.question.AskUserQuestionTool
 import com.vantacode.feature.agent.domain.tool.todo.TodoTool
 import com.vantacode.feature.agent.domain.tool.subagent.TaskTool
-import com.vantacode.feature.agent.domain.tool.dsh.DshTaskTool
 import com.vantacode.feature.agent.domain.tool.subagent.MessageParentTool
 import com.vantacode.feature.agent.domain.subagent.SubAgentEventBus
 import com.vantacode.feature.agent.domain.prompt.SystemPromptProvider
@@ -149,7 +148,6 @@ import com.vantacode.feature.agent.domain.mention.FileMentionRepository
 import com.vantacode.feature.agent.domain.command.SlashCommandRegistry
 import com.vantacode.feature.agent.domain.command.InitCommandHandler
 import com.vantacode.feature.agent.domain.command.CompressCommandHandler
-import com.vantacode.feature.agent.domain.command.DshCommandHandler
 import com.vantacode.feature.agent.domain.command.GoalCommandHandler
 import com.vantacode.feature.agent.domain.command.UsageCommandHandler
 import com.vantacode.feature.agent.domain.permission.PermissionRulesRepository
@@ -381,7 +379,6 @@ object AppGraph {
             aiProviderRepository, subagentTierSettingsRepository, context)
     }
     val messageParentTool: MessageParentTool by lazy { MessageParentTool(sessionUseCase, subAgentEventBus) }
-    val dshTaskTool: DshTaskTool by lazy { DshTaskTool(workspaceRepository, workspacePathMapper) }
 
     val toolRegistry: ToolRegistry by lazy {
         ToolRegistry().apply {
@@ -405,7 +402,6 @@ object AppGraph {
             register("memory", memoryTool)
             register("task", taskTool)
             register("messageParent", messageParentTool)
-            register("dsh_task", dshTaskTool)
         }
     }
 
@@ -466,9 +462,6 @@ object AppGraph {
     // ── Settings repos ────────────────────────────────────────
     val themeSettingsRepository: ThemeSettingsRepository by lazy { ThemeSettingsRepository(context) }
     val backgroundSettingsRepository: BackgroundSettingsRepository by lazy { BackgroundSettingsRepository(context) }
-    val petSettingsRepository: com.vantacode.feature.pet.data.PetSettingsRepository by lazy {
-        com.vantacode.feature.pet.data.PetSettingsRepository(context)
-    }
     val languageSettingsRepository: LanguageSettingsRepository by lazy { LanguageSettingsRepository(context) }
     val keepaliveSettingsRepository: KeepaliveSettingsRepository by lazy { KeepaliveSettingsRepository(context) }
     val screenOnSettingsRepository: ScreenOnSettingsRepository by lazy { ScreenOnSettingsRepository(context) }
@@ -479,6 +472,12 @@ object AppGraph {
     val visionModelSettingsRepository: VisionModelSettingsRepository by lazy { VisionModelSettingsRepository(context) }
     val imageGenModelSettingsRepository: ImageGenModelSettingsRepository by lazy { ImageGenModelSettingsRepository(context) }
     val proxySettingsRepository: ProxySettingsRepository by lazy { ProxySettingsRepository(context) }
+    val marketRepository: com.vantacode.feature.settings.data.repository.MarketRepository by lazy {
+        com.vantacode.feature.settings.data.repository.MarketRepository()
+    }
+    val updateCheckSettingsRepository: com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository by lazy {
+        com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository(context)
+    }
 
     // ── Backup ────────────────────────────────────────────────
     val backupTargetRepository: BackupTargetRepository by lazy { BackupTargetRepository(backupTargetDao, okHttpClient) }
@@ -538,10 +537,9 @@ object AppGraph {
     val compressCommandHandler: CompressCommandHandler by lazy { CompressCommandHandler() }
     val goalCommandHandler: GoalCommandHandler by lazy { GoalCommandHandler() }
     val usageCommandHandler: UsageCommandHandler by lazy { UsageCommandHandler() }
-    val dshCommandHandler: DshCommandHandler by lazy { DshCommandHandler() }
     val slashCommandRegistry: SlashCommandRegistry by lazy {
         SlashCommandRegistry(
-            setOf(initCommandHandler, compressCommandHandler, goalCommandHandler, usageCommandHandler, dshCommandHandler),
+            setOf(initCommandHandler, compressCommandHandler, goalCommandHandler, usageCommandHandler),
             skillRepository,
             context
         )
@@ -576,7 +574,6 @@ object AppGraph {
                 SettingsViewModel::class -> SettingsViewModel(
                     context, aiProviderRepository, modelApiService, modelMetadataService,
                     logSettingsRepository, themeSettingsRepository, backgroundSettingsRepository,
-                    petSettingsRepository,
                     generalSettingsRepository,
                     languageSettingsRepository, mcpConfigRepository, mcpManager, permissionRulesRepository,
                     toolSafetySettings, skillRepository, agentDefinitionRepository, agentDefinitionConfigRepository,

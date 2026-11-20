@@ -10,11 +10,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.vantacode.feature.credentials.presentation.CredentialViewModel
 import com.vantacode.feature.credentials.presentation.component.CredentialScreen
+import com.vantacode.feature.editor.presentation.component.CodeEditorScreen
 import com.vantacode.feature.git.presentation.GitViewModel
 import com.vantacode.feature.git.presentation.component.GitScreen
 
 /** 大屏右栏（工作台）当前承载的内容。 */
-internal enum class WorkbenchPaneKind { NONE, GIT }
+internal enum class WorkbenchPaneKind { NONE, GIT, EDITOR }
 
 /**
  * 大屏下与聊天并排的右栏内容。
@@ -28,11 +29,20 @@ internal fun WorkbenchPaneContent(
     kind: WorkbenchPaneKind,
     onClose: () -> Unit,
     onOpenFile: ((String) -> Unit)? = null,
+    editorPath: String? = null,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier) {
         when (kind) {
             WorkbenchPaneKind.NONE -> Unit
+
+            WorkbenchPaneKind.EDITOR -> {
+                CodeEditorScreen(
+                    path = editorPath.orEmpty(),
+                    fileAccess = com.vantacode.di.AppGraph.fileAccess,
+                    onClose = onClose
+                )
+            }
 
             WorkbenchPaneKind.GIT -> {
                 // 凭据页留在右栏内部翻一层，而不是跳全屏路由，否则大屏下会从双栏突然变成整屏。

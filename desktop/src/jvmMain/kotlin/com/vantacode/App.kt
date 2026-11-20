@@ -262,7 +262,6 @@ fun AppNavigation(
     val sessions by agentViewModel.sessions.collectAsStateWithLifecycle()
     val currentSessionId by agentViewModel.currentSessionId.collectAsStateWithLifecycle()
     val agentStates by agentViewModel.agentStates.collectAsStateWithLifecycle()
-    val agentState by agentViewModel.agentState.collectAsStateWithLifecycle()
     val awaitingPermissionSessionIds by agentViewModel.awaitingPermissionSessionIds.collectAsStateWithLifecycle()
     val subSessionsByParent by agentViewModel.subSessionsByParent.collectAsStateWithLifecycle()
     val expandedPaths by agentViewModel.expandedPaths.collectAsStateWithLifecycle()
@@ -308,16 +307,28 @@ fun AppNavigation(
 
     // 右栏工作台：大屏下编辑器 / 终端 / Git 与聊天并排，窄窗仍走全屏路由。
     var paneKind by rememberSaveable { mutableStateOf(WorkbenchPaneKind.NONE) }
+    var editorPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sidebarCollapsed by rememberSaveable { mutableStateOf(false) }
     var paneSplit by rememberSaveable { mutableFloatStateOf(DEFAULT_PANE_SPLIT) }
 
-    // 打开文件：桌面端无内置编辑器，交给系统默认程序打开。
+    // 打开文件：文本类进内置编辑器；明显的二进制/文档类型交系统默认程序。
     val openFile: (String, Int, Boolean) -> Unit = { filePath, _, _ ->
         scope.launch { drawerState.close() }
-        val target = com.vantacode.di.AppGraph.workspacePathMapper.toHostFile(filePath)
-        val opened = com.vantacode.core.platform.DesktopActions.open(target)
-        if (!opened) {
-            PlatformToast.show(Strings.chat_open_file_no_app, true)
+        val name = filePath.trimEnd('/').substringAfterLast('/')
+        val ext = name.substringAfterLast('.', "").lowercase()
+        if (ext in SYSTEM_OPEN_EXTS) {
+            val target = com.vantacode.di.AppGraph.workspacePathMapper.toHostFile(filePath)
+            val opened = com.vantacode.core.platform.DesktopActions.open(target)
+            if (!opened) {
+                PlatformToast.show(Strings.chat_open_file_no_app, true)
+            }
+        } else {
+            editorPath = filePath
+            if (expanded) {
+                paneKind = WorkbenchPaneKind.EDITOR
+            } else {
+                navController.navigate("editor")
+            }
         }
     }
 
@@ -502,6 +513,7 @@ fun AppNavigation(
                                 kind = paneKind,
                                 onClose = { paneKind = WorkbenchPaneKind.NONE },
                                 onOpenFile = { path -> openFile(path, 0, false) },
+                                editorPath = editorPath,
                                 modifier = Modifier.weight(1f - paneSplit)
                             )
                         }
@@ -557,6 +569,13 @@ fun AppNavigation(
                     onNavigateToCredentials = { navController.navigate("credentials") },
                     onNavigateBack = { navController.popBackStack() },
                     onOpenFile = { path -> openFile(path, 0, false) }
+                )
+            }
+            composable("editor") {
+                com.vantacode.feature.editor.presentation.component.CodeEditorScreen(
+                    path = editorPath.orEmpty(),
+                    fileAccess = AppGraph.fileAccess,
+                    onClose = { navController.popBackStack() }
                 )
             }
             composable("credentials") {
@@ -663,19 +682,9 @@ fun AppNavigation(
                 }
             }
 
-            // 桌宠（全局悬浮，随 agent 状态切表情）。
             BackgroundWatermark(
                 modifier = Modifier.fillMaxSize()
             )
-
-            // 推送 agent 状态给全局桌宠（应用内的旧 overlay 已移除）
-            LaunchedEffect(agentState) {
-                com.vantacode.feature.pet.data.PetRuntimeState.update(agentState)
-            }
-            // 全局桌宠：独立透明窗口显示在所有应用之上，设置 → 通用 → 桌宠 控制开关
-            LaunchedEffect(Unit) {
-                com.vantacode.feature.pet.presentation.GlobalPetOverlay.start()
-            }
 
             // 首次启动引导覆层（覆盖所有路由之上，全程常驻顶层）。
             if (agreementAccepted && onboardingUiState.active) {
@@ -762,6 +771,13 @@ private val OPAQUE_URL_SCHEME = Regex(
 
 /** 文件树里点击即在内置查看器预览的图片格式。 */
 private val PREVIEWABLE_IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp")
+
+/** 这些类型不适合塞进文本编辑器，直接交给系统默认程序打开。 */
+private val SYSTEM_OPEN_EXTS = setOf(
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods",
+    "zip", "rar", "7z", "tar", "gz", "jar", "exe", "dll", "so", "dylib",
+    "mp3", "mp4", "avi", "mov", "wav", "flac", "ttf", "otf", "woff", "woff2"
+)
 
 private val TRAILING_LINE = Regex("^(.*):(\\d+)$")
 
@@ -906,7 +922,7 @@ private fun DesktopTitleBar(window: java.awt.Frame?, onRequestClose: () -> Unit)
     }
 }
 
-/** 全局背景水印：盖在页面上（透明度可调），桌宠在其之上绘制。 */
+/** 全局背景水印：盖在页面上（透明度可调）。 */
 @Composable
 private fun BackgroundWatermark(modifier: Modifier = Modifier) {
     val backgroundImagePath by AppGraph.backgroundSettingsRepository.imagePathFlow

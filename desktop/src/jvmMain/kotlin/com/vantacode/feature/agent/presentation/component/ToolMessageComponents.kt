@@ -131,7 +131,7 @@ private val ToolSectionMaxHeight = 240.dp
 private val ToolSectionFadeHeight = 24.dp
 
 /**
- * 工具消息（DSH 扁平行）：一行「工具图标 + 工具名 + 路径 + 增删统计 + 箭头」，行上方一条
+ * 工具消息（扁平行）：一行「工具图标 + 工具名 + 路径 + 增删统计 + 箭头」，行上方一条
  * 1px 细线做分隔，不再套描边卡片；点击展开查看「指令 / 结果」，或对 editFile / writeFile
  * 展开为白底描边的差异卡（头部路径 + 复制，页脚增删统计）。
  *
@@ -386,7 +386,7 @@ internal fun ToolMessageBody(
                     Spacer(Modifier.height(Spacing.xs))
                     WebSearchResultCard(result = webSearchData)
                 } else if (edit != null && details != null) {
-                    // 差异卡：头部给路径与「复制」，页脚给增删统计（DSH 那块白底描边卡）
+                    // 差异卡：头部给路径与「复制」，页脚给增删统计
                     Spacer(Modifier.height(Spacing.xs))
                     ChatCodeCard(
                         title = edit.path.ifBlank { null },
@@ -653,7 +653,7 @@ internal fun AgentUIMessage.isToolRunning(liveOutput: String?): Boolean =
         content.startsWith(SessionUseCase.LEGACY_PENDING_TOOL_MARKER)
 
 /**
- * 「N 次工具调用」分组头：DSH 把一轮任务里连续的工具调用折成一行，**默认收起**，
+ * 「N 次工具调用」分组头：一轮任务里连续的工具调用折成一行，**默认收起**，
  * 点一下手动展开/收起（运行中也不自动弹开）。
  * 布局对齐思考行：左侧工具图标（锤子/施工） + 中间调用计数 + 折叠箭头。
  *

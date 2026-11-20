@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,11 +36,15 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.vantacode.core.platform.LocalDesktopContext
 import com.vantacode.core.theme.Spacing
 import com.vantacode.core.theme.semanticColors
 import com.vantacode.core.ui.Strings
+import com.vantacode.di.AppGraph
+import com.vantacode.feature.settings.data.remote.UpdateCheckResult
+import com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Tag
 import compose.icons.feathericons.MessageCircle
@@ -49,6 +54,7 @@ import compose.icons.feathericons.FileText
 import compose.icons.feathericons.Github
 import compose.icons.feathericons.GitBranch
 import compose.icons.feathericons.ChevronRight
+import compose.icons.feathericons.RefreshCw
 import com.vantacode.core.platform.AppClipboard
 import com.vantacode.core.platform.DesktopAssets
 import com.vantacode.core.platform.PlatformToast
@@ -64,10 +70,16 @@ private const val ISSUES_URL = "https://github.com/Hye-steam/VantaCode-Desktop/i
  * 开源许可证 / 用户协议 / 隐私政策。都是点开即可用的真入口。
  */
 @Composable
-internal fun AboutSection() {
+internal fun AboutSection(
+    updateRepository: UpdateCheckSettingsRepository = AppGraph.updateCheckSettingsRepository
+) {
     val context = LocalDesktopContext.current
     val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
     var showLicenseDialog by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
 
     // 应用图标：用 PackageManager.loadIcon 加载自适应图标，避免 mipmap-anydpi 的 XML
     // 在 Compose painterResource 中不被支持的问题（Only VectorDrawables and rasterized types）。
@@ -94,6 +106,25 @@ internal fun AboutSection() {
                         color = MaterialTheme.semanticColors.subtleText
                     )
                 }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.RefreshCw,
+                title = Strings.about_check_update,
+                onClick = {
+                    showUpdateDialog = true
+                    checkingUpdate = true
+                    updateResult = null
+                    scope.launch {
+                        updateResult = runCatching {
+                            updateRepository.checkForUpdate(
+                                com.vantacode.core.platform.PlatformInfo.VERSION_NAME
+                            )
+                        }.getOrElse { UpdateCheckResult.Error(it.message ?: Strings.about_network_error) }
+                        checkingUpdate = false
+                    }
+                },
+                trailing = { Chevron() }
             )
             SettingsDivider()
             SettingsRow(
@@ -196,6 +227,16 @@ internal fun AboutSection() {
             confirmButton = {
                 TextButton(onClick = { showLicenseDialog = false }) { Text(Strings.common_close) }
             }
+        )
+    }
+
+    if (showUpdateDialog) {
+        UpdateCheckDialog(
+            checking = checkingUpdate,
+            result = updateResult,
+            currentVersion = com.vantacode.core.platform.PlatformInfo.VERSION_NAME,
+            onDismiss = { showUpdateDialog = false },
+            onOpenRelease = { url -> runCatching { uriHandler.openUri(url) } }
         )
     }
 }

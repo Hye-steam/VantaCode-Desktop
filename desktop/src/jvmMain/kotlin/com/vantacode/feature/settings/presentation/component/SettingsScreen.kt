@@ -90,7 +90,6 @@ import com.vantacode.feature.agent.domain.skill.SkillScope
 import com.vantacode.feature.settings.presentation.SubAgentUiEntry
 import com.vantacode.core.ui.AppSwitch
 import compose.icons.FeatherIcons
-import compose.icons.feathericons.Package
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.BarChart2
 import compose.icons.feathericons.Book
@@ -102,7 +101,6 @@ import compose.icons.feathericons.Download
 import compose.icons.feathericons.FileText
 import compose.icons.feathericons.Globe
 import compose.icons.feathericons.HardDrive
-import compose.icons.feathericons.Smile
 import compose.icons.feathericons.Image
 import compose.icons.feathericons.Info
 import compose.icons.feathericons.Lock
@@ -146,10 +144,10 @@ internal enum class SettingsSection(@param:StringRes val titleRes: Int) {
     DefaultModels(R.string.settings_default_models),
     Mcp(R.string.settings_mcp),
     Skills(R.string.settings_skills),
+    Market(R.string.skill_market_title),
     Prompts(R.string.prompts_title),
     PromptDetail(R.string.prompts_title),
     PromptEditor(R.string.prompts_title),
-    Dsh(R.string.settings_dsh),
     SkillDetail(R.string.settings_skills),
     SkillEditor(R.string.settings_skills),
     SubAgents(R.string.settings_subagents),
@@ -230,7 +228,6 @@ fun SettingsScreen(
     val themePresetId by viewModel.themePresetId.collectAsStateWithLifecycle()
     val backgroundImagePath by viewModel.backgroundImagePath.collectAsStateWithLifecycle()
     val backgroundKind by viewModel.backgroundKind.collectAsStateWithLifecycle()
-    val petEnabled by viewModel.petEnabled.collectAsStateWithLifecycle()
     val backgroundAlpha by viewModel.backgroundAlpha.collectAsStateWithLifecycle()
     val languageTag by viewModel.languageTag.collectAsStateWithLifecycle()
     val visionProviderId by viewModel.visionProviderId.collectAsStateWithLifecycle()
@@ -440,8 +437,6 @@ fun SettingsScreen(
             backgroundImagePath = backgroundImagePath,
             backgroundKind = backgroundKind,
             backgroundAlpha = backgroundAlpha,
-            petEnabled = petEnabled,
-            onTogglePetEnabled = { viewModel.setPetEnabled(it) },
             onOpenThemeSheet = { showThemeSheet = true },
             onOpenBackgroundSheet = { showBackgroundSheet = true },
             onOpenLanguageSheet = { showLanguageSheet = true },
@@ -847,8 +842,7 @@ fun SettingsScreen(
                         viewModel.setSkillsEnabled(targets.map { it.name to it.scope }, enabled)
                     }
                 )
-                SettingsSection.Dsh ->
-                    DshSettingsSection()
+                SettingsSection.Market -> MarketSection()
                 SettingsSection.Prompts -> {
                     val promptsViewModel: com.vantacode.feature.settings.presentation.PromptsViewModel =
                         androidx.lifecycle.viewmodel.compose.viewModel(factory = com.vantacode.di.AppGraph.viewModelFactory)
@@ -1321,8 +1315,6 @@ internal fun SettingsMenu(
     backgroundImagePath: String?,
     backgroundKind: com.vantacode.feature.settings.data.repository.BackgroundKind,
     backgroundAlpha: Float,
-    petEnabled: Boolean,
-    onTogglePetEnabled: (Boolean) -> Unit,
     onOpenThemeSheet: () -> Unit,
     onOpenBackgroundSheet: () -> Unit,
     onOpenLanguageSheet: () -> Unit,
@@ -1393,18 +1385,6 @@ internal fun SettingsMenu(
                     )
                 }
             )
-            SettingsDivider()
-            SettingsRow(
-                icon = FeatherIcons.Smile,
-                title = Strings.settings_pet_enabled,
-                subtitle = Strings.settings_pet_enabled_desc,
-                trailing = {
-                    AppSwitch(
-                        checked = petEnabled,
-                        onCheckedChange = onTogglePetEnabled
-                    )
-                }
-            )
         }
 
         // ── AI 配置 ──
@@ -1436,6 +1416,12 @@ internal fun SettingsMenu(
             )
             SettingsDivider()
             SettingsRow(
+                icon = FeatherIcons.Globe,
+                title = stringResource(SettingsSection.Market.titleRes),
+                onClick = { onOpen(SettingsSection.Market) }
+            )
+            SettingsDivider()
+            SettingsRow(
                 icon = FeatherIcons.Users,
                 title = stringResource(SettingsSection.SubAgents.titleRes),
                 onClick = { onOpen(SettingsSection.SubAgents) }
@@ -1445,12 +1431,6 @@ internal fun SettingsMenu(
                 icon = FeatherIcons.MessageSquare,
                 title = stringResource(SettingsSection.Prompts.titleRes),
                 onClick = { onOpen(SettingsSection.Prompts) }
-            )
-            SettingsDivider()
-            SettingsRow(
-                icon = FeatherIcons.Package,
-                title = stringResource(SettingsSection.Dsh.titleRes),
-                onClick = { onOpen(SettingsSection.Dsh) }
             )
         }
 

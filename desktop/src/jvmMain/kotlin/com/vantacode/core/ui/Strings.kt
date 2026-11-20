@@ -659,6 +659,7 @@ object Strings {
     val editor_md_preview: String get() = catalog().getValue("editor_md_preview")
     val editor_md_show_source: String get() = catalog().getValue("editor_md_show_source")
     val editor_redo: String get() = catalog().getValue("editor_redo")
+    val editor_save: String get() = catalog().getValue("editor_save")
     val editor_save_and_exit: String get() = catalog().getValue("editor_save_and_exit")
     val editor_save_and_switch: String get() = catalog().getValue("editor_save_and_switch")
     val editor_save_conflict_cancel: String get() = catalog().getValue("editor_save_conflict_cancel")
@@ -928,6 +929,24 @@ object Strings {
     val log_search_results: String get() = catalog().getValue("log_search_results")
     val log_show_last_lines: String get() = catalog().getValue("log_show_last_lines")
     val log_show_lines: String get() = catalog().getValue("log_show_lines")
+    val market_empty: String get() = catalog().getValue("market_empty")
+    val market_expand_detail: String get() = catalog().getValue("market_expand_detail")
+    val market_install: String get() = catalog().getValue("market_install")
+    val market_install_failed_download: String get() = catalog().getValue("market_install_failed_download")
+    val market_install_failed_install: String get() = catalog().getValue("market_install_failed_install")
+    val market_install_failed_no_skill: String get() = catalog().getValue("market_install_failed_no_skill")
+    val market_install_no_url: String get() = catalog().getValue("market_install_no_url")
+    val market_install_success: String get() = catalog().getValue("market_install_success")
+    val market_installed: String get() = catalog().getValue("market_installed")
+    val market_installing: String get() = catalog().getValue("market_installing")
+    val market_load_more: String get() = catalog().getValue("market_load_more")
+    val market_loading_more: String get() = catalog().getValue("market_loading_more")
+    val market_matched: String get() = catalog().getValue("market_matched")
+    val market_refresh: String get() = catalog().getValue("market_refresh")
+    val market_search_hint: String get() = catalog().getValue("market_search_hint")
+    val market_sort_by_name: String get() = catalog().getValue("market_sort_by_name")
+    val market_sort_by_stars: String get() = catalog().getValue("market_sort_by_stars")
+    val market_total_skills: String get() = catalog().getValue("market_total_skills")
     val mcp_add: String get() = catalog().getValue("mcp_add")
     val mcp_add_arg: String get() = catalog().getValue("mcp_add_arg")
     val mcp_add_env_var: String get() = catalog().getValue("mcp_add_env_var")
@@ -1399,13 +1418,6 @@ object Strings {
     val team_editor_add_model: String get() = catalog().getValue("team_editor_add_model")
     val settings_background_kind_gif: String get() = catalog().getValue("settings_background_kind_gif")
     val settings_background_kind_video: String get() = catalog().getValue("settings_background_kind_video")
-    val settings_pet_enabled: String get() = catalog().getValue("settings_pet_enabled")
-    val settings_pet_enabled_desc: String get() = catalog().getValue("settings_pet_enabled_desc")
-    val pet_bubble_idle: String get() = catalog().getValue("pet_bubble_idle")
-    val pet_bubble_looking: String get() = catalog().getValue("pet_bubble_looking")
-    val pet_bubble_streaming: String get() = catalog().getValue("pet_bubble_streaming")
-    val pet_bubble_pleased: String get() = catalog().getValue("pet_bubble_pleased")
-    val pet_bubble_downcast: String get() = catalog().getValue("pet_bubble_downcast")
     val settings_teams: String get() = catalog().getValue("settings_teams")
     val chat_open_teams: String get() = catalog().getValue("chat_open_teams")
     val teams_new: String get() = catalog().getValue("teams_new")
@@ -1623,6 +1635,17 @@ object Strings {
     val settings_user_guide: String get() = catalog().getValue("settings_user_guide")
     val settings_vision_follow_chat: String get() = catalog().getValue("settings_vision_follow_chat")
     val settings_vision_model: String get() = catalog().getValue("settings_vision_model")
+    val skill_detail_author: String get() = catalog().getValue("skill_detail_author")
+    val skill_detail_category: String get() = catalog().getValue("skill_detail_category")
+    val skill_detail_display_name: String get() = catalog().getValue("skill_detail_display_name")
+    val skill_detail_download: String get() = catalog().getValue("skill_detail_download")
+    val skill_detail_name: String get() = catalog().getValue("skill_detail_name")
+    val skill_detail_package: String get() = catalog().getValue("skill_detail_package")
+    val skill_detail_stars: String get() = catalog().getValue("skill_detail_stars")
+    val skill_detail_tags: String get() = catalog().getValue("skill_detail_tags")
+    val skill_detail_version: String get() = catalog().getValue("skill_detail_version")
+    val skill_install_note: String get() = catalog().getValue("skill_install_note")
+    val skill_market_title: String get() = catalog().getValue("skill_market_title")
     val skills_add: String get() = catalog().getValue("skills_add")
     val skills_add_from_file: String get() = catalog().getValue("skills_add_from_file")
     val skills_add_from_file_desc: String get() = catalog().getValue("skills_add_from_file_desc")
@@ -1951,49 +1974,8 @@ object Strings {
     val workspace_unavailable_current: String get() = catalog().getValue("workspace_unavailable_current")
     val workspace_unavailable_fallback: String get() = catalog().getValue("workspace_unavailable_fallback")
 
-    val settings_dsh: String get() = catalog().getValue("settings_dsh")
-    val dsh_intro: String get() = catalog().getValue("dsh_intro")
-    val dsh_node_missing: String get() = catalog().getValue("dsh_node_missing")
-    val dsh_node_system: String get() = catalog().getValue("dsh_node_system")
-    val dsh_node_bundled: String get() = catalog().getValue("dsh_node_bundled")
-    val dsh_install_node: String get() = catalog().getValue("dsh_install_node")
-    val dsh_runtime_missing: String get() = catalog().getValue("dsh_runtime_missing")
-    val dsh_runtime_installed: String get() = catalog().getValue("dsh_runtime_installed")
-    val dsh_install_runtime: String get() = catalog().getValue("dsh_install_runtime")
-    val dsh_update_runtime: String get() = catalog().getValue("dsh_update_runtime")
-    val dsh_uninstall_runtime: String get() = catalog().getValue("dsh_uninstall_runtime")
-    val dsh_installing: String get() = catalog().getValue("dsh_installing")
-    val dsh_install_failed: String get() = catalog().getValue("dsh_install_failed")
-    val dsh_uninstalled: String get() = catalog().getValue("dsh_uninstalled")
-    val dsh_plugins_title: String get() = catalog().getValue("dsh_plugins_title")
-    val dsh_plugins_empty: String get() = catalog().getValue("dsh_plugins_empty")
-    val dsh_plugin_remove: String get() = catalog().getValue("dsh_plugin_remove")
-    val dsh_plugin_install_failed: String get() = catalog().getValue("dsh_plugin_install_failed")
-    val dsh_add_title: String get() = catalog().getValue("dsh_add_title")
-    val dsh_add_hint: String get() = catalog().getValue("dsh_add_hint")
-    val dsh_add_button: String get() = catalog().getValue("dsh_add_button")
-    val dsh_add_input: String get() = catalog().getValue("dsh_add_input")
-    val dsh_market_title: String get() = catalog().getValue("dsh_market_title")
-    val dsh_market_search: String get() = catalog().getValue("dsh_market_search")
-    val dsh_market_install: String get() = catalog().getValue("dsh_market_install")
-    val dsh_market_error: String get() = catalog().getValue("dsh_market_error")
-    val dsh_market_retry: String get() = catalog().getValue("dsh_market_retry")
-    val dsh_market_loading: String get() = catalog().getValue("dsh_market_loading")
-    val dsh_config_title: String get() = catalog().getValue("dsh_config_title")
-    val dsh_config_body: String get() = catalog().getValue("dsh_config_body")
-    val dsh_open_config: String get() = catalog().getValue("dsh_open_config")
-    val dsh_open_config_failed: String get() = catalog().getValue("dsh_open_config_failed")
-    val dsh_slash_desc: String get() = catalog().getValue("dsh_slash_desc")
-    val dsh_running_placeholder: String get() = catalog().getValue("dsh_running_placeholder")
-    val dsh_output_title: String get() = catalog().getValue("dsh_output_title")
-    val dsh_failed: String get() = catalog().getValue("dsh_failed")
-    val dsh_usage: String get() = catalog().getValue("dsh_usage")
-    val dsh_not_ready: String get() = catalog().getValue("dsh_not_ready")
     val chat_upload_video: String get() = catalog().getValue("chat_upload_video")
     val chat_upload_package: String get() = catalog().getValue("chat_upload_package")
-    val pet_chatter_1: String get() = catalog().getValue("pet_chatter_1")
-    val pet_chatter_2: String get() = catalog().getValue("pet_chatter_2")
-    val pet_chatter_3: String get() = catalog().getValue("pet_chatter_3")
     val about_upstream: String get() = catalog().getValue("about_upstream")
     val about_releases: String get() = catalog().getValue("about_releases")
     val about_feedback: String get() = catalog().getValue("about_feedback")
@@ -2296,13 +2278,6 @@ team_editor_add_agent	从子代理添加
 team_editor_add_model	从模型添加
 settings_background_kind_gif	GIF 背景
 settings_background_kind_video	视频背景
-settings_pet_enabled	显示桌宠
-settings_pet_enabled_desc	在屏幕上放一只 Vanta，拖到喜欢的位置，关掉即收起
-pet_bubble_idle	摸鱼
-pet_bubble_looking	思考中
-pet_bubble_streaming	写代码
-pet_bubble_pleased	搞定
-pet_bubble_downcast	卡住了
 settings_teams	团队
 chat_open_teams	团队
 teams_new	新建团队
@@ -3963,52 +3938,41 @@ browser_ua_custom_desc	手动指定 User-Agent 字符串
 browser_ua_custom_dialog_title	自定义 User-Agent
 browser_ua_custom_input_hint	输入完整的 User-Agent 字符串
 browser_ua_applied_toast	已切换浏览器标识并刷新页面
-settings_dsh	DSH 插件
-dsh_intro	把 DeepSeek Harness（DSH）插件接入 VantaCode：安装运行时、管理插件，并用 `/dsh <任务>` 委托任务到会话。需 Node.js ≥ 20，运行时约 738MB。
-dsh_node_missing	缺少 Node.js ≥ 20
-dsh_node_system	系统 Node.js %1${'$'}s
-dsh_node_bundled	内置 Node.js %1${'$'}s 已就绪
-dsh_install_node	安装 Node.js（约 30MB）
-dsh_runtime_missing	DSH 运行时未安装（约 738MB）
-dsh_runtime_installed	DSH 运行时 %1${'$'}s 已安装
-dsh_install_runtime	安装 DSH 运行时
-dsh_update_runtime	更新到最新版
-dsh_uninstall_runtime	卸载运行时
-dsh_installing	正在安装，可能需要几分钟…
-dsh_install_failed	安装失败：%1${'$'}s
-dsh_uninstalled	已卸载
-dsh_plugins_title	已安装插件
-dsh_plugins_empty	还没有安装任何插件
-dsh_plugin_remove	卸载
-dsh_plugin_install_failed	插件安装失败：%1${'$'}s
-dsh_add_title	添加插件
-dsh_add_hint	支持 npm 包名、git 仓库地址或 link: 本地路径（如 dsh-model-master）
-dsh_add_button	安装
-dsh_add_input	插件来源
-dsh_market_title	DSH 插件市场
-dsh_market_search	搜索（名称 / 描述 / 作者）
-dsh_market_install	安装
-dsh_market_error	市场加载失败，可稍后重试
-dsh_market_retry	重试
-dsh_market_loading	正在加载插件市场…
-dsh_config_title	模型配置
-dsh_config_body	DSH 使用独立的模型配置（DeepSeek API key 或兼容端点），与 VantaCode 的供应商互不影响。首次使用请打开 DSH 配置页填写。
-dsh_open_config	打开 DSH 配置页
-dsh_open_config_failed	无法启动 DSH：%1${'$'}s
-dsh_slash_desc	把任务委托给 DSH（headless）执行，输出回填到会话
-dsh_running_placeholder	**DSH（headless）正在执行…**
-dsh_output_title	**DSH 结果**
-dsh_failed	**DSH 失败**：%1${'$'}s
-dsh_usage	用法：/dsh <任务>
-dsh_not_ready	DSH 未就绪：%1${'$'}s（请先到设置 → DSH 插件安装运行时）
 chat_upload_video	上传视频
 chat_upload_package	上传应用安装包
-pet_chatter_1	喵。
-pet_chatter_2	盯。
-pet_chatter_3	在干嘛？
 about_upstream	上游项目 AiCode
 about_releases	更新日志
 about_feedback	反馈问题
+market_empty	没有找到匹配的条目
+market_expand_detail	点击展开详情
+market_install	安装
+market_install_failed_download	下载失败：%1${'$'}s
+market_install_failed_install	安装失败：%1${'$'}s
+market_install_failed_no_skill	压缩包中没有找到 SKILL.md
+market_install_no_url	没有下载地址
+market_install_success	安装成功：%1${'$'}s
+market_installed	已安装
+market_installing	正在安装 %1${'$'}s…
+market_load_more	加载更多
+market_loading_more	加载中…
+market_matched	 · 匹配 %1${'$'}d 个
+market_refresh	刷新
+market_search_hint	搜索（名称 / 描述 / 作者）
+market_sort_by_name	按名称
+market_sort_by_stars	按星数
+market_total_skills	共 %1${'$'}d 个技能
+skill_detail_author	作者
+skill_detail_category	分类
+skill_detail_display_name	显示名
+skill_detail_download	下载地址
+skill_detail_name	名称
+skill_detail_package	包名
+skill_detail_stars	星数
+skill_detail_tags	标签
+skill_detail_version	版本
+skill_install_note	安装会把压缩包里的 SKILL.md 提取到 ~/.aicode/skills/&lt;名字&gt;/
+skill_market_title	技能市场
+editor_save	保存
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -4274,13 +4238,6 @@ team_editor_add_agent	Add from subagents
 team_editor_add_model	Add from models
 settings_background_kind_gif	GIF background
 settings_background_kind_video	Video background
-settings_pet_enabled	Show desktop pet
-settings_pet_enabled_desc	Puts a Vanta on screen — drag it anywhere; turn off to remove her
-pet_bubble_idle	Idle
-pet_bubble_looking	Thinking
-pet_bubble_streaming	Writing
-pet_bubble_pleased	Done
-pet_bubble_downcast	Stuck
 settings_teams	Teams
 chat_open_teams	Teams
 teams_new	New team
@@ -5941,52 +5898,41 @@ browser_ua_custom_desc	Specify custom User-Agent string
 browser_ua_custom_dialog_title	Custom User-Agent
 browser_ua_custom_input_hint	Enter full User-Agent string
 browser_ua_applied_toast	User-Agent updated, page reloaded
-settings_dsh	DSH Plugins
-dsh_intro	Bring DeepSeek Harness (DSH) plugins into VantaCode: install the runtime, manage plugins, and delegate with `/dsh <task>`. Requires Node.js ≥ 20; the runtime is ~738 MB.
-dsh_node_missing	Node.js ≥ 20 not found
-dsh_node_system	System Node.js %1${'$'}s
-dsh_node_bundled	Bundled Node.js %1${'$'}s ready
-dsh_install_node	Install Node.js (~30 MB)
-dsh_runtime_missing	DSH runtime not installed (~738 MB)
-dsh_runtime_installed	DSH runtime %1${'$'}s installed
-dsh_install_runtime	Install DSH runtime
-dsh_update_runtime	Update to latest
-dsh_uninstall_runtime	Uninstall runtime
-dsh_installing	Installing, this can take a few minutes…
-dsh_install_failed	Install failed: %1${'$'}s
-dsh_uninstalled	Uninstalled
-dsh_plugins_title	Installed plugins
-dsh_plugins_empty	No plugins installed yet
-dsh_plugin_remove	Remove
-dsh_plugin_install_failed	Plugin install failed: %1${'$'}s
-dsh_add_title	Add plugin
-dsh_add_hint	npm package name, git URL or link: local path (e.g. dsh-model-master)
-dsh_add_button	Install
-dsh_add_input	Plugin source
-dsh_market_title	DSH plugin market
-dsh_market_search	Search (name / description / author)
-dsh_market_install	Install
-dsh_market_error	Failed to load the market; please retry later
-dsh_market_retry	Retry
-dsh_market_loading	Loading the market…
-dsh_config_title	Model configuration
-dsh_config_body	DSH keeps its own model configuration (DeepSeek API key or a compatible endpoint), independent of VantaCode providers. Open the DSH settings page to set it up.
-dsh_open_config	Open DSH settings
-dsh_open_config_failed	Cannot start DSH: %1${'$'}s
-dsh_slash_desc	Delegate a task to DSH (headless) and post the result here
-dsh_running_placeholder	**DSH (headless) is working…**
-dsh_output_title	**DSH result**
-dsh_failed	**DSH failed**: %1${'$'}s
-dsh_usage	Usage: /dsh <task>
-dsh_not_ready	DSH is not ready: %1${'$'}s (install the runtime in Settings → DSH first)
 chat_upload_video	Upload video
 chat_upload_package	Upload app package
-pet_chatter_1	meow.
-pet_chatter_2	staring.
-pet_chatter_3	what's up?
 about_upstream	Upstream: AiCode
 about_releases	Release notes
 about_feedback	Report an issue
+market_empty	No matching entries found
+market_expand_detail	Click to expand
+market_install	Install
+market_install_failed_download	Download failed: %1${'$'}s
+market_install_failed_install	Install failed: %1${'$'}s
+market_install_failed_no_skill	No SKILL.md found in the archive
+market_install_no_url	No download URL
+market_install_success	Installed: %1${'$'}s
+market_installed	Installed
+market_installing	Installing %1${'$'}s…
+market_load_more	Load more
+market_loading_more	Loading…
+market_matched	 · %1${'$'}d matched
+market_refresh	Refresh
+market_search_hint	Search (name / description / author)
+market_sort_by_name	By name
+market_sort_by_stars	By stars
+market_total_skills	%1${'$'}d skills
+skill_detail_author	Author
+skill_detail_category	Category
+skill_detail_display_name	Display name
+skill_detail_download	Download URL
+skill_detail_name	Name
+skill_detail_package	Package
+skill_detail_stars	Stars
+skill_detail_tags	Tags
+skill_detail_version	Version
+skill_install_note	Installing extracts every SKILL.md from the archive into ~/.aicode/skills/&lt;name&gt;/
+skill_market_title	Skill Market
+editor_save	Save
 """.trimIndent()
 
 /**
@@ -6634,6 +6580,7 @@ object R {
         const val editor_md_preview: Int = 634
         const val editor_md_show_source: Int = 635
         const val editor_redo: Int = 636
+        const val editor_save: Int = 2005
         const val editor_save_and_exit: Int = 637
         const val editor_save_and_switch: Int = 638
         const val editor_save_conflict_cancel: Int = 639
@@ -6903,6 +6850,24 @@ object R {
         const val log_search_results: Int = 897
         const val log_show_last_lines: Int = 898
         const val log_show_lines: Int = 899
+        const val market_empty: Int = 1980
+        const val market_expand_detail: Int = 1981
+        const val market_install: Int = 1979
+        const val market_install_failed_download: Int = 2002
+        const val market_install_failed_install: Int = 2004
+        const val market_install_failed_no_skill: Int = 2003
+        const val market_install_no_url: Int = 2001
+        const val market_install_success: Int = 2000
+        const val market_installed: Int = 2006
+        const val market_installing: Int = 1999
+        const val market_load_more: Int = 1982
+        const val market_loading_more: Int = 1983
+        const val market_matched: Int = 1988
+        const val market_refresh: Int = 1984
+        const val market_search_hint: Int = 1978
+        const val market_sort_by_name: Int = 1986
+        const val market_sort_by_stars: Int = 1985
+        const val market_total_skills: Int = 1987
         const val mcp_add: Int = 900
         const val mcp_add_arg: Int = 901
         const val mcp_add_env_var: Int = 902
@@ -7374,13 +7339,6 @@ object R {
         const val team_editor_add_model: Int = 1926
         const val settings_background_kind_gif: Int = 1872
         const val settings_background_kind_video: Int = 1873
-        const val settings_pet_enabled: Int = 1874
-        const val settings_pet_enabled_desc: Int = 1875
-        const val pet_bubble_idle: Int = 1876
-        const val pet_bubble_looking: Int = 1877
-        const val pet_bubble_streaming: Int = 1878
-        const val pet_bubble_pleased: Int = 1879
-        const val pet_bubble_downcast: Int = 1880
         const val settings_teams: Int = 1881
         const val chat_open_teams: Int = 1882
         const val teams_new: Int = 1883
@@ -7598,6 +7556,17 @@ object R {
         const val settings_user_guide: Int = 1536
         const val settings_vision_follow_chat: Int = 1537
         const val settings_vision_model: Int = 1538
+        const val skill_detail_author: Int = 1991
+        const val skill_detail_category: Int = 1994
+        const val skill_detail_display_name: Int = 1990
+        const val skill_detail_download: Int = 1997
+        const val skill_detail_name: Int = 1989
+        const val skill_detail_package: Int = 1995
+        const val skill_detail_stars: Int = 1992
+        const val skill_detail_tags: Int = 1996
+        const val skill_detail_version: Int = 1993
+        const val skill_install_note: Int = 1998
+        const val skill_market_title: Int = 1977
         const val skills_add: Int = 1539
         const val skills_add_from_file: Int = 1540
         const val skills_add_from_file_desc: Int = 1541
@@ -7925,49 +7894,8 @@ object R {
         const val workspace_switch_confirm: Int = 1863
         const val workspace_unavailable_current: Int = 1864
         const val workspace_unavailable_fallback: Int = 1865
-        const val settings_dsh: Int = 1930
-        const val dsh_intro: Int = 1931
-        const val dsh_node_missing: Int = 1932
-        const val dsh_node_system: Int = 1933
-        const val dsh_node_bundled: Int = 1934
-        const val dsh_install_node: Int = 1935
-        const val dsh_runtime_missing: Int = 1936
-        const val dsh_runtime_installed: Int = 1937
-        const val dsh_install_runtime: Int = 1938
-        const val dsh_update_runtime: Int = 1939
-        const val dsh_uninstall_runtime: Int = 1940
-        const val dsh_installing: Int = 1941
-        const val dsh_install_failed: Int = 1942
-        const val dsh_uninstalled: Int = 1943
-        const val dsh_plugins_title: Int = 1944
-        const val dsh_plugins_empty: Int = 1945
-        const val dsh_plugin_remove: Int = 1946
-        const val dsh_plugin_install_failed: Int = 1947
-        const val dsh_add_title: Int = 1948
-        const val dsh_add_hint: Int = 1949
-        const val dsh_add_button: Int = 1950
-        const val dsh_add_input: Int = 1951
-        const val dsh_market_title: Int = 1952
-        const val dsh_market_search: Int = 1953
-        const val dsh_market_install: Int = 1954
-        const val dsh_market_error: Int = 1955
-        const val dsh_market_retry: Int = 1956
-        const val dsh_market_loading: Int = 1957
-        const val dsh_config_title: Int = 1958
-        const val dsh_config_body: Int = 1959
-        const val dsh_open_config: Int = 1960
-        const val dsh_open_config_failed: Int = 1961
-        const val dsh_slash_desc: Int = 1962
-        const val dsh_running_placeholder: Int = 1963
-        const val dsh_output_title: Int = 1964
-        const val dsh_failed: Int = 1965
-        const val dsh_usage: Int = 1966
-        const val dsh_not_ready: Int = 1967
         const val chat_upload_video: Int = 1968
         const val chat_upload_package: Int = 1969
-        const val pet_chatter_1: Int = 1971
-        const val pet_chatter_2: Int = 1972
-        const val pet_chatter_3: Int = 1973
         const val about_upstream: Int = 1974
         const val about_releases: Int = 1975
         const val about_feedback: Int = 1976
@@ -9347,13 +9275,6 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     1926 to "team_editor_add_model",
     1872 to "settings_background_kind_gif",
     1873 to "settings_background_kind_video",
-    1874 to "settings_pet_enabled",
-    1875 to "settings_pet_enabled_desc",
-    1876 to "pet_bubble_idle",
-    1877 to "pet_bubble_looking",
-    1878 to "pet_bubble_streaming",
-    1879 to "pet_bubble_pleased",
-    1880 to "pet_bubble_downcast",
     1881 to "settings_teams",
     1882 to "chat_open_teams",
     1883 to "teams_new",
@@ -9904,52 +9825,41 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     1869 to "window_minimize",
     1870 to "window_maximize",
     1871 to "window_close",
-    1930 to "settings_dsh",
-    1931 to "dsh_intro",
-    1932 to "dsh_node_missing",
-    1933 to "dsh_node_system",
-    1934 to "dsh_node_bundled",
-    1935 to "dsh_install_node",
-    1936 to "dsh_runtime_missing",
-    1937 to "dsh_runtime_installed",
-    1938 to "dsh_install_runtime",
-    1939 to "dsh_update_runtime",
-    1940 to "dsh_uninstall_runtime",
-    1941 to "dsh_installing",
-    1942 to "dsh_install_failed",
-    1943 to "dsh_uninstalled",
-    1944 to "dsh_plugins_title",
-    1945 to "dsh_plugins_empty",
-    1946 to "dsh_plugin_remove",
-    1947 to "dsh_plugin_install_failed",
-    1948 to "dsh_add_title",
-    1949 to "dsh_add_hint",
-    1950 to "dsh_add_button",
-    1951 to "dsh_add_input",
-    1952 to "dsh_market_title",
-    1953 to "dsh_market_search",
-    1954 to "dsh_market_install",
-    1955 to "dsh_market_error",
-    1956 to "dsh_market_retry",
-    1957 to "dsh_market_loading",
-    1958 to "dsh_config_title",
-    1959 to "dsh_config_body",
-    1960 to "dsh_open_config",
-    1961 to "dsh_open_config_failed",
-    1962 to "dsh_slash_desc",
-    1963 to "dsh_running_placeholder",
-    1964 to "dsh_output_title",
-    1965 to "dsh_failed",
-    1966 to "dsh_usage",
-    1967 to "dsh_not_ready",
     1968 to "chat_upload_video",
     1969 to "chat_upload_package",
-    1971 to "pet_chatter_1",
-    1972 to "pet_chatter_2",
-    1973 to "pet_chatter_3",
     1974 to "about_upstream",
     1975 to "about_releases",
     1976 to "about_feedback",
+    1977 to "skill_market_title",
+    1978 to "market_search_hint",
+    1979 to "market_install",
+    1980 to "market_empty",
+    1981 to "market_expand_detail",
+    1982 to "market_load_more",
+    1983 to "market_loading_more",
+    1984 to "market_refresh",
+    1985 to "market_sort_by_stars",
+    1986 to "market_sort_by_name",
+    1987 to "market_total_skills",
+    1988 to "market_matched",
+    1989 to "skill_detail_name",
+    1990 to "skill_detail_display_name",
+    1991 to "skill_detail_author",
+    1992 to "skill_detail_stars",
+    1993 to "skill_detail_version",
+    1994 to "skill_detail_category",
+    1995 to "skill_detail_package",
+    1996 to "skill_detail_tags",
+    1997 to "skill_detail_download",
+    1998 to "skill_install_note",
+    1999 to "market_installing",
+    2000 to "market_install_success",
+    2001 to "market_install_no_url",
+    2002 to "market_install_failed_download",
+    2003 to "market_install_failed_no_skill",
+    2004 to "market_install_failed_install",
+    2005 to "editor_save",
+    2006 to "market_installed",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */

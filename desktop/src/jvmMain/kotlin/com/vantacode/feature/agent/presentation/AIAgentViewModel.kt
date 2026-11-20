@@ -2572,28 +2572,6 @@ class AIAgentViewModel @Inject constructor(
         }
     }
 
-    /** /dsh —— 把任务委托给 DSH（headless）执行，输出回填到当前会话（不进上下文）。 */
-    override fun runDshTask(args: String) {
-        val sid = _currentSessionId.value ?: return
-        val task = args.trim()
-        viewModelScope.launch {
-            if (task.isEmpty()) {
-                persistGoalNotice(sid, Strings.dsh_usage)
-                return@launch
-            }
-            messagePersistenceUseCase.persist(sid, MessageRole.ASSISTANT, Strings.dsh_running_placeholder, isContextExcluded = true)
-            val result = com.vantacode.core.dsh.DshRuntime.headless(task)
-            val content = if (result.ok) {
-                val body = result.output.ifBlank { "(DSH 未输出内容)" }
-                "${Strings.dsh_output_title}\n\n$body"
-            } else {
-                Strings.formatted(Strings.dsh_failed, result.error ?: result.output.take(500))
-            }
-            messagePersistenceUseCase.persist(sid, MessageRole.ASSISTANT, content, isContextExcluded = true)
-            sessionUseCase.touch(sid, messagePersistenceUseCase.nextTimestamp())
-        }
-    }
-
     /** /goal —— 管理当前会话的持续目标。 */
     override fun setSessionGoal(rawArgs: String) {
         val sid = _currentSessionId.value ?: return

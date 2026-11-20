@@ -259,7 +259,7 @@ internal fun AgentMessageItem(
     if (message.role == MessageRole.ASSISTANT && !hasContent && !hasReasoning && !hasAttachments) return
 
     val isUser = message.role == MessageRole.USER
-    // 分块消息：块间只留一个段落间距，视觉上仍是连续的一段正文（DSH 扁平文档流下不再有描边接缝）。
+    // 分块消息：块间只留一个段落间距，视觉上仍是连续的一段正文（扁平文档流下不再有描边接缝）。
     val chunked = contentSlice != null
     val screenWidthDp = DesktopConfiguration.screenWidthDp
     // 用户气泡随文字撑开，最大撑到与 AI 气泡同宽（消息列宽 - 列表两侧 padding）。

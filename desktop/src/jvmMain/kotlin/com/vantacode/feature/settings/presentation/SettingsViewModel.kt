@@ -269,7 +269,6 @@ class SettingsViewModel @Inject constructor(
     private val logSettingsRepository: LogSettingsRepository,
     private val themeSettingsRepository: ThemeSettingsRepository,
     private val backgroundSettingsRepository: BackgroundSettingsRepository,
-    private val petSettingsRepository: com.vantacode.feature.pet.data.PetSettingsRepository,
     private val generalSettingsRepository: GeneralSettingsRepository,
     private val languageSettingsRepository: LanguageSettingsRepository,
     private val mcpConfigRepository: McpConfigRepository,
@@ -453,10 +452,6 @@ class SettingsViewModel @Inject constructor(
     /** 全局自定义背景图文件路径（null=未设置），供设置弹窗展示与预览。 */
     private val _backgroundImagePath = MutableStateFlow<String?>(null)
     val backgroundImagePath: StateFlow<String?> = _backgroundImagePath.asStateFlow()
-
-    /** 桌宠显示开关（设置 → 通用）。 */
-    private val _petEnabled = MutableStateFlow(com.vantacode.feature.pet.data.PetSettingsRepository.DEFAULT_ENABLED)
-    val petEnabled: StateFlow<Boolean> = _petEnabled.asStateFlow()
 
     /** 背景媒体类型（IMAGE/GIF/MP4），设置弹窗用于切换预览与文案。 */
     private val _backgroundKind = MutableStateFlow(BackgroundKind.IMAGE)
@@ -763,12 +758,6 @@ class SettingsViewModel @Inject constructor(
             launch {
                 backgroundSettingsRepository.backgroundKindFlow.collectLatest {
                     _backgroundKind.value = it
-                }
-            }
-
-            launch {
-                petSettingsRepository.enabledFlow.collectLatest {
-                    _petEnabled.value = it
                 }
             }
 
@@ -1650,13 +1639,6 @@ class SettingsViewModel @Inject constructor(
     fun clearBackgroundImage() {
         viewModelScope.launch {
             backgroundSettingsRepository.clearBackground()
-        }
-    }
-
-    /** 桌宠显示开关。 */
-    fun setPetEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            petSettingsRepository.setEnabled(enabled)
         }
     }
 
