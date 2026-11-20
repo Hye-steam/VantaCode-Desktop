@@ -22,6 +22,8 @@ import dev.aigw.gateway.RequestRewriter
 import dev.aigw.gateway.Settings
 import dev.aigw.provider.CheckinResult
 import dev.aigw.provider.DeviceAuthPoll
+import dev.aigw.provider.codebuddy.CodeBuddyProvider
+import dev.aigw.provider.codebuddy.WechatQrLogin
 import dev.aigw.provider.ProviderAccount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -472,23 +474,48 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** 浏览器收凭证轮询（打开外部浏览器后独立运行，不依赖登录页 Activity）。 */
     private var collectJob: Job? = null
 
-    fun startWorkbuddyLogin(region: String) {
+    /**
+     * WorkBuddy 登录。
+     *
+     * [wechat] 为 true 时不走登录页，直接构造 keycloak 的 OIDC 授权地址并带
+     * `kc_idp_hint=weixinwebchat`：keycloak 会转给微信 broker，WebView 里就是扫码界面。
+     * 两种方式拿到的 state 共用同一个轮询接口。
+     */
+    fun startWorkbuddyLogin(region: String, wechat: Boolean = false) {
         loginJob?.cancel()
         state = state.copy(wbLogin = WbLoginState(active = true, region = region, status = "正在获取授权链接…"))
         loginJob = viewModelScope.launch {
-            val ticket = withContext(Dispatchers.IO) {
-                runCatching { engine.startDeviceAuth("codebuddy", region) }
+            val pair = withContext(Dispatchers.IO) {
+                engine.setCodeBuddyAuthPlatform(CodeBuddyProvider.PLATFORM_CLI)
+                runCatching {
+                    val ticket = engine.startDeviceAuth("codebuddy", region)
+                    if (wechat) {
+                        // 微信 broker 的回调固定落在 codebuddy.cn（服务端决定），
+                        // 而 state 在 chatBase（copilot.tencent.com）申请，跨域后
+                        // /console/login/enterprise 拿不到同域会话，一直是 401。
+                        // 因此扫码这条路径整个改到 codebuddy.cn 走一遍。
+                        val host = if (region == "global") "https://www.workbuddy.ai" else "https://www.codebuddy.cn"
+                        val st = withContext(Dispatchers.IO) {
+                            WechatQrLogin.requestState(host)
+                        }
+                        WechatQrLogin.urlOf(host, st.second) to st.first
+                    } else {
+                        val ticket = engine.startDeviceAuth("codebuddy", region)
+                        ticket.loginUrl to ticket.state
+                    }
+                }
             }.getOrElse {
                 state = state.copy(wbLogin = WbLoginState(active = false, region = region, status = "获取授权链接失败", error = it.message))
                 return@launch
             }
-            state = state.copy(wbLogin = state.wbLogin.copy(url = ticket.loginUrl, state = ticket.state))
+            val (loginUrl, loginState) = pair
+            state = state.copy(wbLogin = state.wbLogin.copy(url = loginUrl, state = loginState))
             val ctx = getApplication<Application>()
             runCatching {
                 ctx.startActivity(
                     Intent(ctx, WebLoginActivity::class.java)
-                        .putExtra(WebLoginActivity.EXTRA_URL, ticket.loginUrl)
-                        .putExtra(WebLoginActivity.EXTRA_STATE, ticket.state)
+                        .putExtra(WebLoginActivity.EXTRA_URL, loginUrl)
+                        .putExtra(WebLoginActivity.EXTRA_STATE, loginState)
                         .putExtra(WebLoginActivity.EXTRA_REGION, region)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
@@ -497,8 +524,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     wbLogin = WbLoginState(
                         active = false,
                         region = region,
-                        url = ticket.loginUrl,
-                        state = ticket.state,
+                        url = loginUrl,
+                        state = loginState,
                         status = "打开登录页失败",
                         error = it.message,
                     ),

@@ -600,9 +600,29 @@ class CodeBuddyProvider : Provider, DeviceCodeSupport, RegionAwareSupport, Accou
 
     // ------------------------------------------------------------------ 设备授权登录
 
+    /**
+     * 登录页形态。GUI 里可在「CLI / 扫码」之间切，默认 CLI 与旧版一致。
+     *
+     * 扫码（WEB）能让已登录网页版的用户直接用手机会话授权，省去在
+     * 小屏 WebView 里敲账号密码；但网页登录发的凭证是否与 CLI 等价
+     * 还没验证，所以不设为默认。
+     */
+    @Volatile
+    var authPlatform: String = PLATFORM_CLI
+        private set
+
+    /** 切换登录形态；传入非预期值时不改。 */
+    fun switchAuthPlatform(platform: String) {
+        authPlatform = if (platform == PLATFORM_WEB) PLATFORM_WEB else PLATFORM_CLI
+    }
+
     override fun startDeviceAuth(region: String): DeviceAuthTicket {
         val base = endpointOf(region).chatBase
-        val url = "$base$PATH_AUTH_STATE?platform=CLI"
+        // platform 决定登录页的形态：
+        //   CLI → 浏览器里出「微信登录」按钮，走 CLI 授权流程
+        //   WEB → 出二维码，可用手机扫码（与网页版一致）
+        // 两者拿到的 state 都能用同一个轮询接口换凭证。
+        val url = "$base$PATH_AUTH_STATE?platform=$authPlatform"
         // 登录只发一次，不值得复用连接池：VPN/代理开关切换后池里的旧 socket
         // 已经失效，复用会直接报 Software caused connection abort
         val headers = mapOf("Connection" to "close")
@@ -635,6 +655,16 @@ class CodeBuddyProvider : Provider, DeviceCodeSupport, RegionAwareSupport, Accou
 
     override fun pollDeviceAuth(state: String, region: String): DeviceAuthPoll {
         val base = endpointOf(region).chatBase
+        return pollDeviceAuthAt(base, state)
+    }
+
+    /**
+     * 在指定域查询 state 的登录结果。
+     *
+     * 扫码登录的 state 是在 codebuddy.cn 申请的，而 [pollDeviceAuth] 默认查 chatBase
+     * （copilot.tencent.com）；state 不跨域，必须回到申请它的那个域去兑。
+     */
+    fun pollDeviceAuthAt(base: String, state: String): DeviceAuthPoll {
         val encoded = URLEncoder.encode(state, "UTF-8")
         val r = try {
             Http.get("$base$PATH_AUTH_TOKEN?state=$encoded", emptyMap(), 20_000)
@@ -816,6 +846,10 @@ class CodeBuddyProvider : Provider, DeviceCodeSupport, RegionAwareSupport, Accou
 
         const val PATH_AUTH_STATE = "/v2/plugin/auth/state"
         const val PATH_AUTH_TOKEN = "/v2/plugin/auth/token"
+
+        /** 登录页形态：CLI（按钮式）与 WEB（二维码）。 */
+        const val PLATFORM_CLI = "CLI"
+        const val PLATFORM_WEB = "WEB"
         const val PATH_CHAT = "/v2/chat/completions"
         const val PATH_CHECKIN = "/v2/billing/meter/daily-checkin"
         const val PATH_USER_RESOURCE = "/v2/billing/meter/get-user-resource"

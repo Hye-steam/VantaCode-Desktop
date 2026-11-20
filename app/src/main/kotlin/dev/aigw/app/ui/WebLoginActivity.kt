@@ -47,7 +47,21 @@ class WebLoginActivity : Activity() {
     /** 回调只处理一次：页面可能多次触发同一跳转（history 与真实导航各一次）。 */
     private var callbackHandled = false
 
+    /** 微信授权链接只复制一次，避免页面反复跳转时刷屏到剪贴板。 */
+    private var wechatLinkHandled = false
+
+    /** CLI 授权流程里的 state；页面登录后要用它把网页会话换成凭证。 */
+    private var deviceState = ""
+
     private var mode = MODE_DEVICE
+
+    /**
+     * 是否强制桌面模式。
+     *
+     * WorkBuddy 的登录页按视口宽度分流，移动端只给按钮不给扫码界面；
+     * 其余供应商的登录页按手机版设计，强上桌面模式反而难看。
+     */
+    private var forceDesktop = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +70,8 @@ class WebLoginActivity : Activity() {
         val region = intent.getStringExtra(EXTRA_REGION) ?: "cn"
         val mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_DEVICE
         this.mode = mode
+        deviceState = state
+        forceDesktop = intent.getBooleanExtra(EXTRA_DESKTOP, false)
         val providerId = intent.getStringExtra(EXTRA_PROVIDER).orEmpty()
         if (url.isEmpty() || (mode == MODE_DEVICE && state.isEmpty())) {
             finish()
@@ -146,7 +162,11 @@ class WebLoginActivity : Activity() {
             addJavascriptInterface(LoginBridge(), "__aigwBridge")
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
-            settings.userAgentString = if (preferDesktop) UA_DESKTOP else UA_MOBILE
+            settings.userAgentString = when {
+                forceDesktop -> DesktopWebMode.UA
+                preferDesktop -> UA_DESKTOP
+                else -> UA_MOBILE
+            }
             // 登录跳转跨站（aistudio → account.xiaomi.com → sts 回调），第三方 Cookie 必须放行
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = object : WebViewClient() {
@@ -155,6 +175,14 @@ class WebLoginActivity : Activity() {
                     val target = request.url?.toString().orEmpty()
                     if (isCallbackUrl(target)) {
                         handleCallbackUrl(target)
+                        return true
+                    }
+                    // weixin:// 是唤起微信 App 的自定义 scheme，WebView 里没有 handler，
+                    // 继续加载只会得到一个错误页。
+                    // 注意：open.weixin.qq.com/connect/qrconnect 是**扫码页本身**，
+                    // 它会在任何浏览器里渲染二维码，绝不能拦。
+                    if (target.startsWith("weixin://")) {
+                        handleWechatAuthLink(target)
                         return true
                     }
                     return false
@@ -183,6 +211,11 @@ class WebLoginActivity : Activity() {
                     if (mode == MODE_TOKEN) view.evaluateJavascript(TOKEN_HOOK_JS, null)
                     // 授权完成后页面可能白屏、也可能只是把 JSON 吐出来：两种都要能捞到
                     if (mode == MODE_CALLBACK) view.evaluateJavascript(CALLBACK_HOOK_JS, null)
+                    // 扫码登录只是完成了网页会话，CLI 那条 state 还没兑。
+                    // 页面自己的前端会调这个接口把会话换成 state 凭证，这里代它做。
+                    if (deviceState.isNotEmpty()) {
+                        view.evaluateJavascript(cliExchangeJs(deviceState), null)
+                    }
                     // 「页面已过期」说明 state 没等到授权：把引导写进状态栏，而不是让用户干看着
                     if (mode == MODE_DEVICE) {
                         view.evaluateJavascript(EXPIRED_CHECK_JS) { detected ->
@@ -201,7 +234,7 @@ class WebLoginActivity : Activity() {
                     if (request?.isForMainFrame != true) return
                     statusView?.text = "页面加载失败（${error?.errorCode ?: "?"}）：海外站点需 VPN/代理，开 VPN 后点「浏览器打开」重试"
                 }
-            }
+            }.let { if (forceDesktop) DesktopWebMode.wrapClient(it) else it }
             // 授权页常把「确认授权」写成 window.open：不支持多窗口时弹窗拿不到，
             // 页面就停在白屏，回调永远不来
             webChromeClient = object : WebChromeClient() {
@@ -462,8 +495,15 @@ class WebLoginActivity : Activity() {
             repeat(300) {
                 Thread.sleep(2000)
                 if (!polling) return@Thread
-                val poll = runCatching { app.engine.pollDeviceAuth("codebuddy", state, region) }
-                    .getOrElse { DeviceAuthPoll.Failed(it.message ?: "网络错误") }
+                val poll = runCatching {
+                    // state 不跨域：扫码那条在 codebuddy.cn 申请，必须回原域轮询
+                    val at = pollBaseOf(intent.getStringExtra(EXTRA_URL).orEmpty())
+                    if (at != null) {
+                        app.engine.pollDeviceAuthAt("codebuddy", state, region, at)
+                    } else {
+                        app.engine.pollDeviceAuth("codebuddy", state, region)
+                    }
+                }.getOrElse { DeviceAuthPoll.Failed(it.message ?: "网络错误") }
                 when (poll) {
                     is DeviceAuthPoll.Pending -> {
                         errors = 0
@@ -501,6 +541,73 @@ class WebLoginActivity : Activity() {
      * 在 WebView 里直接交回调：不依赖本地端口能否被页面命中。
      * 商汤授权页确认后的白屏就是因为跳转没落到回调服务，这里绕开了那一步。
      */
+    private fun handleWechatAuthLink(url: String) {
+        if (wechatLinkHandled) return
+        wechatLinkHandled = true
+        runOnUiThread {
+            val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("微信授权链接", url))
+            // 链已复制，用户去微信里打开就能完成；本页继续轮询，不必等他回来点确认
+            statusView?.text = "微信授权链接已复制：打开微信 → 粘贴到任意聊天 → 点开完成授权，成功后本页自动获取凭证"
+            android.widget.Toast.makeText(
+                this,
+                "链接已复制，请到微信里粘贴打开",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    /**
+     * 从登录地址推断要回哪个域轮询；返回 null 表示用默认域。
+     *
+     * 微信扫码那条件走的是 codebuddy.cn，与默认的 chatBase 不同域。
+     */
+    private fun pollBaseOf(url: String): String? = when {
+        url.contains("codebuddy.cn") -> "https://www.codebuddy.cn"
+        url.contains("workbuddy.ai") -> "https://www.workbuddy.ai"
+        url.contains("workbuddy.cn") -> "https://www.workbuddy.cn"
+        else -> null
+    }
+
+    /**
+     * 把网页登录态换成 CLI state 凭证。
+     *
+     * 扫码只完成了网页会话（页面已经是「已登录」但停在登录页）。
+     * 页面自己的前端在登录成功后会 POST `/console/login/enterprise?state=`
+     * 把会话写进该 state，后台轮询才能拿到凭证；这里代它补上这一步。
+     *
+     * 定时重试而非只跑一次：注入发生在页面加载完成时，那一刻用户往往还没扫码，
+     * 第一次必然拿不到会话。成功后停，失败继续（后台轮询会自己判定是否已入库）。
+     */
+    private fun cliExchangeJs(state: String): String =
+        "(function(){" +
+            "if(window.__aigwCliDone){return;}" +
+            "if(window.__aigwCliTimer){clearInterval(window.__aigwCliTimer);}" +
+            "var n=0;" +
+            "var go=function(){" +
+            "if(window.__aigwCliDone){return;}" +
+            "if(n++>60){clearInterval(window.__aigwCliTimer);" +
+            "try{window.__aigwBridge.onLog('超时：3 分钟内未完成登录');}catch(e){}" +
+            "return;}" +
+            "try{" +
+            "fetch('/console/login/enterprise?state=" + state + "',{method:'POST'," +
+            "credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'})" +
+            ".then(function(r){return r.text().then(function(t){return {s:r.status,t:t};});})" +
+            ".then(function(o){" +
+            "var t=String(o.t||'');" +
+            // 401 说明用户还没扫完，继续等；其余响应要么成功要么是真错误，都停下来上报
+            "if(t.indexOf('invalid_token')>=0||o.s===401){return;}" +
+            "window.__aigwCliDone=1;clearInterval(window.__aigwCliTimer);" +
+            "try{window.__aigwBridge.onExchangeOk(t);}catch(e){}" +
+            "try{window.__aigwBridge.onPayload(t);}catch(e){}" +
+            "}).catch(function(e){" +
+            "try{window.__aigwBridge.onLog('请求异常：'+e);}catch(e2){}" +
+            ");" +
+            "}catch(e){}" +
+            "};" +
+            "go();window.__aigwCliTimer=setInterval(go,3000);" +
+            "})();"
+
     private fun handleCallbackUrl(url: String) {
         if (callbackHandled) return
         callbackHandled = true
@@ -537,6 +644,19 @@ class WebLoginActivity : Activity() {
         fun onPayload(payload: String) {
             val url = extractCallbackUrl(payload) ?: return
             handleCallbackUrl(url)
+        }
+
+        /** 注入脚本的回传通道：成功/失败都写日志，否则失败时什么都看不到。 */
+        @android.webkit.JavascriptInterface
+        fun onLog(message: String) {
+            app.engine.eventLog.info("登录", "扫码兑换：${message.take(200)}")
+        }
+
+        /** 兑换成功：直接刷新界面提示，后台轮询会跟着入库。 */
+        @android.webkit.JavascriptInterface
+        fun onExchangeOk(body: String) {
+            app.engine.eventLog.success("登录", "扫码兑换成功：${body.take(160)}")
+            runOnUiThread { statusView?.text = "已登录，正在添加账号…" }
         }
     }
 
@@ -622,6 +742,9 @@ class WebLoginActivity : Activity() {
         const val EXTRA_REGION = "region"
         const val EXTRA_MODE = "mode"
         const val EXTRA_PROVIDER = "provider"
+
+        /** 强制桌面模式：伪装成桌面 Chrome，让按视口分流的页面出桌面布局。 */
+        const val EXTRA_DESKTOP = "desktop"
         const val RESULT_UID = "uid"
 
         const val MODE_DEVICE = "device"

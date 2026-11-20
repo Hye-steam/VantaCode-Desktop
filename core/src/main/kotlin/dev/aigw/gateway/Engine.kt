@@ -656,6 +656,16 @@ class Engine(val dataDir: File) {
 
     // ---------- 设备授权登录 ----------
 
+    /**
+     * 设置 WorkBuddy 登录页形态（CLI 按钮式 / WEB 扫码）。
+     *
+     * 上游的登录页根据 `platform` 参数渲染不同 UI，两者拿到的 state
+     * 都能用同一个轮询接口换凭证。
+     */
+    fun setCodeBuddyAuthPlatform(platform: String) {
+        (providerById[CodeBuddyProvider.ID] as? CodeBuddyProvider)?.switchAuthPlatform(platform)
+    }
+
     fun startDeviceAuth(providerId: String, region: String): DeviceAuthTicket {
         val provider = providerById[providerId] as? DeviceCodeSupport
             ?: error("供应商 $providerId 不支持设备授权登录")
@@ -671,7 +681,32 @@ class Engine(val dataDir: File) {
     fun pollDeviceAuth(providerId: String, state: String, region: String): DeviceAuthPoll {
         val provider = providerById[providerId] as? DeviceCodeSupport
             ?: return DeviceAuthPoll.Failed("供应商 $providerId 不支持设备授权登录")
-        val result = provider.pollDeviceAuth(state, region)
+        return pollDeviceAuthInternal(provider, state, region, base = null)
+    }
+
+    /**
+     * 在指定域查询登录结果。
+     *
+     * 扫码登录的 state 是在 codebuddy.cn 申请的，而默认轮询走 chatBase，
+     * state 不跨域，必须回到申请它的域去兑。
+     */
+    fun pollDeviceAuthAt(providerId: String, state: String, region: String, base: String): DeviceAuthPoll {
+        val provider = providerById[providerId] as? DeviceCodeSupport
+            ?: return DeviceAuthPoll.Failed("供应商 $providerId 不支持设备授权登录")
+        return pollDeviceAuthInternal(provider, state, region, base)
+    }
+
+    private fun pollDeviceAuthInternal(
+        provider: DeviceCodeSupport,
+        state: String,
+        region: String,
+        base: String?,
+    ): DeviceAuthPoll {
+        val result = if (base != null && provider is CodeBuddyProvider) {
+            provider.pollDeviceAuthAt(base, state)
+        } else {
+            provider.pollDeviceAuth(state, region)
+        }
         when (result) {
             is DeviceAuthPoll.Success -> eventLog.success("登录", "登录成功：${result.account.displayName}")
             is DeviceAuthPoll.Failed -> eventLog.error("登录", "登录失败：${result.error}")

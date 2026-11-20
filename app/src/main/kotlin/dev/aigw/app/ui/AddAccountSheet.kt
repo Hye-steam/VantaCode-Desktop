@@ -3,6 +3,7 @@ package dev.aigw.app.ui
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.text.TextStyle
@@ -213,6 +214,11 @@ internal fun AddAccountSheet(
                     }
                     OpButton("国际授权", Icons.Outlined.Language) {
                         vm.startWorkbuddyLogin("global")
+                        onDismiss()
+                    }
+                    // 直接走 keycloak 的 broker 授权地址，WebView 里就是扫码界面
+                    OpButton("微信扫码登录", Icons.Outlined.Chat) {
+                        vm.startWorkbuddyLogin("cn", wechat = true)
                         onDismiss()
                     }
                     OpButton("刷新余额", Icons.Outlined.Refresh) { vm.refreshCredits(kind.providerId) }
