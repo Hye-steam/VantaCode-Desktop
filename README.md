@@ -7,6 +7,13 @@
 - **凭据不出设备**：账号、Token、密钥只存在本机 `files/aigw/` 下
 - **OpenAI 兼容**：`/v1/models`、`/v1/chat/completions`，流式与非流式都支持
 
+## 界面
+
+| 仪表盘 | 供应商 | 系统提示词 |
+|---|---|---|
+| ![仪表盘](docs/screenshots/dashboard.jpg) | ![供应商](docs/screenshots/providers.jpg) | ![系统提示词](docs/screenshots/system-prompt.jpg) |
+| 网关开关与今日统计 | 各供应商入口与状态 | 网关层统一注入 |
+
 ## 功能
 
 ### 供应商接入
