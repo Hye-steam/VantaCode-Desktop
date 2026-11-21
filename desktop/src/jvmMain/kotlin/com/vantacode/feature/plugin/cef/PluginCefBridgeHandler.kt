@@ -58,12 +58,16 @@ class PluginCefBridgeHandler(
             return true
         }
 
+        val shortReq = request.take(300)
+        FileLogger.d("PluginCefBridge", "dispatch start: $shortReq")
         scope.launch(Dispatchers.IO) {
-            val reply = runCatching { dispatch(request) }
-                .getOrElse { e ->
-                    FileLogger.e("PluginCefBridge", "dispatch failed: $request", e)
-                    errorReply("HOST_ERROR", e.message ?: "internal")
-                }
+            val reply = runCatching {
+                kotlinx.coroutines.withTimeout(30_000L) { dispatch(request) }
+            }.getOrElse { e ->
+                FileLogger.e("PluginCefBridge", "dispatch failed: $shortReq", e)
+                errorReply(if (e is kotlinx.coroutines.TimeoutCancellationException) "TIMEOUT" else "HOST_ERROR",
+                    e.message ?: "internal")
+            }
             FileLogger.d("PluginCefBridge", "reply: ${reply.second.take(400)}")
             // CEF 回调切回 AWT 线程再写回 JS
             javax.swing.SwingUtilities.invokeLater {
