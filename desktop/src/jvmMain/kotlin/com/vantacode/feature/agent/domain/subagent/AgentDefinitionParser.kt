@@ -49,6 +49,35 @@ object AgentDefinitionParser {
         )
     }
 
+    /**
+     * 直接解析 Markdown 文本（插件包内的定义不落盘，无法走文件读取路径）。
+     * [fallbackName] 在没有 frontmatter name 时兜底。与 [parse] 共用同一套 frontmatter 约定。
+     */
+    fun parseText(text: String, fallbackName: String, filePath: String? = null): AgentDefinition? {
+        val (frontmatter, body) = splitAndParseFrontmatter(text) ?: return null
+        val prompt = body.trim()
+        if (prompt.isEmpty()) return null
+
+        val name = frontmatter["name"]?.toString()?.trim()?.takeIf { it.isNotBlank() }
+            ?: fallbackName
+        val description = (frontmatter["description"]?.toString() ?: "").take(MAX_DESC_CHARS)
+
+        return AgentDefinition(
+            name = name,
+            description = description,
+            providerId = frontmatter["provider"]?.toString()?.trim()?.takeIf { it.isNotBlank() },
+            model = frontmatter["model"]?.toString()?.trim()?.takeIf { it.isNotBlank() },
+            reasoningEffort = frontmatter["reasoningEffort"]?.toString()?.trim()?.lowercase()
+                ?.takeIf { it in VALID_EFFORTS },
+            mode = parseMode(frontmatter["mode"]),
+            allowedTools = stringList(frontmatter["tools"]),
+            disallowedTools = stringList(frontmatter["disallowedTools"]),
+            inject = parseInject(frontmatter["inject"]),
+            prompt = prompt,
+            filePath = filePath
+        )
+    }
+
     /** 同时接受 YAML 列表与逗号分隔字符串两种写法。 */
     internal fun stringList(raw: Any?): List<String> = when (raw) {
         null -> emptyList()

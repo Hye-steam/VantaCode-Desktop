@@ -145,6 +145,7 @@ internal enum class SettingsSection(@param:StringRes val titleRes: Int) {
     Mcp(R.string.settings_mcp),
     Skills(R.string.settings_skills),
     Market(R.string.skill_market_title),
+    Plugin(R.string.plugin_market_title),
     Prompts(R.string.prompts_title),
     PromptDetail(R.string.prompts_title),
     PromptEditor(R.string.prompts_title),
@@ -843,6 +844,7 @@ fun SettingsScreen(
                     }
                 )
                 SettingsSection.Market -> MarketSection()
+                SettingsSection.Plugin -> PluginSection()
                 SettingsSection.Prompts -> {
                     val promptsViewModel: com.vantacode.feature.settings.presentation.PromptsViewModel =
                         androidx.lifecycle.viewmodel.compose.viewModel(factory = com.vantacode.di.AppGraph.viewModelFactory)
@@ -1419,6 +1421,12 @@ internal fun SettingsMenu(
                 icon = FeatherIcons.Globe,
                 title = stringResource(SettingsSection.Market.titleRes),
                 onClick = { onOpen(SettingsSection.Market) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Box,
+                title = stringResource(SettingsSection.Plugin.titleRes),
+                onClick = { onOpen(SettingsSection.Plugin) }
             )
             SettingsDivider()
             SettingsRow(

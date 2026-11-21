@@ -102,6 +102,15 @@ kotlin {
             implementation("com.mikepenz:multiplatform-markdown-renderer-code:0.41.0")
             implementation("dev.snipme:highlights-jvm:1.1.0")
 
+            // JCEF — 渲染插件自带的 HTML/Vue 面板。natives jar (~163MiB) 随 app image 进 lib/，
+            // 首次运行由 jcefmaven 解包到 ~/.vantacode/jcef（installDir 见 PluginCef）。
+            val jcefVersion = "152.0.6"
+            implementation("me.friwi:jcefmaven:$jcefVersion")
+            implementation(
+                "me.friwi:jcef-natives-windows-amd64:" +
+                    "jcef-17e805a+cef-152.0.6+g708dc14+chromium-152.0.7977.83"
+            )
+
             // Drag & drop reorder (settings lists)
             implementation("sh.calvin.reorderable:reorderable:3.1.0")
 
@@ -146,7 +155,15 @@ ksp {
 compose.desktop {
     application {
         mainClass = "com.vantacode.MainKt"
-        jvmArgs += listOf("-Xmx1024m")
+        jvmArgs += listOf(
+            "-Xmx1536m",
+            // JCEF / OSR 离屏渲染所需模块开放（fat jlink 已含全部模块）
+            "--add-exports=java.base/java.lang=ALL-UNNAMED",
+            "--add-exports=java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-exports=java.desktop/sun.java2d=ALL-UNNAMED",
+            "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED"
+        )
 
         nativeDistributions {
             // MVP：正式分发 = 绿色 app image + EXE 安装包（WiX）。
@@ -221,4 +238,16 @@ val fatRuntimeImage = tasks.register("fatRuntimeImage") {
 // 让所有会用到临时镜像的打包任务在 fatRuntimeImage 之后执行（createRuntimeImage 先产出默认镜像，我们再覆盖）。
 tasks.matching { it.name.contains("unpackDefaultComposeDesktopJvmApplicationResources", ignoreCase = true) }.configureEach {
     dependsOn(fatRuntimeImage)
+}
+
+// 开发期 gradlew run 也继承 JCEF/OSR 所需的模块开放参数（打包时上面 jvmArgs 已含）。
+val jcefJvmArgs = listOf(
+    "--add-exports=java.base/java.lang=ALL-UNNAMED",
+    "--add-exports=java.desktop/sun.awt=ALL-UNNAMED",
+    "--add-exports=java.desktop/sun.java2d=ALL-UNNAMED",
+    "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+    "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED"
+)
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs(jcefJvmArgs)
 }

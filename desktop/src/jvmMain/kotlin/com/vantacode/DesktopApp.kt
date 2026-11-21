@@ -62,6 +62,19 @@ object DesktopApp {
         appScope.launch { runCatching { BuiltinAssets.extractScripts() }.onFailure { FileLogger.w(TAG, "提取内置脚本失败", it) } }
         appScope.launch { runCatching { BuiltinAssets.extractAgents() }.onFailure { FileLogger.w(TAG, "提取内置子代理失败", it) } }
 
+        // 插件运行时装配：插件工具注册由 AppGraph 启动，这里等安装记录读完再派发
+        // app.started 拉起常驻插件。少了这一步，声明 runtime 的插件进程不会自己起来。
+        appScope.launch {
+            runCatching {
+                // 注册插件声明的动态工具（必须在 AppGraph 完全构造后调用，见 AppGraph.init 注释）。
+                AppGraph.pluginToolManager.start(appScope)
+                AppGraph.pluginManager.refresh()
+                AppGraph.pluginHookDispatcher.dispatchAppStarted(
+                    com.vantacode.core.platform.PlatformInfo.VERSION_NAME
+                )
+            }.onFailure { FileLogger.w(TAG, "插件运行时初始化失败", it) }
+        }
+
         // BouncyCastle 完整版（X25519）——sshj 依赖。Windows 自带的是裁剪版，需显式注册。
         appScope.launch {
             runCatching {

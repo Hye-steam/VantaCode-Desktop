@@ -1635,6 +1635,41 @@ object Strings {
     val settings_user_guide: String get() = catalog().getValue("settings_user_guide")
     val settings_vision_follow_chat: String get() = catalog().getValue("settings_vision_follow_chat")
     val settings_vision_model: String get() = catalog().getValue("settings_vision_model")
+    val plugin_market_title: String get() = catalog().getValue("plugin_market_title")
+    val plugin_market_section: String get() = catalog().getValue("plugin_market_section")
+    val plugin_installed_section: String get() = catalog().getValue("plugin_installed_section")
+    val plugin_install: String get() = catalog().getValue("plugin_install")
+    val plugin_install_url: String get() = catalog().getValue("plugin_install_url")
+    val plugin_installed: String get() = catalog().getValue("plugin_installed")
+    val plugin_search_hint: String get() = catalog().getValue("plugin_search_hint")
+    val plugin_empty: String get() = catalog().getValue("plugin_empty")
+    val plugin_by: String get() = catalog().getValue("plugin_by")
+    val plugin_enable: String get() = catalog().getValue("plugin_enable")
+    val plugin_disable: String get() = catalog().getValue("plugin_disable")
+    val plugin_delete_title: String get() = catalog().getValue("plugin_delete_title")
+    val plugin_delete_message: String get() = catalog().getValue("plugin_delete_message")
+    val plugin_runtime_failed: String get() = catalog().getValue("plugin_runtime_failed")
+    val plugin_tool_not_authorized: String get() = catalog().getValue("plugin_tool_not_authorized")
+    val plugin_tool_not_found: String get() = catalog().getValue("plugin_tool_not_found")
+    val plugin_tool_not_found_hint: String get() = catalog().getValue("plugin_tool_not_found_hint")
+    val plugin_tool_permission_details: String get() = catalog().getValue("plugin_tool_permission_details")
+    val plugin_tool_permission_summary: String get() = catalog().getValue("plugin_tool_permission_summary")
+    val plugin_tool_permission_title: String get() = catalog().getValue("plugin_tool_permission_title")
+    val plugin_tool_unavailable: String get() = catalog().getValue("plugin_tool_unavailable")
+    val plugin_web_page_failed: String get() = catalog().getValue("plugin_web_page_failed")
+    val plugin_web_page_retry: String get() = catalog().getValue("plugin_web_page_retry")
+    val plugin_detail_title: String get() = catalog().getValue("plugin_detail_title")
+    val plugin_page_unsupported: String get() = catalog().getValue("plugin_page_unsupported")
+    val plugin_store_title: String get() = catalog().getValue("plugin_store_title")
+    val plugin_store_refresh: String get() = catalog().getValue("plugin_store_refresh")
+    val plugin_store_install_success: String get() = catalog().getValue("plugin_store_install_success")
+    val plugin_update_available: String get() = catalog().getValue("plugin_update_available")
+    val plugin_up_to_date: String get() = catalog().getValue("plugin_up_to_date")
+    val plugin_update: String get() = catalog().getValue("plugin_update")
+    val plugin_install_resolving: String get() = catalog().getValue("plugin_install_resolving")
+    val plugin_install_downloading: String get() = catalog().getValue("plugin_install_downloading")
+    val plugin_install_installing: String get() = catalog().getValue("plugin_install_installing")
+    val plugin_install_progress: String get() = catalog().getValue("plugin_install_progress")
     val skill_detail_author: String get() = catalog().getValue("skill_detail_author")
     val skill_detail_category: String get() = catalog().getValue("skill_detail_category")
     val skill_detail_display_name: String get() = catalog().getValue("skill_detail_display_name")
@@ -3973,6 +4008,41 @@ skill_detail_version	版本
 skill_install_note	安装会把压缩包里的 SKILL.md 提取到 ~/.aicode/skills/&lt;名字&gt;/
 skill_market_title	技能市场
 editor_save	保存
+plugin_market_title	插件
+plugin_market_section	可安装插件
+plugin_installed_section	已安装
+plugin_install	安装
+plugin_install_url	从 URL 安装
+plugin_installed	已安装
+plugin_search_hint	搜索插件…
+plugin_empty	暂无可显示的插件
+plugin_by	作者：%1${'$'}s
+plugin_enable	启用
+plugin_disable	禁用
+plugin_delete_title	卸载插件
+plugin_delete_message	确定要卸载“%1${'$'}s”吗？相关技能也会被删除。
+plugin_runtime_failed	插件运行时执行失败
+plugin_tool_not_authorized	插件已停用，工具不再可用
+plugin_tool_not_found	工具不可用
+plugin_tool_not_found_hint	插件可能已停用、卸载或不再提供这个工具。
+plugin_tool_permission_details	插件：%1${'$'}s\n工具：%2${'$'}s\n参数：%3${'$'}s
+plugin_tool_permission_summary	AI 请求调用插件“%1${'$'}s”的工具“%2${'$'}s”。
+plugin_tool_permission_title	确认调用插件工具
+plugin_tool_unavailable	插件已停用，工具不可用
+plugin_web_page_failed	页面加载失败
+plugin_web_page_retry	重试
+plugin_detail_title	插件详情
+plugin_page_unsupported	该插件页面需要浏览器引擎，桌面端暂不支持。
+plugin_store_title	插件市场
+plugin_store_refresh	刷新
+plugin_store_install_success	插件安装成功：%1${'$'}s
+plugin_update_available	可更新至 v%1${'$'}s
+plugin_up_to_date	已是最新版本
+plugin_update	更新
+plugin_install_resolving	正在解析版本…
+plugin_install_downloading	正在下载插件包…
+plugin_install_installing	正在安装…
+plugin_install_progress	已下载 %1${'$'}d%%
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -5933,6 +6003,41 @@ skill_detail_version	Version
 skill_install_note	Installing extracts every SKILL.md from the archive into ~/.aicode/skills/&lt;name&gt;/
 skill_market_title	Skill Market
 editor_save	Save
+plugin_market_title	Plugins
+plugin_market_section	Available plugins
+plugin_installed_section	Installed
+plugin_install	Install
+plugin_install_url	Install from URL
+plugin_installed	Installed
+plugin_search_hint	Search plugins…
+plugin_empty	No plugins to show
+plugin_by	By %1${'$'}s
+plugin_enable	Enable
+plugin_disable	Disable
+plugin_delete_title	Uninstall plugin
+plugin_delete_message	Uninstall “%1${'$'}s”? Related skills will also be removed.
+plugin_runtime_failed	Plugin runtime execution failed
+plugin_tool_not_authorized	Plugin is disabled; the tool is no longer available
+plugin_tool_not_found	Tool unavailable
+plugin_tool_not_found_hint	The plugin may be disabled, uninstalled, or no longer provides this tool.
+plugin_tool_permission_details	Plugin: %1${'$'}s\nTool: %2${'$'}s\nArgs: %3${'$'}s
+plugin_tool_permission_summary	The AI requests to call tool “%2${'$'}s” from plugin “%1${'$'}s”.
+plugin_tool_permission_title	Confirm plugin tool call
+plugin_tool_unavailable	Plugin is disabled; tool unavailable
+plugin_web_page_failed	Failed to load page
+plugin_web_page_retry	Retry
+plugin_detail_title	Plugin details
+plugin_page_unsupported	This plugin page requires a browser engine and is not yet supported on desktop.
+plugin_store_title	Plugin Market
+plugin_store_refresh	Refresh
+plugin_store_install_success	Plugin installed: %1${'$'}s
+plugin_update_available	Update available to v%1${'$'}s
+plugin_up_to_date	Up to date
+plugin_update	Update
+plugin_install_resolving	Resolving version…
+plugin_install_downloading	Downloading plugin…
+plugin_install_installing	Installing…
+plugin_install_progress	Downloaded %1${'$'}d%%
 """.trimIndent()
 
 /**
@@ -6859,6 +6964,41 @@ object R {
         const val market_install_no_url: Int = 2001
         const val market_install_success: Int = 2000
         const val market_installed: Int = 2006
+        const val plugin_market_title: Int = 2007
+        const val plugin_market_section: Int = 2008
+        const val plugin_installed_section: Int = 2009
+        const val plugin_install: Int = 2010
+        const val plugin_install_url: Int = 2011
+        const val plugin_installed: Int = 2012
+        const val plugin_search_hint: Int = 2013
+        const val plugin_empty: Int = 2014
+        const val plugin_by: Int = 2015
+        const val plugin_enable: Int = 2016
+        const val plugin_disable: Int = 2017
+        const val plugin_delete_title: Int = 2018
+        const val plugin_delete_message: Int = 2019
+        const val plugin_runtime_failed: Int = 2020
+        const val plugin_tool_not_authorized: Int = 2021
+        const val plugin_tool_not_found: Int = 2022
+        const val plugin_tool_not_found_hint: Int = 2023
+        const val plugin_tool_permission_details: Int = 2024
+        const val plugin_tool_permission_summary: Int = 2025
+        const val plugin_tool_permission_title: Int = 2026
+        const val plugin_tool_unavailable: Int = 2027
+        const val plugin_web_page_failed: Int = 2028
+        const val plugin_web_page_retry: Int = 2029
+        const val plugin_detail_title: Int = 2030
+        const val plugin_page_unsupported: Int = 2031
+        const val plugin_store_title: Int = 2032
+        const val plugin_store_refresh: Int = 2033
+        const val plugin_store_install_success: Int = 2034
+        const val plugin_update_available: Int = 2035
+        const val plugin_up_to_date: Int = 2036
+        const val plugin_update: Int = 2037
+        const val plugin_install_resolving: Int = 2038
+        const val plugin_install_downloading: Int = 2039
+        const val plugin_install_installing: Int = 2040
+        const val plugin_install_progress: Int = 2041
         const val market_installing: Int = 1999
         const val market_load_more: Int = 1982
         const val market_loading_more: Int = 1983
@@ -9860,6 +10000,41 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     2004 to "market_install_failed_install",
     2005 to "editor_save",
     2006 to "market_installed",
+    2007 to "plugin_market_title",
+    2008 to "plugin_market_section",
+    2009 to "plugin_installed_section",
+    2010 to "plugin_install",
+    2011 to "plugin_install_url",
+    2012 to "plugin_installed",
+    2013 to "plugin_search_hint",
+    2014 to "plugin_empty",
+    2015 to "plugin_by",
+    2016 to "plugin_enable",
+    2017 to "plugin_disable",
+    2018 to "plugin_delete_title",
+    2019 to "plugin_delete_message",
+    2020 to "plugin_runtime_failed",
+    2021 to "plugin_tool_not_authorized",
+    2022 to "plugin_tool_not_found",
+    2023 to "plugin_tool_not_found_hint",
+    2024 to "plugin_tool_permission_details",
+    2025 to "plugin_tool_permission_summary",
+    2026 to "plugin_tool_permission_title",
+    2027 to "plugin_tool_unavailable",
+    2028 to "plugin_web_page_failed",
+    2029 to "plugin_web_page_retry",
+    2030 to "plugin_detail_title",
+    2031 to "plugin_page_unsupported",
+    2032 to "plugin_store_title",
+    2033 to "plugin_store_refresh",
+    2034 to "plugin_store_install_success",
+    2035 to "plugin_update_available",
+    2036 to "plugin_up_to_date",
+    2037 to "plugin_update",
+    2038 to "plugin_install_resolving",
+    2039 to "plugin_install_downloading",
+    2040 to "plugin_install_installing",
+    2041 to "plugin_install_progress",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */

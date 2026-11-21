@@ -29,12 +29,36 @@ class AgentDefinitionRepository @Inject constructor(
     @Volatile private var definitionsVersionField: Long = 0
     val definitionsVersion: Long get() = definitionsVersionField
 
+    /**
+     * 额外来源（如插件贡献的子代理定义）。只通过 [addSource] 追加，不改动原有两级来源的构造器签名。
+     * 优先级：项目级 > 额外来源 > 全局。
+     */
+    private val extraSources = mutableListOf<AgentDefinitionSource>()
+
+    /** 追加一个额外子代理定义来源；进程初始化时调用一次。 */
+    fun addSource(source: AgentDefinitionSource) {
+        extraSources.add(source)
+    }
+
     private fun bumpVersion() {
         definitionsVersionField++
     }
     /** 全部定义（含来源作用域），未过滤禁用，按名称排序。 */
-    fun listAll(): List<AgentDefinitionEntry> =
-        mergeAll(globalSource.listDefinitions(), projectSource.listDefinitions())
+    fun listAll(): List<AgentDefinitionEntry> {
+        val byName = LinkedHashMap<String, AgentDefinitionEntry>()
+        globalSource.listDefinitions().forEach {
+            byName[it.name.lowercase()] = AgentDefinitionEntry(it, AgentDefinitionScope.GLOBAL)
+        }
+        extraSources.forEach { source ->
+            source.listDefinitions().forEach {
+                byName[it.name.lowercase()] = AgentDefinitionEntry(it, AgentDefinitionScope.GLOBAL)
+            }
+        }
+        projectSource.listDefinitions().forEach {
+            byName[it.name.lowercase()] = AgentDefinitionEntry(it, AgentDefinitionScope.PROJECT)
+        }
+        return byName.values.sortedBy { it.definition.name.lowercase() }
+    }
 
     /** 已启用的定义（注入主代理的可派发清单用）。 */
     fun listEnabled(): List<AgentDefinitionEntry> {
