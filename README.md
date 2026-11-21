@@ -11,7 +11,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License GPL-3.0" /></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20x64-blue" alt="Platform Windows x64" />
-  <img src="https://img.shields.io/badge/Version-1.2.0-green" alt="Version 1.2.0" />
+  <img src="https://img.shields.io/badge/Version-1.4.0-green" alt="Version 1.4.0" />
 </p>
 
 ## 这是什么
@@ -29,18 +29,18 @@
 
 前往 **[Releases](https://github.com/Hye-steam/VantaCode-Desktop/releases)** 下载最新版：
 
-- **VantaCode-1.2.0.exe**（233.4 MB，Windows x64 安装包，安装时会弹出 GPL 许可接受页）
+- **VantaCode-1.4.0.exe**（402.3 MB，Windows x64 安装包，安装时会弹出 GPL 许可接受页）
 - 运行后首次启动会自动解包内置 ffmpeg 到 `%USERPROFILE%\.vantacode\tools\ffmpeg\`（约 100 MB，仅一次），用于 MP4 动态背景高帧率解码，**无需手动安装 ffmpeg**
 - 应用数据目录：`%USERPROFILE%\.vantacode`（日志、数据库、缓存）
 - 代理配置目录：`%USERPROFILE%\.aicode`（agents、prompts、scripts 等）
 
-构建校验信息（v1.2.0）：
+构建校验信息（v1.4.0）：
 
 | 项 | 值 |
 |---|---|
-| 文件名 | `VantaCode-1.2.0.exe` |
-| 大小 | 244,697,600 字节（233.4 MB） |
-| SHA-256 | `6C3364C51F02A90A9C2CD22BF73339878FD2D26DE2A46D113215ACD8F2E1AA10` |
+| 文件名 | `VantaCode-1.4.0.exe` |
+| 大小 | 421,829,632 字节（402.3 MB） |
+| SHA-256 | `E18BF0962440FBDB68360F197C646504D1B43FD5F31F23ACDD58EE102B03F244` |
 
 ## 功能一览
 
@@ -54,9 +54,24 @@
 - Teams：多成员 AI 团队协作（定义 / 聊天 / 编辑器）
 - 内置 ffmpeg（essentials 构建），随应用自动解包，开箱即用
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/screenshots/chat.png" width="46%" alt="AI 会话" />
+  <img src="docs/screenshots/settings.png" width="46%" alt="设置" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/skill-market.png" width="46%" alt="技能市场" />
+  <img src="docs/screenshots/plugins.png" width="46%" alt="插件" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/teams.png" width="46%" alt="团队" />
+  <img src="docs/screenshots/team-create.png" width="46%" alt="新建团队" />
+</p>
+
 ## 已移植与未移植
 
-已移植：AI 对话主界面、代理会话、Git 视图、工作区 / 远程 SSH、设置（模型、MCP、主题、背景）、备份 / 还原、凭据管理、LaTeX 渲染、终端（PTY）。
+已移植：AI 对话主界面、代理会话、Git 视图、工作区 / 远程 SSH、设置（模型、MCP、主题、背景）、备份 / 还原、凭据管理、LaTeX 渲染、终端（PTY）、技能市场、更新检查、内置代码编辑器、完整插件系统（含 JCEF 面板渲染）。
 
 未移植 / 受限：
 
