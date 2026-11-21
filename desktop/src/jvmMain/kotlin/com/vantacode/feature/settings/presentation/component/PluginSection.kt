@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -36,6 +37,23 @@ import kotlinx.coroutines.launch
 
 private val lang: String get() = if (Strings.current == "en") "en" else "zh-CN"
 
+/** 安装/更新进度行：阶段文字 + 进度条（不确定进度时用 indeterminate）。 */
+@Composable
+private fun InstallProgressRow(prog: InstallProgress) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+    ) {
+        Text(text = prog.label, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (prog.percent >= 0) {
+            LinearProgressIndicator(progress = { prog.percent / 100f }, modifier = Modifier.fillMaxWidth())
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
 /** 已安装版本是否低于仓库最新版本；任一方无法解析时返回 null（不提示更新）。 */
 private fun updateVersion(installed: String?, latest: String?): String? {
     if (installed == null || latest == null) return null
@@ -59,6 +77,7 @@ internal fun PluginSection(
     var latestVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
+    var installProgress by remember { mutableStateOf<InstallProgress?>(null) }
     var showInstallUrl by remember { mutableStateOf(false) }
     var url by remember { mutableStateOf("") }
     // 当前打开的插件详情（null 表示列表页）
@@ -121,7 +140,8 @@ internal fun PluginSection(
                                 upd != null && marketItem != null -> {
                                     TextButton(onClick = {
                                         scope.launch {
-                                            message = installFromIndex(manager, indexClient, marketItem!!)
+                                            message = installFromIndex(manager, indexClient, marketItem!!) { installProgress = it }
+                                            installProgress = null
                                             refresh()
                                         }
                                     }) { Text(Strings.formatted(Strings.plugin_update_available, upd)) }
@@ -173,6 +193,10 @@ internal fun PluginSection(
             }
         }
 
+        installProgress?.let { prog ->
+            InstallProgressRow(prog)
+        }
+
         if (message != null) {
             Text(
                 text = message!!,
@@ -198,7 +222,8 @@ internal fun PluginSection(
                             } else {
                                 TextButton(onClick = {
                                     scope.launch {
-                                        message = installFromIndex(manager, indexClient, p)
+                                        message = installFromIndex(manager, indexClient, p) { installProgress = it }
+                                        installProgress = null
                                         refresh()
                                     }
                                 }) { Text(Strings.plugin_install) }
@@ -219,16 +244,28 @@ internal fun PluginSection(
     }
 }
 
+/** 安装进度：label 为阶段文案，percent 为 -1 表示不确定进度。 */
+data class InstallProgress(val label: String, val percent: Int = -1)
+
 /** 从在线索引安装/更新一个插件，返回给 UI 展示的消息。 */
 private suspend fun installFromIndex(
     manager: PluginManager,
     indexClient: PluginIndexClient,
-    plugin: PluginIndexPlugin
+    plugin: PluginIndexPlugin,
+    onProgress: (InstallProgress) -> Unit = {}
 ): String = runCatching {
+    onProgress(InstallProgress(Strings.plugin_install_resolving))
     val asset = indexClient.resolveRelease(plugin)
-    val cached = indexClient.download(asset, indexClient.rankCandidates(asset))
+    onProgress(InstallProgress(Strings.plugin_install_downloading))
+    val cached = indexClient.download(asset, indexClient.rankCandidates(asset)) { received, total ->
+        val pct = if (total > 0) (received * 100 / total).toInt().coerceIn(0, 100) else -1
+        val label = if (pct >= 0) Strings.formatted(Strings.plugin_install_progress, pct)
+        else Strings.plugin_install_downloading
+        onProgress(InstallProgress(label, pct))
+    }
     // 更新已安装插件前先关闭其进程，否则 Windows 上目录被占用导致无法覆盖。
     closePluginProcess(plugin.id)
+    onProgress(InstallProgress(Strings.plugin_install_installing))
     installPreview(manager, java.io.FileInputStream(cached.file))
 }.getOrElse { it.message ?: Strings.plugin_runtime_failed }
 
@@ -266,6 +303,7 @@ private fun PluginDetailSection(
     val marketItem = market.firstOrNull { it.id == plugin.id }
     val scope = rememberCoroutineScope()
     var page by remember { mutableStateOf<com.vantacode.feature.plugin.domain.PluginPage?>(null) }
+    var installProgress by remember { mutableStateOf<InstallProgress?>(null) }
 
     if (page != null) {
         PluginPageHostDesktop(page = page!!, onBack = { page = null })
@@ -286,13 +324,14 @@ private fun PluginDetailSection(
             modifier = Modifier.padding(horizontal = Spacing.md)
         )
         // 醒目更新入口：发现新版本时置顶显示，避免藏在 trailing 角落看不见
-        if (updateTo != null && marketItem != null) {
+        installProgress?.let { InstallProgressRow(it) }
+        if (updateTo != null && marketItem != null && installProgress == null) {
             androidx.compose.material3.Button(
                 onClick = {
                     scope.launch {
-                        com.vantacode.core.platform.PlatformToast.show(
-                            installFromIndex(manager, indexClient, marketItem)
-                        )
+                        val msg = installFromIndex(manager, indexClient, marketItem) { installProgress = it }
+                        installProgress = null
+                        com.vantacode.core.platform.PlatformToast.show(msg)
                         onChanged()
                     }
                 },

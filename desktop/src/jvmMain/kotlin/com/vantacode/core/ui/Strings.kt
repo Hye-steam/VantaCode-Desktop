@@ -1666,6 +1666,10 @@ object Strings {
     val plugin_update_available: String get() = catalog().getValue("plugin_update_available")
     val plugin_up_to_date: String get() = catalog().getValue("plugin_up_to_date")
     val plugin_update: String get() = catalog().getValue("plugin_update")
+    val plugin_install_resolving: String get() = catalog().getValue("plugin_install_resolving")
+    val plugin_install_downloading: String get() = catalog().getValue("plugin_install_downloading")
+    val plugin_install_installing: String get() = catalog().getValue("plugin_install_installing")
+    val plugin_install_progress: String get() = catalog().getValue("plugin_install_progress")
     val skill_detail_author: String get() = catalog().getValue("skill_detail_author")
     val skill_detail_category: String get() = catalog().getValue("skill_detail_category")
     val skill_detail_display_name: String get() = catalog().getValue("skill_detail_display_name")
@@ -4035,6 +4039,10 @@ plugin_store_install_success	插件安装成功：%1${'$'}s
 plugin_update_available	可更新至 v%1${'$'}s
 plugin_up_to_date	已是最新版本
 plugin_update	更新
+plugin_install_resolving	正在解析版本…
+plugin_install_downloading	正在下载插件包…
+plugin_install_installing	正在安装…
+plugin_install_progress	已下载 %1${'$'}d%%
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -6026,6 +6034,10 @@ plugin_store_install_success	Plugin installed: %1${'$'}s
 plugin_update_available	Update available to v%1${'$'}s
 plugin_up_to_date	Up to date
 plugin_update	Update
+plugin_install_resolving	Resolving version…
+plugin_install_downloading	Downloading plugin…
+plugin_install_installing	Installing…
+plugin_install_progress	Downloaded %1${'$'}d%%
 """.trimIndent()
 
 /**
@@ -6983,6 +6995,10 @@ object R {
         const val plugin_update_available: Int = 2035
         const val plugin_up_to_date: Int = 2036
         const val plugin_update: Int = 2037
+        const val plugin_install_resolving: Int = 2038
+        const val plugin_install_downloading: Int = 2039
+        const val plugin_install_installing: Int = 2040
+        const val plugin_install_progress: Int = 2041
         const val market_installing: Int = 1999
         const val market_load_more: Int = 1982
         const val market_loading_more: Int = 1983
@@ -10015,6 +10031,10 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     2035 to "plugin_update_available",
     2036 to "plugin_up_to_date",
     2037 to "plugin_update",
+    2038 to "plugin_install_resolving",
+    2039 to "plugin_install_downloading",
+    2040 to "plugin_install_installing",
+    2041 to "plugin_install_progress",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */
