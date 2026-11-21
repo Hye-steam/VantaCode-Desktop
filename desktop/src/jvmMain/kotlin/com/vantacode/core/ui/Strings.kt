@@ -1663,6 +1663,9 @@ object Strings {
     val plugin_store_title: String get() = catalog().getValue("plugin_store_title")
     val plugin_store_refresh: String get() = catalog().getValue("plugin_store_refresh")
     val plugin_store_install_success: String get() = catalog().getValue("plugin_store_install_success")
+    val plugin_update_available: String get() = catalog().getValue("plugin_update_available")
+    val plugin_up_to_date: String get() = catalog().getValue("plugin_up_to_date")
+    val plugin_update: String get() = catalog().getValue("plugin_update")
     val skill_detail_author: String get() = catalog().getValue("skill_detail_author")
     val skill_detail_category: String get() = catalog().getValue("skill_detail_category")
     val skill_detail_display_name: String get() = catalog().getValue("skill_detail_display_name")
@@ -4029,6 +4032,9 @@ plugin_page_unsupported	该插件页面需要浏览器引擎，桌面端暂不�
 plugin_store_title	插件市场
 plugin_store_refresh	刷新
 plugin_store_install_success	插件安装成功：%1${'$'}s
+plugin_update_available	可更新至 v%1${'$'}s
+plugin_up_to_date	已是最新版本
+plugin_update	更新
 """.trimIndent()
 
 private val EN_TABLE: String = """
@@ -6017,6 +6023,9 @@ plugin_page_unsupported	This plugin page requires a browser engine and is not ye
 plugin_store_title	Plugin Market
 plugin_store_refresh	Refresh
 plugin_store_install_success	Plugin installed: %1${'$'}s
+plugin_update_available	Update available to v%1${'$'}s
+plugin_up_to_date	Up to date
+plugin_update	Update
 """.trimIndent()
 
 /**
@@ -6971,6 +6980,9 @@ object R {
         const val plugin_store_title: Int = 2032
         const val plugin_store_refresh: Int = 2033
         const val plugin_store_install_success: Int = 2034
+        const val plugin_update_available: Int = 2035
+        const val plugin_up_to_date: Int = 2036
+        const val plugin_update: Int = 2037
         const val market_installing: Int = 1999
         const val market_load_more: Int = 1982
         const val market_loading_more: Int = 1983
@@ -10000,6 +10012,9 @@ private val ID_TO_KEY: Map<Int, String> = mapOf(
     2032 to "plugin_store_title",
     2033 to "plugin_store_refresh",
     2034 to "plugin_store_install_success",
+    2035 to "plugin_update_available",
+    2036 to "plugin_up_to_date",
+    2037 to "plugin_update",
 )
 
 /** 非组合上下文（ViewModel / domain）里的字符串解析：不订阅 locale 变化，只取当前值。 */

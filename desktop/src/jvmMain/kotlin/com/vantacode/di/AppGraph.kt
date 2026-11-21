@@ -592,7 +592,7 @@ object AppGraph {
             commandEngine, workspaceRepository, executionModeHolder, pluginEventBus, pluginNotifier,
             pluginTerminalRunner, pluginShizukuRunner, pluginTipManager, pluginChatService,
             pluginModelService, pluginSecretStore, pluginSystemService, pluginIntrospectionService,
-            pluginToolService, pluginHttpService
+            pluginToolService, pluginHttpService, aiProviderRepository
         )
     }
     val pluginHookDispatcher: PluginHookDispatcher by lazy {

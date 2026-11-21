@@ -36,6 +36,14 @@ import kotlinx.coroutines.launch
 
 private val lang: String get() = if (Strings.current == "en") "en" else "zh-CN"
 
+/** 已安装版本是否低于仓库最新版本；任一方无法解析时返回 null（不提示更新）。 */
+private fun updateVersion(installed: String?, latest: String?): String? {
+    if (installed == null || latest == null) return null
+    val a = com.vantacode.feature.plugin.domain.SemVer.parse(installed) ?: return null
+    val b = com.vantacode.feature.plugin.domain.SemVer.parse(latest) ?: return null
+    return if (b > a) latest else null
+}
+
 /**
  * 插件管理页：已安装插件列表（点击查看面板）+ 在线插件市场 + 从 URL 安装。
  */
@@ -47,6 +55,8 @@ internal fun PluginSection(
     val scope = rememberCoroutineScope()
     var installed by remember { mutableStateOf<List<InstalledPlugin>>(emptyList()) }
     var market by remember { mutableStateOf<List<PluginIndexPlugin>>(emptyList()) }
+    // 在线索引里每个插件的最新版本，用于「可更新」提示
+    var latestVersions by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
     var showInstallUrl by remember { mutableStateOf(false) }
@@ -62,7 +72,9 @@ internal fun PluginSection(
             // 详情对象也刷新，保证启停后状态同步
             detail = detail?.let { d -> installed.firstOrNull { it.id == d.id } }
             runCatching {
-                market = indexClient.fetchIndex(PluginIndexDefaults.official).index.plugins
+                val plugins = indexClient.fetchIndex(PluginIndexDefaults.official).index.plugins
+                market = plugins
+                latestVersions = plugins.mapNotNull { p -> p.version?.let { p.id to it } }.toMap()
             }.onFailure { message = it.message ?: Strings.plugin_web_page_failed }
             loading = false
         }
@@ -73,10 +85,13 @@ internal fun PluginSection(
     if (detail != null) {
         PluginDetailSection(
             plugin = detail!!,
-        manager = manager,
-        onBack = { detail = null },
-        onChanged = { refresh() }
-    )
+            manager = manager,
+            indexClient = indexClient,
+            market = market,
+            latestVersion = latestVersions[detail!!.id],
+            onBack = { detail = null },
+            onChanged = { refresh() }
+        )
         return
     }
 
@@ -100,11 +115,23 @@ internal fun PluginSection(
                         ).filter { it.isNotBlank() }.joinToString(" · "),
                         onClick = { detail = plugin },
                         trailing = {
-                            Text(
-                                text = if (plugin.record.enabled) Strings.plugin_disable else Strings.plugin_enable,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            val upd = updateVersion(plugin.manifest?.version?.toString(), latestVersions[plugin.id])
+                            val marketItem = market.firstOrNull { it.id == plugin.id }
+                            when {
+                                upd != null && marketItem != null -> {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            message = installFromIndex(manager, indexClient, marketItem!!)
+                                            refresh()
+                                        }
+                                    }) { Text(Strings.formatted(Strings.plugin_update_available, upd)) }
+                                }
+                                else -> Text(
+                                    text = if (plugin.record.enabled) Strings.plugin_disable else Strings.plugin_enable,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     )
                     if (idx != installed.lastIndex) SettingsDivider()
@@ -171,12 +198,7 @@ internal fun PluginSection(
                             } else {
                                 TextButton(onClick = {
                                     scope.launch {
-                                        val result = runCatching {
-                                            val asset = indexClient.resolveRelease(p)
-                                            val cached = indexClient.download(asset, indexClient.rankCandidates(asset))
-                                            installPreview(manager, java.io.FileInputStream(cached.file))
-                                        }.onFailure { message = it.message ?: Strings.plugin_runtime_failed }
-                                        message = result.getOrNull()
+                                        message = installFromIndex(manager, indexClient, p)
                                         refresh()
                                     }
                                 }) { Text(Strings.plugin_install) }
@@ -197,6 +219,17 @@ internal fun PluginSection(
     }
 }
 
+/** 从在线索引安装/更新一个插件，返回给 UI 展示的消息。 */
+private suspend fun installFromIndex(
+    manager: PluginManager,
+    indexClient: PluginIndexClient,
+    plugin: PluginIndexPlugin
+): String = runCatching {
+    val asset = indexClient.resolveRelease(plugin)
+    val cached = indexClient.download(asset, indexClient.rankCandidates(asset))
+    installPreview(manager, java.io.FileInputStream(cached.file))
+}.getOrElse { it.message ?: Strings.plugin_runtime_failed }
+
 /** 安装预览 + 提交，返回给 UI 展示的消息。 */
 private suspend fun installPreview(manager: PluginManager, input: java.io.InputStream): String =
     when (val preview = manager.preview(input)) {
@@ -213,9 +246,14 @@ private suspend fun installPreview(manager: PluginManager, input: java.io.InputS
 private fun PluginDetailSection(
     plugin: InstalledPlugin,
     manager: PluginManager,
+    indexClient: PluginIndexClient,
+    market: List<PluginIndexPlugin>,
+    latestVersion: String?,
     onBack: () -> Unit,
     onChanged: () -> Unit
 ) {
+    val updateTo = updateVersion(plugin.manifest?.version?.toString(), latestVersion)
+    val marketItem = market.firstOrNull { it.id == plugin.id }
     val scope = rememberCoroutineScope()
     var page by remember { mutableStateOf<com.vantacode.feature.plugin.domain.PluginPage?>(null) }
 
@@ -238,9 +276,29 @@ private fun PluginDetailSection(
             modifier = Modifier.padding(horizontal = Spacing.md)
         )
         SettingsGroup {
-            SettingsRow(title = Strings.about_version, subtitle = plugin.manifest?.version?.toString() ?: "?")
+            SettingsRow(
+                title = Strings.about_version,
+                subtitle = plugin.manifest?.version?.toString() ?: "?",
+                trailing = {
+                    if (updateTo != null && marketItem != null) {
+                        TextButton(onClick = {
+                            scope.launch {
+                                com.vantacode.core.platform.PlatformToast.show(
+                                    installFromIndex(manager, indexClient, marketItem)
+                                )
+                                onChanged()
+                            }
+                        }) { Text(Strings.formatted(Strings.plugin_update_available, updateTo)) }
+                    } else if (latestVersion != null) {
+                        Text(Strings.plugin_up_to_date, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            )
             SettingsDivider()
-            SettingsRow(title = Strings.plugin_by, subtitle = plugin.manifest?.publisher ?: "")
+            SettingsRow(
+                title = Strings.formatted(Strings.plugin_by, plugin.manifest?.publisher ?: ""),
+                subtitle = plugin.id
+            )
             SettingsDivider()
             SettingsRow(
                 title = if (plugin.record.enabled) Strings.plugin_disable else Strings.plugin_enable,

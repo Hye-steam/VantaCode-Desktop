@@ -60,7 +60,8 @@ class PluginRuntimeManager @Inject constructor(
     private val systemService: PluginSystemService,
     private val introspectionService: PluginIntrospectionService,
     private val toolService: PluginToolService,
-    private val httpService: PluginHttpService
+    private val httpService: PluginHttpService,
+    private val providerRepository: com.vantacode.feature.settings.domain.repository.AIProviderRepository
 ) {
 
     private class Entry(
@@ -337,6 +338,17 @@ class PluginRuntimeManager @Inject constructor(
                 secretStore.delete(pluginId, PluginHostPaths.requireString(params, "key"))
             }
             "host.secrets.list" -> hostCall { secretStore.list(pluginId) }
+            // 插件把拉取到的模型同步进宿主供应商记录（VantaGate 等网关插件使用）
+            "host.provider.syncModels" -> hostCall<JsonElement> {
+                val providerId = PluginHostPaths.requireString(params, "providerId")
+                val models = (params["models"] as? kotlinx.serialization.json.JsonArray)
+                    ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+                    ?: emptyList()
+                providerRepository.updateModels(providerId, models)
+                kotlinx.serialization.json.buildJsonObject {
+                    put("count", kotlinx.serialization.json.JsonPrimitive(models.size))
+                }
+            }
             "host.tools.list" -> hostCall {
                 introspectionService.listTools(
                     pluginId,
