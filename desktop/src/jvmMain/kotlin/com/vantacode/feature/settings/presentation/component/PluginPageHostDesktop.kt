@@ -102,7 +102,12 @@ private class Session(
     }
 }
 
-private fun createSession(page: PluginPage, onClose: () -> Unit): Session {
+private suspend fun createSession(page: PluginPage, onClose: () -> Unit): Session {
+    // 用户打开配置页即表示要使用该插件；若处于停用状态先启用，避免 ui.invoke 被 requireActive 拒绝。
+    val pluginManager = com.vantacode.di.AppGraph.pluginManager
+    if (pluginManager.plugins.value.firstOrNull { it.id == page.pluginId }?.isActive != true) {
+        runCatching { pluginManager.setEnabled(page.pluginId, true) }
+    }
     val app = PluginCef.app()
     val requestHandler = PluginCefRequestHandler(
         installDir = page.installDir,

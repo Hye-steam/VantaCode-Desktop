@@ -101,7 +101,7 @@ internal fun PluginSection(
                         onClick = { detail = plugin },
                         trailing = {
                             Text(
-                                text = if (plugin.record.enabled) Strings.plugin_enable else Strings.plugin_disable,
+                                text = if (plugin.record.enabled) Strings.plugin_disable else Strings.plugin_enable,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -243,8 +243,8 @@ private fun PluginDetailSection(
             SettingsRow(title = Strings.plugin_by, subtitle = plugin.manifest?.publisher ?: "")
             SettingsDivider()
             SettingsRow(
-                title = Strings.plugin_enable,
-                subtitle = if (plugin.record.enabled) Strings.plugin_enable else Strings.plugin_disable,
+                title = if (plugin.record.enabled) Strings.plugin_disable else Strings.plugin_enable,
+                subtitle = "当前：${if (plugin.record.enabled) Strings.plugin_enable else Strings.plugin_disable}",
                 onClick = {
                     scope.launch { manager.setEnabled(plugin.id, !plugin.record.enabled); onChanged() }
                 }
