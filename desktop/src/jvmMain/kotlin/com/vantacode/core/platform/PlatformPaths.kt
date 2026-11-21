@@ -31,8 +31,8 @@ object PlatformPaths {
 
 object PlatformInfo {
     const val PACKAGE_NAME = "com.vantacode.desktop"
-    const val VERSION_NAME = "1.3.0"
-    const val VERSION_CODE = 10300
+    const val VERSION_NAME = "1.4.0"
+    const val VERSION_CODE = 10400
     val operatingSystem: String get() = System.getProperty("os.name", "Windows") ?: "Windows"
     val osVersion: String get() = System.getProperty("os.version", "") ?: ""
     val arch: String get() = System.getProperty("os.arch", "amd64") ?: "amd64"
