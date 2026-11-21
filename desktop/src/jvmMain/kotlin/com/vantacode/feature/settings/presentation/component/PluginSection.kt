@@ -227,16 +227,26 @@ private suspend fun installFromIndex(
 ): String = runCatching {
     val asset = indexClient.resolveRelease(plugin)
     val cached = indexClient.download(asset, indexClient.rankCandidates(asset))
+    // 更新已安装插件前先关闭其进程，否则 Windows 上目录被占用导致无法覆盖。
+    closePluginProcess(plugin.id)
     installPreview(manager, java.io.FileInputStream(cached.file))
 }.getOrElse { it.message ?: Strings.plugin_runtime_failed }
 
+/** 关闭插件进程（含 JCEF 页面进程），避免更新/卸载时目录被占用。 */
+private fun closePluginProcess(pluginId: String) {
+    runCatching { com.vantacode.di.AppGraph.pluginRuntimeManager.closePlugin(pluginId) }
+}
+
 /** 安装预览 + 提交，返回给 UI 展示的消息。 */
-private suspend fun installPreview(manager: PluginManager, input: java.io.InputStream): String =
+private suspend fun installPreview(manager: PluginManager, input: java.io.InputStream, pluginId: String? = null): String =
     when (val preview = manager.preview(input)) {
-        is PluginPreviewResult.Ready -> when (val r = manager.install(preview.preview.token)) {
-            is PluginInstallResult.Installed ->
-                Strings.formatted(Strings.plugin_store_install_success, r.pluginId)
-            is PluginInstallResult.Failed -> r.error.detail.ifBlank { Strings.plugin_runtime_failed }
+        is PluginPreviewResult.Ready -> {
+            pluginId?.let { closePluginProcess(it) }
+            when (val r = manager.install(preview.preview.token)) {
+                is PluginInstallResult.Installed ->
+                    Strings.formatted(Strings.plugin_store_install_success, r.pluginId)
+                is PluginInstallResult.Failed -> r.error.detail.ifBlank { Strings.plugin_runtime_failed }
+            }
         }
         is PluginPreviewResult.Failed -> preview.errors.firstOrNull()?.detail ?: Strings.plugin_runtime_failed
     }
@@ -275,21 +285,28 @@ private fun PluginDetailSection(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = Spacing.md)
         )
+        // 醒目更新入口：发现新版本时置顶显示，避免藏在 trailing 角落看不见
+        if (updateTo != null && marketItem != null) {
+            androidx.compose.material3.Button(
+                onClick = {
+                    scope.launch {
+                        com.vantacode.core.platform.PlatformToast.show(
+                            installFromIndex(manager, indexClient, marketItem)
+                        )
+                        onChanged()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md)
+            ) {
+                Text(Strings.formatted(Strings.plugin_update_available, updateTo))
+            }
+        }
         SettingsGroup {
             SettingsRow(
                 title = Strings.about_version,
                 subtitle = plugin.manifest?.version?.toString() ?: "?",
                 trailing = {
-                    if (updateTo != null && marketItem != null) {
-                        TextButton(onClick = {
-                            scope.launch {
-                                com.vantacode.core.platform.PlatformToast.show(
-                                    installFromIndex(manager, indexClient, marketItem)
-                                )
-                                onChanged()
-                            }
-                        }) { Text(Strings.formatted(Strings.plugin_update_available, updateTo)) }
-                    } else if (latestVersion != null) {
+                    if (updateTo == null && latestVersion != null) {
                         Text(Strings.plugin_up_to_date, style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -311,7 +328,7 @@ private fun PluginDetailSection(
             SettingsRow(
                 title = Strings.plugin_delete_title,
                 onClick = {
-                    scope.launch { manager.uninstall(plugin.id); onBack(); onChanged() }
+                    scope.launch { closePluginProcess(plugin.id); manager.uninstall(plugin.id); onBack(); onChanged() }
                 }
             )
         }
