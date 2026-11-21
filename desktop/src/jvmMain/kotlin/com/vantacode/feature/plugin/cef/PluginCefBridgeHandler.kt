@@ -1,9 +1,10 @@
 package com.vantacode.feature.plugin.cef
 
-import com.vantacode.core.platform.DesktopActions
 import com.vantacode.core.platform.PlatformInfo
 import com.vantacode.core.util.FileLogger
+import com.vantacode.feature.plugin.domain.PluginManager
 import com.vantacode.feature.plugin.domain.PluginPage
+import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,6 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class PluginCefBridgeHandler(
     private val page: PluginPage,
     private val scope: CoroutineScope,
+    private val pluginManager: PluginManager,
+    private val runtimeManager: PluginRuntimeManager,
     private val authorized: () -> Boolean,
     private val onClose: () -> Unit,
     private val onToast: (String) -> Unit
@@ -78,13 +81,40 @@ class PluginCefBridgeHandler(
     }
 
     /** 返回 (id, payloadJsonString)。 */
-    private fun dispatch(request: String): Pair<String, String> {
+    private suspend fun dispatch(request: String): Pair<String, String> {
         val root = runCatching { Json.parseToJsonElement(request) as JsonObject }
             .getOrElse { return errorReply("PARSE_ERROR", it.message ?: "parse failed") }
         val id = root["id"]?.jsonPrimitive?.content.orEmpty()
         val method = root["method"]?.jsonPrimitive?.content.orEmpty()
         val params = root["params"] as? JsonObject ?: JsonObject(emptyMap())
         val result = when (method) {
+            // 配置页的 aicode.invoke(handler,args) 走这里，转发给插件进程的 ui.invoke handler。
+            "plugin.invoke" -> {
+                val handler = params["handler"]?.jsonPrimitive?.content.orEmpty()
+                val handlerArgs = (params["args"] as? JsonObject) ?: JsonObject(emptyMap())
+                val installed = pluginManager.plugins.value.firstOrNull { it.id == page.pluginId }
+                val runtime = installed?.content?.runtime
+                if (installed == null || runtime == null) {
+                    buildJsonObject {
+                        put("ok", false)
+                        put("error", buildJsonObject {
+                            put("code", "PLUGIN_NO_RUNTIME")
+                            put("message", "plugin runtime unavailable")
+                        })
+                    }
+                } else {
+                    val version = installed.manifest?.version?.toString().orEmpty()
+                    val data = runtimeManager.invoke(
+                        pluginId = page.pluginId,
+                        version = version,
+                        runtime = runtime,
+                        handler = handler,
+                        args = handlerArgs,
+                        method = "ui.invoke"
+                    )
+                    data
+                }
+            }
             "context" -> buildJsonObject {
                 put("pluginId", page.pluginId)
                 put("pageId", page.localId)
@@ -127,8 +157,9 @@ class PluginCefBridgeHandler(
                 })
             }
         }
+        val resultObj = result as? JsonObject
         return id to buildJsonObject {
-            put("ok", result["ok"]?.jsonPrimitive?.content?.let { it == "true" } ?: true)
+            put("ok", resultObj?.get("ok")?.jsonPrimitive?.content?.let { it == "true" } ?: true)
             put("data", result)
         }.toString()
     }

@@ -117,6 +117,8 @@ private fun createSession(page: PluginPage, onClose: () -> Unit): Session {
     val bridge = PluginCefBridgeHandler(
         page = page,
         scope = scope,
+        pluginManager = com.vantacode.di.AppGraph.pluginManager,
+        runtimeManager = com.vantacode.di.AppGraph.pluginRuntimeManager,
         authorized = { true },
         onClose = onClose,
         onToast = { msg -> com.vantacode.core.platform.PlatformToast.show(msg) }
