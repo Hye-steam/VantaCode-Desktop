@@ -338,13 +338,34 @@ class PluginRuntimeManager @Inject constructor(
                 secretStore.delete(pluginId, PluginHostPaths.requireString(params, "key"))
             }
             "host.secrets.list" -> hostCall { secretStore.list(pluginId) }
-            // 插件把拉取到的模型同步进宿主供应商记录（VantaGate 等网关插件使用）
+            // 插件把拉取到的模型同步进宿主供应商记录（VantaGate 等网关插件使用）。
+            // 供应商不存在时自动创建，指向插件常驻的本地网关（默认 127.0.0.1:8888/v1，
+            // 可由 params.baseUrl 覆盖），这样才能做到「自动同步模型到 AI 供应商」。
             "host.provider.syncModels" -> hostCall<JsonElement> {
                 val providerId = PluginHostPaths.requireString(params, "providerId")
                 val models = (params["models"] as? kotlinx.serialization.json.JsonArray)
                     ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
                     ?: emptyList()
-                providerRepository.updateModels(providerId, models)
+                val baseUrl = (params["baseUrl"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+                    ?: "http://127.0.0.1:8888/v1"
+                val existing = providerRepository.getProviderById(providerId)
+                if (existing == null) {
+                    val displayName = (params["name"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+                        ?: providerId
+                    providerRepository.saveProvider(
+                        com.vantacode.feature.settings.domain.model.AIProviderConfig(
+                            id = providerId,
+                            name = displayName,
+                            type = com.vantacode.feature.settings.domain.model.ProviderType.OPENAI,
+                            apiKey = "vantagate",
+                            baseUrl = baseUrl,
+                            defaultModel = models.firstOrNull().orEmpty(),
+                            models = models
+                        )
+                    )
+                } else {
+                    providerRepository.updateModels(providerId, models)
+                }
                 kotlinx.serialization.json.buildJsonObject {
                     put("count", kotlinx.serialization.json.JsonPrimitive(models.size))
                 }
