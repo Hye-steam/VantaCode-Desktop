@@ -60,7 +60,11 @@ class PluginCefBridgeHandler(
 
         scope.launch(Dispatchers.IO) {
             val reply = runCatching { dispatch(request) }
-                .getOrElse { e -> errorReply("HOST_ERROR", e.message ?: "internal") }
+                .getOrElse { e ->
+                    FileLogger.e("PluginCefBridge", "dispatch failed: $request", e)
+                    errorReply("HOST_ERROR", e.message ?: "internal")
+                }
+            FileLogger.d("PluginCefBridge", "reply: ${reply.second.take(400)}")
             // CEF 回调切回 AWT 线程再写回 JS
             javax.swing.SwingUtilities.invokeLater {
                 runCatching {
