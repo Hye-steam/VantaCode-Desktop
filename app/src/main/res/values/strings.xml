@@ -2399,6 +2399,8 @@
     <string name="plugins_uninstall_confirm_message">确定卸载「%1$s」？它的数据与配置会一并删除。</string>
     <string name="plugins_uninstall_confirm_title">卸载插件</string>
     <string name="plugins_update_available">可更新</string>
+    <string name="plugins_update_action">更新</string>
+    <string name="plugins_update_in_progress">更新中</string>
     <string name="plugins_update_version_transition">v%1$s → v%2$s</string>
     <string name="project_tools_drawer_title">项目工具</string>
     <string name="prompts_import_file">导入文件</string>

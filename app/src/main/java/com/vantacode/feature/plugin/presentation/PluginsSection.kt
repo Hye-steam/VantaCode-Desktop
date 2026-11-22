@@ -201,6 +201,8 @@ internal fun PluginsSection(
                         onSearchQueryChange = { searchQuery = it },
                         listState = installedListState,
                         updates = storeState.updatesByPluginId,
+                        installingPluginId = storeState.installingPluginId,
+                        onUpdate = { storeViewModel.install(it) },
                         refreshing = refreshing,
                         onRefresh = {
                             onRefresh()
@@ -255,6 +257,8 @@ private fun InstalledPluginsPage(
     onSearchQueryChange: (String) -> Unit,
     listState: LazyListState,
     updates: Map<String, PluginStoreItem>,
+    installingPluginId: String?,
+    onUpdate: (PluginStoreItem) -> Unit,
     refreshing: Boolean,
     onRefresh: () -> Unit,
     onOpenDetail: (InstalledPlugin) -> Unit,
@@ -323,6 +327,8 @@ private fun InstalledPluginsPage(
                             plugin = plugin,
                             languageTag = languageTag,
                             update = updates[plugin.id],
+                            updating = installingPluginId == plugin.id,
+                            onUpdate = { updates[plugin.id]?.let(onUpdate) },
                             onToggleEnabled = { onToggleEnabled(plugin, it) },
                             onClick = { onOpenDetail(plugin) }
                         )
@@ -374,6 +380,32 @@ internal fun PluginSearchEmptyState() {
     }
 }
 
+/** 「可更新」按钮：点一下直接走商店那条安装流程（含预览确认框），不用再去商店找。 */
+@Composable
+private fun PluginUpdateButton(updating: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = !updating,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+        modifier = Modifier.height(28.dp)
+    ) {
+        if (updating) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(12.dp),
+                strokeWidth = 1.5.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(
+            text = stringResource(
+                if (updating) R.string.plugins_update_in_progress else R.string.plugins_update_action
+            ),
+            style = MaterialTheme.typography.labelSmall
+        )
+    }
+}
+
 /**
  * 单个插件列表行：名称独占一行；下一行是图标、版本/作者标签、启停开关与详情箭头，支持左滑卸载。
  */
@@ -382,6 +414,8 @@ private fun PluginRow(
     plugin: InstalledPlugin,
     languageTag: String,
     update: PluginStoreItem?,
+    updating: Boolean,
+    onUpdate: () -> Unit,
     onToggleEnabled: (Boolean) -> Unit,
     onClick: () -> Unit
 ) {
@@ -462,10 +496,11 @@ private fun PluginRow(
                     )
                 }
                 if (update != null) {
-                    McpPill(
-                        text = stringResource(R.string.plugins_update_available),
-                        textColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        backgroundColor = MaterialTheme.colorScheme.primaryContainer
+                    // 「可更新」原本只是个提示，要更新得自己去商店找同一个插件；
+                    // 这里直接做成按钮，走商店那条 install() 全流程（含确认框）。
+                    PluginUpdateButton(
+                        updating = updating,
+                        onClick = onUpdate
                     )
                 }
             }

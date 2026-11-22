@@ -71,7 +71,17 @@ class PluginIndexClient @Inject constructor(
                 val fallback = readCache(cached) ?: throw e
                 return@withContext PluginIndexSnapshot(fallback, stale = true, fetchedAt = cached.lastModified())
             }
-            val index = PluginIndexParser.parse(bytes)
+            val index = try {
+                PluginIndexParser.parse(bytes)
+            } catch (e: PluginIndexException) {
+                // 上游刚修完索引，但 CDN 边缘节点仍返回旧内容（raw.githubusercontent
+                // 带 max-age=300）。noCache 只能绕本地缓存，绕不过 CDN，
+                // 所以带一个时间戳参数再要一次，让 CDN 回源。
+                val busted = url + (if (url.contains('?')) "&" else "?") + "_t=" + System.currentTimeMillis()
+                val fresh = runCatching { getBytes(busted, MAX_INDEX_BYTES, noCache = true) }.getOrNull()
+                if (fresh == null) throw e
+                PluginIndexParser.parse(fresh)
+            }
             writeCache(cached, bytes)
             PluginIndexSnapshot(index, stale = false, fetchedAt = System.currentTimeMillis())
         }

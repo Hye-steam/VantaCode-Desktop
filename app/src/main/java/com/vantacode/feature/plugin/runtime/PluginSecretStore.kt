@@ -169,7 +169,7 @@ class PluginSecretStore internal constructor(
         const val TAG = "PluginSecretStore"
         const val SECRETS_DIR = "plugin-secrets"
         const val MAX_VALUE_BYTES = 64 * 1024
-        val KEY_PATTERN = Regex("^[A-Za-z0-9._-]{1,64}$")
+        val KEY_PATTERN = Regex("^[\\p{L}\\p{N}._-]{1,64}$")
         val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     }
 }
