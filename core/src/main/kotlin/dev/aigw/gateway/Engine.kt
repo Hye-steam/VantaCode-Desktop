@@ -1066,12 +1066,14 @@ class Engine(val dataDir: File) {
         for (route in candidates) {
             val provider = providerById[route.account.providerId] ?: continue
             val gate = gateFor(route.account)
-            if (!gate.tryAcquire(120, TimeUnit.SECONDS)) {
+            // 等人释放而不是持锁长等：生图/生视频动辄几分钟，排队等 120 秒
+            // 只会把客户端重试叠在同一账号上，反而把并发占满。
+            if (!gate.tryAcquire(15, TimeUnit.SECONDS)) {
                 attempts += "${route.via}: 并发占满（排队超时）"
                 eventLog.warn("路由", "${route.via} 并发占满，跳过")
                 continue
             }
-            val globalAcquired = tryAcquireGlobal(120_000)
+            val globalAcquired = tryAcquireGlobal(15_000)
             if (settings.maxConcurrentGlobal > 0 && !globalAcquired) {
                 gate.release()
                 attempts += "${route.via}: 全局并发占满（排队超时）"

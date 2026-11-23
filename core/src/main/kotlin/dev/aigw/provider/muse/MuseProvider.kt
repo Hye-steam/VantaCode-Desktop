@@ -39,6 +39,19 @@ class MuseProvider(private val transport: () -> WebTransport?) : Provider {
             "muse-image" to "image",
             "muse-video" to "video",
         )
+
+        /** 只描述动作、不含画面主体的说法；命中后要检查剩下多少描述。 */
+        private val LACKS_SUBJECT = Regex(
+            "(生成|制作|创建|做|来|帮我|请|给我|一段|一个|一张|一幅|图片|图像|视频|短片|动画)" +
+                "|\\b(generate|make|create|draw|paint|a|an|video|clip|image|picture|short)\\b",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** 提示词里只剩这些套话、没有实际画面描述时，muse 会反问而不是生成。 */
+        private fun hasConcreteSubject(prompt: String): Boolean {
+            val stripped = LACKS_SUBJECT.replace(prompt, "")
+            return stripped.count { it.isLetterOrDigit() } >= 2
+        }
     }
 
     override fun listModels(account: ProviderAccount): Result<List<String>> =
@@ -58,6 +71,19 @@ class MuseProvider(private val transport: () -> WebTransport?) : Provider {
             return ChatResult.Failure(ApiError(ApiError.Kind.CLIENT, 400, "muse 需要非空的用户消息"))
         }
 
+        // 「生成一张图片」「生成一段视频」这类只说动作、没说内容的提示词，
+        // muse 会反问要生成什么，页面永远不会出现产物。
+        // 直接报错比让客户端空等 15 分钟好。
+        if (!hasConcreteSubject(prompt)) {
+            val what = if (expect == "video") "视频" else "图片"
+            return ChatResult.Failure(
+                ApiError(
+                    ApiError.Kind.CLIENT, 400,
+                    "需要描述${what}内容，例如「一只猫在窗台上晒太阳」。「$prompt」缺少具体画面，muse 会反问而不是生成。",
+                ),
+            )
+        }
+
         // muse 默认把请求当生图处理，视频必须在提示词里明确要求
         val finalPrompt = if (expect == "video") "Generate a video: $prompt" else prompt
 
@@ -75,10 +101,15 @@ class MuseProvider(private val transport: () -> WebTransport?) : Provider {
 
         val result = channel.post(path, emptyMap(), body, stream = false)
         if (!result.ok) {
+            // 先按状态码定性质，再看错误文本。
+            // 反过来会让所有带 error 字段的失败都被当成 NETWORK，
+            // 连带把「生成超时」这种上游慢也算成账号失败，攒够阈值就冷却。
             val kind = when {
-                result.error.isNotEmpty() -> ApiError.Kind.NETWORK
                 result.status == 401 || result.status == 403 -> ApiError.Kind.AUTH
+                result.status == 504 -> ApiError.Kind.UPSTREAM
                 result.status in 400..499 -> ApiError.Kind.CLIENT
+                result.status >= 500 -> ApiError.Kind.UPSTREAM
+                result.error.isNotEmpty() -> ApiError.Kind.NETWORK
                 else -> ApiError.Kind.UPSTREAM
             }
             Log.warn("muse 生成失败 ${result.status}：${result.error.ifEmpty { result.body.take(160) }}")
@@ -113,26 +144,28 @@ class MuseProvider(private val transport: () -> WebTransport?) : Provider {
     /**
      * 产物转 markdown。
      *
-     * 图片走 data URL 直接内联——体积小，客户端能直接渲染。
-     * 视频动辄几十 MB，内联会把响应和客户端一起撞爆，所以落盘后给本地路径。
+     * 图片和视频都落盘后给本地路径：VantaCode 的 Markdown 渲染器只认本地
+     * 文件路径，`data:` URL 和 `://` 开头的一律不渲染，内联了也看不到。
      */
     private fun buildMarkdown(media: Media, expect: String): String {
         val mime = media.mime.ifEmpty { if (expect == "video") "video/mp4" else "image/png" }
         val sizeMb = media.size / 1048576.0
-        return if (mime.startsWith("video/")) {
-            val ext = when {
-                mime.contains("webm") -> ".webm"
-                mime.contains("quicktime") -> ".mov"
-                else -> ".mp4"
-            }
-            val path = MediaProxy.saveBase64(media.base64, ext)
-            if (path != null) {
-                "已生成视频（${String.format("%.1f", sizeMb)} MB）。\n\n`$path`"
-            } else {
-                "已生成视频（${String.format("%.1f", sizeMb)} MB），但写入本地失败。"
-            }
+        val isVideo = mime.startsWith("video/")
+        val ext = when {
+            mime.contains("webm") -> ".webm"
+            mime.contains("quicktime") -> ".mov"
+            mime.contains("png") -> ".png"
+            mime.contains("jpeg") || mime.contains("jpg") -> ".jpg"
+            mime.contains("gif") -> ".gif"
+            mime.contains("webp") -> ".webp"
+            else -> if (isVideo) ".mp4" else ".png"
+        }
+        val path = MediaProxy.saveBase64(media.base64, ext)
+            ?: return "已生成${if (isVideo) "视频" else "图片"}（${String.format("%.1f", sizeMb)} MB），但写入本地失败。"
+        return if (isVideo) {
+            "已生成视频（${String.format("%.1f", sizeMb)} MB）。\n\n`$path`"
         } else {
-            "![muse 生成](data:$mime;base64,${media.base64})"
+            "![muse 生成]($path)"
         }
     }
 

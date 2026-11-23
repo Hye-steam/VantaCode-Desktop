@@ -278,6 +278,24 @@ class GatewayHttpServer(private val engine: Engine) {
                             )
                             pipeOut.flush()
                         }
+                    } else if (outcome is Engine.Outcome.Ok) {
+                        // Provider 一次性给出完整结果时（生图/生视频这类），
+                        // 它不会调 sink；这里补成标准的流式帧，否则客户端收不到任何东西。
+                        val json = (outcome.result as? ChatResult.Aggregated)?.json
+                        if (json != null) {
+                            runCatching {
+                                val content = json.getAsJsonArray("choices")
+                                    ?.firstOrNull()?.asJsonObject
+                                    ?.getAsJsonObject("message")
+                                    ?.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                                if (content.isNotEmpty()) {
+                                    pipeOut.write(Sse.frame(chunkJson(content)).toByteArray(StandardCharsets.UTF_8))
+                                    pipeOut.flush()
+                                }
+                                pipeOut.write(Sse.frame(Sse.DONE).toByteArray(StandardCharsets.UTF_8))
+                                pipeOut.flush()
+                            }
+                        }
                     }
                 } finally {
                     runCatching { pipeOut.close() }
@@ -395,5 +413,24 @@ class GatewayHttpServer(private val engine: Engine) {
                 add("model", com.google.gson.JsonNull.INSTANCE)
                 add("choices", JsonArray())
             }
+
+        /** 把一次性结果包成 OpenAI 流式 delta 帧。 */
+        private fun chunkJson(content: String): String =
+            JsonObject().apply {
+                addProperty("id", "chatcmpl-" + System.currentTimeMillis())
+                addProperty("object", "chat.completion.chunk")
+                addProperty("created", System.currentTimeMillis() / 1000)
+                add("model", com.google.gson.JsonNull.INSTANCE)
+                add("choices", JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("index", 0)
+                        add("delta", JsonObject().apply {
+                            addProperty("role", "assistant")
+                            addProperty("content", content)
+                        })
+                        add("finish_reason", com.google.gson.JsonNull.INSTANCE)
+                    })
+                })
+            }.toString()
     }
 }

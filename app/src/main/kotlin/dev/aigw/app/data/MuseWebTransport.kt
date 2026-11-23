@@ -8,12 +8,12 @@ import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebSettings
 import com.google.gson.Gson
 import dev.aigw.provider.WebTransport
 import dev.aigw.provider.WebTransportResult
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -29,40 +29,53 @@ import java.util.concurrent.TimeUnit
  * 4. 点发送按钮
  * 5. 监听新增的附件容器，把 blob 读成 base64 回传
  *
- * 与智谱通道的区别：那边是「页面内 fetch 拿响应」，这边是「操作 DOM 等产物」，
- * 所以 [post] 的 path 只用来区分任务类型。
+ * 每个请求独占一个 WebView 与一条旁聊：muse 每次发消息都会新开旁聊，
+ * 互不影响，共用同一个 WebView 才是错的——第二个请求既要等前一个释放，
+ * 又会因为 `ensureFreshThread` 导航把前一个的 JS 上下文毁掉。
  */
 class MuseWebTransport(private val context: Context) : WebTransport {
 
     private val main = Handler(Looper.getMainLooper())
     private val gson = Gson()
 
-    /** 每次生成一个 id，页面回调按 id 投递。 */
-    private val queues = ConcurrentHashMap<String, LinkedBlockingQueue<Event>>()
-
-    @Volatile
-    private var webView: WebView? = null
-
-    /** 承载 WebView 的窗口管理器，释放时要先把 view 摘下来。 */
-    @Volatile
-    private var hostWindow: android.view.WindowManager? = null
-
-    @Volatile
-    private var ready = false
-
-    /** 登录 cookie（由账号 secret 提供），首次 [post] 时注入。 */
+    /** 登录 cookie（由账号 secret 提供）。 */
     @Volatile
     private var cookie: String? = null
 
+    /** 常驻的预热会话，只用来让首个请求不必从零等页面；不承载真实任务。 */
+    @Volatile
+    private var warm: Session? = null
+
+    /** 单实例会话：一个进程同时只允许一个 WebView，多开会相互干扰。 */
+    @Volatile
+    private var shared: Session? = null
+
     fun warmUp() {
-        main.post { ensureWebView() }
+        // 预热只提前建 cookie，不提前建 WebView：
+        // 提前建会与首个真实请求撞车，两边一起卡在创建上。
+    }
+
+    private fun session(): Session {
+        shared?.let { return it }
+        synchronized(this) {
+            shared?.let { return it }
+            val s = Session()
+            s.start()
+            shared = s
+            return s
+        }
     }
 
     override fun prepare(cookies: String): Boolean {
         cookie = cookies
-        main.post { ensureWebView()?.let { injectCookies(it, cookies) } }
-        return awaitReady() != null
+        // 不在这里建 WebView：prepare 常在工作线程被调，
+        // 提前建会与真实请求撞上，两边都排队。只记 cookie，首次 post 再建。
+        return true
     }
+
+    /** 全局串行：WebView 构造、导航、销毁都必须在主线程上按序完成。
+     *  并发请求在这里排队，而不是各自往主线程塞任务把队列堵死。 */
+    private val serialGate: java.util.concurrent.Semaphore = java.util.concurrent.Semaphore(1, true)
 
     override fun post(
         path: String,
@@ -71,60 +84,164 @@ class MuseWebTransport(private val context: Context) : WebTransport {
         stream: Boolean,
         onLine: ((String) -> Boolean)?,
     ): WebTransportResult {
-        val view = awaitReady() ?: return WebTransportResult(0, "", "muse WebView 未就绪")
         val expect = if (path.contains("expect=video")) "video" else "image"
         val prompt = runCatching {
             gson.fromJson(body, Map::class.java)?.get("prompt")?.toString().orEmpty()
         }.getOrDefault("")
         if (prompt.isBlank()) return WebTransportResult(400, "", "缺少 prompt")
 
-        val id = UUID.randomUUID().toString()
-        val queue = LinkedBlockingQueue<Event>()
-        queues[id] = queue
+        // 等前一个生成结束：同一个 WebView、同一条旁聊链，不能并行。
+        if (!serialGate.tryAcquire(10, TimeUnit.SECONDS)) {
+            return WebTransportResult(429, "", "上一个生成还没结束，请稍后重试")
+        }
+        return try {
+            val session = session()
+            session.generate(prompt, expect)
+        } finally {
+            serialGate.release()
+        }
+    }
 
-        try {
-            // 先确认当前在新建对话页。旧对话里的产物会让「新产物计数」永不增加，
-            // 且历史上下文会影响生成结果。
-            ensureFreshThread(view)
+    /** 一次生成的独立页面上下文。 */
+    private inner class Session {
+        private val id = UUID.randomUUID().toString()
+        private val queue = LinkedBlockingQueue<Event>()
 
-            // 再确认 __museGen 真的在页面上下文里。
-            // 页面发生导航（客户端重定向/重载）会重建 JS 上下文，注入过的脚本随之消失，
-            // 直接 evaluate 会静默失效，请求就一直挂着没有回调。
+        @Volatile
+        private var view: WebView? = null
+
+        @Volatile
+        private var hostWindow: android.view.WindowManager? = null
+
+        @Volatile
+        private var ready = false
+
+        @Volatile
+        private var bridge: Bridge? = null
+
+        fun start() {
+            val tag = id.take(8)
+            // 用单次往返拿结果：投递完再等一个带返回值的任务，
+            // 能明确区分「还没执行」与「执行失败」。
+            val latch = CountDownLatch(1)
+            var err: Throwable? = null
+            val posted = main.post {
+                try {
+                    createWebView()
+                } catch (e: Throwable) {
+                    err = e
+                    android.util.Log.e("MUSE", "[$tag] 创建抛错：${e.javaClass.name}: ${e.message}")
+                } finally {
+                    latch.countDown()
+                }
+            }
+            val done = latch.await(50, TimeUnit.SECONDS)
+            if (!done) android.util.Log.w("MUSE", "[$tag] 建 WebView 超时")
+        }
+
+        @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
+        private fun createWebView() {
+            if (view != null) return
+            android.util.Log.i("MUSE", "开始创建 WebView cookie=${if (cookie.isNullOrBlank()) "空" else "有(" + cookie!!.length + ")"}")
+            val b = Bridge(id, queue)
+            bridge = b
+            val wv = WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.databaseEnabled = true
+                settings.userAgentString = UA_DESKTOP
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = true
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                addJavascriptInterface(b, "MuseBridge")
+                webViewClient = object : WebViewClient() {
+                    override fun onPageStarted(v: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                        v.evaluateJavascript(JS_ERROR_HOOK, null)
+                    }
+
+                    override fun onPageFinished(v: WebView, url: String?) {
+                        // 注入后即视为就绪：再发一次 evaluateJavascript 确认会把主线程
+                        // 再排一轮队，而并发时队列本来就很长。
+                        v.evaluateJavascript(jsHelper) { r ->
+                            android.util.Log.i("MUSE", "辅助脚本注入：${r?.take(40)}")
+                        }
+                        ready = true
+                    }
+
+                    override fun onReceivedError(
+                        v: WebView,
+                        req: android.webkit.WebResourceRequest,
+                        err: android.webkit.WebResourceError,
+                    ) {
+                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M || req.isForMainFrame) {
+                            android.util.Log.w("MUSE", "页面加载失败：${req.url} ${err.description}")
+                        }
+                    }
+                }
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
+                        val text = msg.message()
+                        if (msg.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR) {
+                            android.util.Log.w("MUSE", "console: ${text.take(160)}")
+                        }
+                        return true
+                    }
+                }
+                cookie?.let { injectCookies(this, it) }
+                loadUrl(HOME)
+            }
+            view = wv
+            attachToWindow(wv)
+        }
+
+        private fun awaitReady(): Boolean {
+            val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
+            while (System.currentTimeMillis() < deadline) {
+                if (ready) return true
+                Thread.sleep(120)
+            }
+            return false
+        }
+
+        /** 导航回 `/thread/new` 并等页面重新就绪。 */
+        private fun gotoNewThread(wv: WebView): Boolean {
+            val cur = evalAndWait(wv, "(location.pathname||'')", 5_000).trim('"')
+            if (cur.startsWith("/thread/new")) return true
+            android.util.Log.i("MUSE", "当前 $cur，重新打开新对话")
+            ready = false
+            main.post { runCatching { wv.loadUrl(HOME) } }
+            return awaitReady()
+        }
+
+        fun generate(prompt: String, expect: String): WebTransportResult {
+            val wv = view ?: return WebTransportResult(0, "", "muse WebView 未就绪")
+            if (!ready && !awaitReady()) {
+                return WebTransportResult(504, "", "页面加载超时")
+            }
+
+            // 回到新建对话：旧对话里的产物会让「新产物计数」永不增加，
+            // 历史上下文也会影响生成。导航会重建 JS 上下文，所以导航后要重新等 ready。
+            if (!gotoNewThread(wv)) {
+                return WebTransportResult(504, "", "重新打开对话失败")
+            }
+
+            // 页面导航会重建 JS 上下文，注入过的脚本随之消失，
+            // 直接 evaluate 会静默失效、请求一直挂着。这里确认后补注入。
             var attempts = 0
             var started = false
             val startDeadline = System.currentTimeMillis() + 180_000
             while (!started && System.currentTimeMillis() < startDeadline) {
-                val latch = java.util.concurrent.CountDownLatch(1)
-                var verdict = ""
-                main.post {
-                    runCatching {
-                        view.evaluateJavascript(jsStart(id, prompt, expect)) { r ->
-                            verdict = r.orEmpty().trim('"')
-                            latch.countDown()
-                        }
-                    }.onFailure {
-                        verdict = "err:" + it.message
-                        latch.countDown()
-                    }
-                }
-                latch.await(20, TimeUnit.SECONDS)
+                val verdict = evalAndWait(wv, jsStart(id, prompt, expect), 20_000)
                 if (verdict == "ok") {
                     started = true
                 } else {
                     attempts++
-                    android.util.Log.w("MUSE", "muse 脚本未就绪（$verdict），重注入第 $attempts 次")
-                    // 导航后页面要重新加载并水合，等久一点再注入
-                    Thread.sleep(3000)
-                    main.post {
-                        runCatching {
-                            view.evaluateJavascript(jsHelper, null)
-                        }
-                    }
+                    android.util.Log.w("MUSE", "脚本未就绪（$verdict），重注入第 $attempts 次")
+                    Thread.sleep(2000)
+                    main.post { runCatching { wv.evaluateJavascript(jsHelper, null) } }
                 }
             }
-            if (!started) {
-                return WebTransportResult(502, "", "页面脚本注入失败（重试 $attempts 次）")
-            }
+            if (!started) return WebTransportResult(502, "", "页面脚本注入失败（重试 $attempts 次）")
 
             val deadline = System.currentTimeMillis() + TIMEOUT_MS
             while (true) {
@@ -136,155 +253,84 @@ class MuseWebTransport(private val context: Context) : WebTransport {
                     is Event.Fail -> return WebTransportResult(502, "", event.message)
                 }
             }
-        } finally {
-            queues.remove(id)
         }
-    }
 
-    /**
-     * 确保页面停在新建对话页。
-     *
-     * 导航会重建 JS 上下文，所以必须在调用脚本之前做，并等新页面加载完。
-     */
-    private fun ensureFreshThread(view: WebView) {
-        val latch = java.util.concurrent.CountDownLatch(1)
-        var url = ""
-        main.post {
-            runCatching {
-                view.evaluateJavascript("(location.pathname||'') + '|' + (typeof window.__museGen === 'function')") { r ->
-                    url = r.orEmpty().trim('"')
+        fun close() {
+            val wv = view ?: return
+            view = null
+            ready = false
+            // 同步销毁：投递到主线程会在请求堆积时把所有销毁任务堆在队尾，
+            // 主线程被这些 destroy 拖住，下一个会话的创建任务反而排不上。
+            val wm = hostWindow
+            hostWindow = null
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                runCatching { wm?.removeView(wv) }
+                runCatching { wv.stopLoading() }
+                runCatching { wv.destroy() }
+            } else {
+                val latch = CountDownLatch(1)
+                main.post {
+                    runCatching { wm?.removeView(wv) }
+                    runCatching { wv.stopLoading() }
+                    runCatching { wv.destroy() }
                     latch.countDown()
                 }
-            }.onFailure { latch.countDown() }
-        }
-        latch.await(10, TimeUnit.SECONDS)
-
-        val onNew = url.startsWith("/thread/new")
-        if (onNew && url.endsWith("|true")) return
-
-        android.util.Log.i("MUSE", "muse 当前页面 $url，重新打开新对话")
-        ready = false
-        val loaded = java.util.concurrent.CountDownLatch(1)
-        main.post { runCatching { view.loadUrl(HOME) } }
-        // 等页面就绪（onPageFinished 会把 ready 置位并注入脚本）
-        val deadline = System.currentTimeMillis() + 60_000
-        while (System.currentTimeMillis() < deadline) {
-            if (ready) break
-            Thread.sleep(200)
-        }
-        runCatching { loaded.countDown() }
-        Thread.sleep(1500)
-    }
-
-    private fun awaitReady(): WebView? {
-        if (ready) return webView
-        main.post { ensureWebView() }
-        val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
-            if (ready) return webView
-            Thread.sleep(120)
-        }
-        return null
-    }
-
-    @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
-    private fun ensureWebView(): WebView? {
-        webView?.let { return it }
-        return try {
-            val view = WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.databaseEnabled = true
-                settings.userAgentString = UA_DESKTOP
-                // 桌面版页面信息密度更高，且不会被移动端分支降级
-                settings.useWideViewPort = true
-                settings.loadWithOverviewMode = true
-                // muse 的登录态跨子域传递，第三方 cookie 必须放行
-                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                addJavascriptInterface(Bridge(), "MuseBridge")
-                webViewClient = object : WebViewClient() {
-                    override fun onPageStarted(v: WebView, url: String?, favicon: android.graphics.Bitmap?) {
-                        // 尽早装错误收集：页面 bundle 抛错通常发生在 onPageFinished 之前
-                        v.evaluateJavascript(JS_ERROR_HOOK, null)
-                    }
-
-                    override fun onPageFinished(v: WebView, url: String?) {
-                        android.util.Log.i("MUSE", "muse 页面就绪：$url")
-                        // 页面水合是异步的，注入辅助脚本后交给它自己轮询就绪
-                        v.evaluateJavascript(jsHelper) { r ->
-                            android.util.Log.i("MUSE", "muse 辅助脚本注入：${r?.take(80)}")
-                        }
-                        ready = true
-                    }
-
-                    override fun onReceivedError(
-                        v: WebView,
-                        req: android.webkit.WebResourceRequest,
-                        err: android.webkit.WebResourceError,
-                    ) {
-                        if (req.isForMainFrame) {
-                            android.util.Log.w("MUSE", "muse 页面加载失败：${req.url} ${err.description}")
-                        }
-                    }
-                }
-                webChromeClient = object : android.webkit.WebChromeClient() {
-                    override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
-                        val text = msg.message()
-                        if (text.contains("error", true) ||
-                            msg.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR
-                        ) {
-                            android.util.Log.w("MUSE", "muse console: ${text.take(200)}")
-                        }
-                        return true
-                    }
-                }
-                cookie?.let { injectCookies(this, it) }
-                loadUrl(HOME)
+                latch.await(5, TimeUnit.SECONDS)
             }
-            webView = view
-            attachToWindow(view)
-            android.util.Log.i("MUSE", "muse WebView 已创建")
-            view
-        } catch (e: Exception) {
-            android.util.Log.w("MUSE", "muse WebView 创建失败：${e.message}")
-            null
         }
-    }
 
-    /**
-     * 把 WebView 挂到一个 1x1 的透明悬浮窗上。
-     *
-     * 未挂窗口的 WebView 不产生合成帧，requestAnimationFrame 永不回调；
-     * muse.ai 是 Next.js + Suspense，水合链路由 rAF 驱动，页面会一直停在
-     * 服务端渲染的骨架（`<!--$-->` 占位）上。窗口尺寸取 1x1 且透明，用户不可见。
-     */
-    private fun attachToWindow(view: WebView) {
-        runCatching {
-            val wm = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-            val lp = android.view.WindowManager.LayoutParams(
-                400,
-                800,
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                } else {
-                    @Suppress("DEPRECATION")
-                    android.view.WindowManager.LayoutParams.TYPE_PHONE
-                },
-                android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                android.graphics.PixelFormat.TRANSLUCENT,
-            )
-            lp.gravity = android.view.Gravity.TOP or android.view.Gravity.START
-            // 移出可视区域：仍参与渲染与 rAF，但用户看不到
-            lp.x = -500
-            lp.y = -900
-            // 不用 alpha=0：部分机型会因此跳过合成，rAF 又不跑了
-            view.alpha = 0.01f
-            wm.addView(view, lp)
-            hostWindow = wm
-        }.onFailure {
-            android.util.Log.w("MUSE", "muse WebView 挂窗失败：${it.message}")
+        private fun evalAndWait(wv: WebView, js: String, timeoutMs: Long): String {
+            val latch = CountDownLatch(1)
+            var verdict = ""
+            main.post {
+                runCatching {
+                    wv.evaluateJavascript(js) { r ->
+                        verdict = r.orEmpty().trim('"')
+                        latch.countDown()
+                    }
+                }.onFailure {
+                    verdict = "err:" + it.message
+                    latch.countDown()
+                }
+            }
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            return verdict
+        }
+
+        /**
+         * 把 WebView 挂到一个透明的悬浮窗上。
+         *
+         * 未挂窗口的 WebView 不产生合成帧，requestAnimationFrame 永不回调；
+         * muse.ai 是 Next.js + Suspense，水合链路由 rAF 驱动，页面会一直停在
+         * 服务端渲染的骨架（`<!--$-->` 占位）上。
+         */
+        private fun attachToWindow(v: WebView) {
+            runCatching {
+                val wm = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+                val lp = android.view.WindowManager.LayoutParams(
+                    400,
+                    800,
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    } else {
+                        @Suppress("DEPRECATION")
+                        android.view.WindowManager.LayoutParams.TYPE_PHONE
+                    },
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    android.graphics.PixelFormat.TRANSLUCENT,
+                )
+                lp.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                lp.x = -500
+                lp.y = -900
+                // 不用 alpha=0：部分机型会因此跳过合成，rAF 又不跑了
+                v.alpha = 0.01f
+                wm.addView(v, lp)
+                hostWindow = wm
+            }.onFailure {
+                android.util.Log.w("MUSE", "挂窗失败：${it.message}")
+            }
         }
     }
 
@@ -296,40 +342,54 @@ class MuseWebTransport(private val context: Context) : WebTransport {
             val name = pair.substring(0, idx).trim()
             val value = pair.substring(idx + 1).trim()
             if (name.isEmpty()) return@forEach
-            // hatch_sess 等在主域；带点前缀的写 .muse.ai
             runCatching { cm.setCookie("https://muse.ai", "$name=$value; path=/; secure") }
-            runCatching { cm.setCookie("https://muse.ai", "$name=$value; domain=.muse.ai; path=/; secure") }
+            runCatching { cm.setCookie("https://.muse.ai", "$name=$value; path=/; secure") }
         }
         runCatching { cm.flush() }
     }
 
-    private sealed class Event {
-        class Ok(val json: String) : Event()
-        class Fail(val message: String) : Event()
-    }
+    private fun jsStart(id: String, prompt: String, expect: String): String =
+        "(function(){try{" +
+            "if (typeof window.__museGen !== 'function') return 'missing';" +
+            "window.__museGen(" + gson.toJson(id) + ", " + gson.toJson(prompt) +
+            ", " + gson.toJson(expect) + ");" +
+            "return 'ok';" +
+            "}catch(e){return 'error:' + e}})()"
 
-    inner class Bridge {
+    /** 页面回调只带 id，按 id 找队列，多会话互不干扰。 */
+    inner class Bridge(
+        private val sessionId: String,
+        private val queue: LinkedBlockingQueue<Event>,
+    ) {
         @JavascriptInterface
         fun onOk(id: String, json: String) {
-            queues[id]?.put(Event.Ok(json))
+            if (id != sessionId) return
+            queue.offer(Event.Ok(json))
         }
 
         @JavascriptInterface
         fun onFail(id: String, message: String) {
-            queues[id]?.put(Event.Fail(message))
+            if (id != sessionId) return
+            queue.offer(Event.Fail(message))
         }
     }
 
-    private companion object {
+    sealed interface Event {
+        data class Ok(val json: String) : Event
+        data class Fail(val message: String) : Event
+    }
+
+    companion object {
         const val HOME = "https://muse.ai/thread/new"
-        const val READY_TIMEOUT_MS = 25_000L
+
         /** 视频生成慢，给足 20 分钟。 */
         const val TIMEOUT_MS = 1_200_000L
-        const val USER_AGENT =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/131.0.0.0 Safari/537.36"
 
-        /** 不带 `wv` 标记的桌面 UA：系统默认 UA 里的 wv 会让站点识别为内嵌 WebView。 */
+        const val READY_TIMEOUT_MS = 60_000L
+
+        /**
+         * 不带 `wv` 标记的桌面 UA：系统默认 UA 里的 wv 会让站点识别为内嵌 WebView。
+         */
         const val UA_DESKTOP =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/131.0.0.0 Safari/537.36"
@@ -339,7 +399,6 @@ class MuseWebTransport(private val context: Context) : WebTransport {
 (function(){
   if (window.__museErr) return;
   window.__museErr = [];
-  window.__museConsole = [];
   window.addEventListener('error', function(e){
     window.__museErr.push(String(e.message || e.error || 'err') + ' @' + (e.filename||'') + ':' + (e.lineno||0));
     if (window.__museErr.length > 10) window.__museErr.shift();
@@ -350,19 +409,17 @@ class MuseWebTransport(private val context: Context) : WebTransport {
   });
 })();
 """
-    }
 
-    /**
-     * 页面内辅助脚本。
-     *
-     * 只装一次：等水合、填字、点发送、抓产物都在这里。
-     * 抓产物用轮询而非 MutationObserver——附件容器出现后内容还要再渲染一次，
-     * 轮询更容易拿到已经填好 src 的元素。
-     */
-    private val jsHelper: String = """
+        /**
+         * 页面内辅助脚本：等水合、填字、点发送、抓产物。
+         *
+         * 抓产物用轮询而非 MutationObserver——附件容器出现后内容还要再渲染一次，
+         * 轮询更容易拿到已经填好 src 的元素。
+         */
+        val jsHelper: String = """
 (function(){
   if (window.__museGen) return;
-  // 记录页面 JS 错误：水合失败时这是唯一线索
+  var bridge = window.MuseBridge;
   if (!window.__museErr) {
     window.__museErr = [];
     window.addEventListener('error', function(e){
@@ -374,14 +431,12 @@ class MuseWebTransport(private val context: Context) : WebTransport {
       if (window.__museErr.length > 8) window.__museErr.shift();
     });
   }
-  var bridge = window.MuseBridge;
-  function log(){}
   function hydrated(){
     var h = document.querySelector('[data-hatch-shell-hydration-state]');
-    if (h && h.getAttribute('data-hatch-shell-hydration-state') !== 'hydrated') return false;
-    var b = document.body ? (document.body.innerText||'') : '';
-    if (b.indexOf('Connecting...') !== -1) return false;
-    return !!document.querySelector('textarea');
+    if (!h) return false;
+    if (h.getAttribute('data-hatch-shell-hydration-state') !== 'hydrated') return false;
+    var t = document.body ? (document.body.innerText||'') : '';
+    return t.indexOf('Connecting...') === -1;
   }
   function diag(){
     var h = document.querySelector('[data-hatch-shell-hydration-state]');
@@ -392,29 +447,35 @@ class MuseWebTransport(private val context: Context) : WebTransport {
       ' len=' + txt.length +
       ' err=' + ((window.__museErr||[]).slice(-2).join(';') || 'none') + ')';
   }
-  function setText(ta, text){
-    ta.focus();
-    var proto = ta.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  function setText(el, value){
+    var proto = el.tagName === 'TEXTAREA'
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
     var setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
-    setter.call(ta, text);
-    ta.dispatchEvent(new Event('input', {bubbles:true}));
-    ta.dispatchEvent(new Event('change', {bubbles:true}));
+    setter.call(el, value);
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+    el.dispatchEvent(new Event('change', {bubbles:true}));
   }
   function findSend(){
-    var bs = [].slice.call(document.querySelectorAll('button'));
-    for (var i=0;i<bs.length;i++){
-      var b = bs[i];
-      var tid = (b.getAttribute('data-testid')||'');
-      var al = (b.getAttribute('aria-label')||'');
-      if (/send/i.test(tid) || /send|发送/i.test(al)) {
-        if (!b.disabled) return b;
-      }
+    var sels = [
+      'button[data-testid="send-button"]',
+      'button[aria-label*="Send"]',
+      'button[aria-label*="发送"]',
+      'button[type="submit"]'
+    ];
+    for (var i=0;i<sels.length;i++){
+      var b = document.querySelector(sels[i]);
+      if (b && !b.disabled) return b;
+    }
+    var all = document.querySelectorAll('button');
+    for (var j=0;j<all.length;j++){
+      var t = (all[j].getAttribute('aria-label')||'') + (all[j].textContent||'');
+      if (/send|发送/i.test(t) && !all[j].disabled) return all[j];
     }
     return null;
   }
   function collect(expect){
-    // 按 muse2api 的采集规则：排除用户自己发的附件（否则会抓到我们上传/引用的东西），
-    // 并用 currentSrc —— blob: 地址常常只在 currentSrc 里可用。
+    // 排除用户自己发的附件，并用 currentSrc —— blob: 地址常常只在 currentSrc 里可用。
     var out = [];
     var seen = new Set();
     function addEl(el, tid){
@@ -439,26 +500,22 @@ class MuseWebTransport(private val context: Context) : WebTransport {
     for (var j=0;j<medias.length;j++){
       addEl(medias[j].parentElement || medias[j], 'agent-media');
     }
-    // 只要期望类型的产物
     return out.filter(function(x){ return expect === 'video' ? x.isVideo : !x.isVideo; });
   }
   async function toB64(url){
     var r = await fetch(url);
     if (!r.ok) throw new Error('media-http-' + r.status);
     var b = await r.blob();
-    var ab = await b.arrayBuffer();
-    var bytes = new Uint8Array(ab);
-    var s = '';
-    for (var i=0;i<bytes.length;i+=65536){
-      s += String.fromCharCode.apply(null, bytes.subarray(i, i+65536));
-    }
-    return {mime: b.type || '', size: b.size, b64: btoa(s)};
+    var reader = new FileReader();
+    var s = await new Promise(function(res, rej){
+      reader.onload = function(){ res(String(reader.result).split(',')[1] || ''); };
+      reader.onerror = function(){ rej(reader.error || new Error('read-failed')); };
+      reader.readAsDataURL(b);
+    });
+    return {mime: b.type || '', size: b.size, b64: s};
   }
   window.__museGen = async function(id, prompt, expect){
     try {
-      // 每次生成都回到新对话：旧对话里的产物会让「新产物计数」永远不增加，
-      // 而且历史上下文会影响生成结果。导航交给 Kotlin 侧做——
-      // 在 JS 里改 location 会立刻销毁上下文，回调传不回来。
       var t0 = Date.now();
       while (Date.now() - t0 < 45000 && !hydrated()){
         await new Promise(function(r){setTimeout(r,500)});
@@ -472,9 +529,8 @@ class MuseWebTransport(private val context: Context) : WebTransport {
       var btn = findSend();
       if (!btn) { bridge.onFail(id, '找不到发送按钮 ' + diag()); return; }
       btn.click();
-      // 等新产物出现；生成视频可能几分钟。
-      // 视频任务先出封面图（presentation-image），<video> 要等渲染完才挂上，
-      // 所以这里必须按「真的有 video 元素」判成，不能把封面当成品。
+      // 视频先出封面图（presentation-image），<video> 渲染完才挂上，
+      // 所以必须按真实 video 元素判定，不能拿封面当成品。
       var deadline = Date.now() + 900000;
       var lastProbe = '';
       while (Date.now() < deadline){
@@ -500,13 +556,5 @@ class MuseWebTransport(private val context: Context) : WebTransport {
   };
 })();
 """
-
-    /** 带确认的启动：返回 ok / missing / error，用于判断是否需要补注入。 */
-    private fun jsStart(id: String, prompt: String, expect: String): String =
-        "(function(){try{" +
-            "if (typeof window.__museGen !== 'function') return 'missing';" +
-            "window.__museGen(" + gson.toJson(id) + ", " + gson.toJson(prompt) +
-            ", " + gson.toJson(expect) + ");" +
-            "return 'ok';" +
-            "}catch(e){return 'error:' + e}})()"
+    }
 }
