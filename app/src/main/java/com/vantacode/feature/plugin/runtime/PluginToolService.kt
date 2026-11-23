@@ -19,6 +19,8 @@ import com.vantacode.feature.plugin.domain.PluginManager
 import com.vantacode.feature.settings.data.repository.ExecutionMode
 import com.vantacode.feature.settings.data.repository.ExecutionModeHolder
 import com.vantacode.feature.workspace.data.repository.WorkspaceRepository
+import java.io.File
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
@@ -377,15 +379,26 @@ class PluginToolService @Inject constructor(
         }
     }
 
-    /** 单图 base64 与总量都有上限；放不下的图整张省略，并标记 imagesTruncated。 */
+    /**
+     * 单图 base64 与总量都有上限。
+     *
+     * 超限的图不能直接丢掉——模型生的大图常常 2~5MB，丢掉等于这次生成白做，
+     * 而插件进程又收不到任何提示。改为先落盘，再用 imageFiles 字段把路径告诉插件，
+     * 让插件用 Markdown 引用它，宿主侧正常渲染、能长按保存。
+     */
     private fun JsonObjectBuilder.putImages(images: List<AgentImage>) {
         val kept = mutableListOf<JsonObject>()
+        val spilled = mutableListOf<JsonObject>()
         var total = 0
-        var truncated = false
         images.forEach { image ->
             val size = image.base64Data.length
             if (size > MAX_IMAGE_BASE64_BYTES || total + size > MAX_TOTAL_IMAGE_BASE64_BYTES) {
-                truncated = true
+                spillImage(image)?.let { path ->
+                    spilled += buildJsonObject {
+                        put("mimeType", image.mimeType)
+                        put("path", path)
+                    }
+                }
                 return@forEach
             }
             total += size
@@ -396,7 +409,35 @@ class PluginToolService @Inject constructor(
             }
         }
         if (kept.isNotEmpty()) put("images", JsonArray(kept))
-        if (truncated) put("imagesTruncated", true)
+        if (spilled.isNotEmpty()) put("imageFiles", JsonArray(spilled))
+    }
+
+    /**
+     * 把超大图片写到工作区的 generated-images 下，返回供插件引用的路径。
+     *
+     * 写失败（无工作区 / 磁盘满 / base64 损坏）就返回 null，调用方当作没拿到图。
+     */
+    private fun spillImage(image: AgentImage): String? {
+        image.path.takeIf { it.isNotBlank() }?.let { existing ->
+            // 已经落过盘（插件通过 path 传入的图）就不必再写一份
+            if (runCatching { File(existing).isFile }.getOrDefault(false)) return existing
+        }
+        val base64 = image.base64Data
+        if (base64.isBlank()) return null
+        val root = runCatching { requireWorkspace() }.getOrNull() ?: return null
+        return runCatching {
+            val dir = File(root, "generated-images").apply { mkdirs() }
+            val ext = when (image.mimeType.lowercase()) {
+                "image/png" -> "png"
+                "image/jpeg" -> "jpg"
+                "image/webp" -> "webp"
+                "image/gif" -> "gif"
+                else -> "png"
+            }
+            val file = File(dir, "img-${System.currentTimeMillis()}-${UUID.randomUUID().toString().take(8)}.$ext")
+            file.writeBytes(Base64.getDecoder().decode(base64))
+            file.absolutePath
+        }.getOrNull()
     }
 
     /** 按 UTF-8 字节上限截断，且不切断多字节字符。 */

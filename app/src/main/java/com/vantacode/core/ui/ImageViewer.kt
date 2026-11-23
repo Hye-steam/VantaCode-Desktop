@@ -1,5 +1,6 @@
 package com.vantacode.core.ui
 
+import android.widget.Toast
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image as ComposeImage
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
@@ -155,6 +157,19 @@ fun ImageViewerHost(
             ?: ViewerLoad.Failed
     }
 
+    val context = LocalContext.current
+    val saveScope = rememberCoroutineScope()
+    // 长按保存的反馈用 Toast 而不是自绘提示：Dialog 里的 Snackbar 需要自带 Scaffold，
+    // 为了一个「已保存」多套一层布局不划算。
+    val savedText = stringResource(R.string.common_image_saved)
+    val saveFailedPattern = stringResource(R.string.common_image_save_failed)
+    var toast by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(toast) {
+        val message = toast ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        toast = null
+    }
+
     Dialog(
         onDismissRequest = state::dismiss,
         properties = DialogProperties(
@@ -198,6 +213,15 @@ fun ImageViewerHost(
                     bitmap = loaded.bitmap,
                     contentDescription = request.title.ifBlank { stringResource(R.string.common_image_preview) },
                     onTap = state::dismiss,
+                    onLongPress = {
+                        saveScope.launch {
+                            val result = saveImageToGallery(context, loaded.bitmap, request.title)
+                            toast = result.fold(
+                                onSuccess = { savedText },
+                                onFailure = { saveFailedPattern.format(it.message ?: "未知错误") }
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -322,6 +346,7 @@ fun ZoomableImage(
     bitmap: ImageBitmap,
     contentDescription: String?,
     onTap: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var container by remember { mutableStateOf(IntSize.Zero) }
@@ -359,6 +384,9 @@ fun ZoomableImage(
             .pointerInput(imageSize, container) {
                 detectTapGestures(
                     onTap = { if (scale <= MIN_SCALE + SCALE_EPS) onTap() },
+                    onLongPress = onLongPress?.let { callback ->
+                        { callback() }
+                    },
                     onDoubleTap = { tap ->
                         val from = scale
                         val to = if (from > MIN_SCALE + SCALE_EPS) {

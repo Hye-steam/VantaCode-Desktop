@@ -152,8 +152,13 @@ class OpenAIAdapter @Inject constructor(
 
         val message = response.choices.firstOrNull()?.message
         val finishReason = response.choices.firstOrNull()?.finish_reason
-        val content = message?.content.asTextContent()
-        val images = message?.images?.mapNotNull { it.toAgentImage() } ?: emptyList()
+        val parts = message?.content.asContentParts()
+        val content = parts.text
+        val images = buildList {
+            addAll(message?.images?.mapNotNull { it.toAgentImage() } ?: emptyList())
+            // 正文里内联的 base64 图也当正式图片交付，不留在文本里
+            addAll(parts.images)
+        }
         val toolCalls = message?.tool_calls?.map { convertToToolCall(it) } ?: emptyList()
         val reasoning = message?.reasoning_content?.takeIf { it.isNotEmpty() }
             ?: message?.reasoning?.takeIf { it.isNotEmpty() }
@@ -519,7 +524,10 @@ class OpenAIAdapter @Inject constructor(
             ) {
                 throw StreamApiException("EMPTY", "上游返回空内容（模型未输出任何正文）")
             }
-            send(AIStreamChunk.Final(AIResponse(content = textBuilder.toString(), toolCalls = toolCalls, stopReason = finishReason, inputTokens = streamInputTokens, outputTokens = streamOutputTokens, cachedInputTokens = streamCachedInputTokens, cacheCreationTokens = streamCacheCreationTokens, images = streamedImages)))
+            // 流式正文里同样可能带 `![x](data:image/...)`（模型不把图放 delta.images 而是直接写正文），
+            // 这里抽出来合进 streamedImages，否则落库前会被 150KB 上限剔掉。
+            val finalParts = splitMarkdownInlineImages(textBuilder.toString())
+            send(AIStreamChunk.Final(AIResponse(content = finalParts.text, toolCalls = toolCalls, stopReason = finishReason, inputTokens = streamInputTokens, outputTokens = streamOutputTokens, cachedInputTokens = streamCachedInputTokens, cacheCreationTokens = streamCacheCreationTokens, images = streamedImages + finalParts.images)))
                     }
             },
             onRetry = { attempt, max, error -> send(AIStreamChunk.Retrying(attempt, max, error)) }
@@ -817,18 +825,59 @@ class OpenAIAdapter @Inject constructor(
     /**
      * OpenAI chat completion 返回的 content 可能是字符串或数组（多模态/生图模型）。
      * 数组元素里可能含 image_url 的 base64 data URL（几 MB），直接 toString() 会把整段 base64
-     * 当成 assistant 文本落库，撑爆 SQLite CursorWindow 导致启动崩溃。这里只提取文本部分，
-     * 图片只保留说明/远程 URL 引用，绝不把 base64 写进 content。
+     * 当成 assistant 文本落库，撑爆 SQLite CursorWindow 导致启动崩溃。
+     *
+     * 所以正文只留文本，内联图一律拆出来当 [AgentImage] 交付——写进正文也会在
+     * 落库前被 sanitizeContent 的 150KB 上限剔掉，图等于没生成。
      */
-    private fun Any?.asTextContent(): String = when (this) {
-        null -> ""
-        is String -> this
+    /** content 数组拆完后：正文文本 + 内联 base64 图片（已转成 AgentImage）。 */
+    private class ContentParts(val text: String, val images: List<AgentImage>)
+
+    private fun Any?.asContentParts(): ContentParts = when (this) {
+        null -> ContentParts("", emptyList())
+        // 纯字符串也可能藏着 `![x](data:image/...)` 的 Markdown 内联图，同样要抽出来
+        is String -> splitMarkdownInlineImages(this)
         is List<*> -> extractTextFromContentParts(this)
-        else -> toString()
+        else -> ContentParts(toString(), emptyList())
     }
 
-    private fun extractTextFromContentParts(parts: List<*>): String {
+    /** data:image/... 的 data URL → AgentImage；不是内联图或解码不了就返回 null。 */
+    private fun String.toAgentImageOrNull(): AgentImage? = dataUrlToAgentImage(this)
+
+    /**
+     * 正文里以 Markdown 形式内联的 base64 图：`![alt](data:image/png;base64,...)`。
+     *
+     * 模型（尤其生图模型）常常不把图放在 content 数组的 image_url 里，而是直接
+     * 写一段 Markdown 到正文。这种 base64 进正文后会被落库前的 150KB 上限剔掉，
+     * 图等于没生成，所以必须在这里一并抽出来。
+     */
+    private val markdownInlineImage = Regex(
+        """!\[([^\]]*)\]\(\s*(data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=\r\n]+)\s*\)"""
+    )
+
+    /** 把纯文本正文里的内联 base64 图抽成 AgentImage，正文里只留一个占位链接。 */
+    private fun splitMarkdownInlineImages(raw: String): ContentParts {
+        if (!raw.contains("data:image/", ignoreCase = true)) {
+            return ContentParts(raw, emptyList())
+        }
+        val images = mutableListOf<AgentImage>()
+        val text = markdownInlineImage.replace(raw) { match ->
+            val alt = match.groupValues[1].ifBlank { "图片" }
+            val image = match.groupValues[2].toAgentImageOrNull()
+            if (image == null) {
+                "[$alt]"
+            } else {
+                images.add(image)
+                // 图片本体已作为附件交付，正文里只留名字，避免重复占位
+                "[$alt]"
+            }
+        }
+        return ContentParts(text, images)
+    }
+
+    private fun extractTextFromContentParts(parts: List<*>): ContentParts {
         val text = StringBuilder()
+        val inlineImages = mutableListOf<AgentImage>()
         for (part in parts) {
             when (part) {
                 is Map<*, *> -> {
@@ -842,14 +891,20 @@ class OpenAIAdapter @Inject constructor(
                                 is Map<*, *> -> img["url"] as? String
                                 else -> null
                             }
+                            // 内联 base64 不进正文：正文落库前会被 150KB 上限剔掉，图就没了。
+                            // 收进 inlineImages，由调用方转成 AgentImage（自带磁盘缓存通路）。
                             if (url != null && url.startsWith("data:image", ignoreCase = true)) {
-                                text.append("\n[图片已省略：内嵌图片数据过大]")
+                                url.toAgentImageOrNull()?.let { inlineImages.add(it) }
                             } else if (!url.isNullOrBlank()) {
                                 text.append("\n[图片：").append(url).append("]")
                             }
                         }
                         "input_image" -> {
-                            text.append("\n[图片已省略：内嵌图片数据过大]")
+                            val raw = (part["image_url"] as? String)
+                                ?: (part["image_url"] as? Map<*, *>)?.get("url") as? String
+                                ?: (part["data"] as? String)?.let { if (it.startsWith("data:")) it else "data:image/png;base64,$it" }
+                            raw?.takeIf { it.startsWith("data:image", ignoreCase = true) }
+                                ?.toAgentImageOrNull()?.let { inlineImages.add(it) }
                         }
                         else -> {}
                     }
@@ -858,7 +913,7 @@ class OpenAIAdapter @Inject constructor(
                 else -> {}
             }
         }
-        return text.toString()
+        return ContentParts(text.toString(), inlineImages)
     }
 
     private fun convertToToolCall(openAIToolCall: OpenAIToolCall): ToolCall {

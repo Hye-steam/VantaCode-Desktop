@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image as ComposeImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.vantacode.R
+import com.vantacode.core.ui.saveVideoToGallery
 import com.vantacode.feature.agent.presentation.AgentAttachment
 import com.vantacode.feature.workspace.domain.FileAccessProvider
 import compose.icons.FeatherIcons
@@ -49,6 +52,7 @@ import compose.icons.feathericons.FileText
 import compose.icons.feathericons.Image
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** 附件缩略图边长：一行一个文件时左侧的小图，够看清是截图还是照片即可。 */
@@ -286,6 +290,7 @@ private fun isApk(attachment: AgentAttachment): Boolean {
 /**
  * 视频附件：直接内联播放。
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun VideoClip(attachment: AgentAttachment) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -353,11 +358,38 @@ private fun VideoClip(attachment: AgentAttachment) {
             )
         }
     } else {
-        InlineVideoPlayer(
-            mediaUri = shown,
-            modifier = Modifier.padding(top = 4.dp),
-            onFullscreen = { fullscreenUri = shown }
-        )
+        // 长按保存到相册：视频播放器自己会吞手势，所以把长按包在外层，
+        // 用 combinedClickable 而不是 clickable，不抢播放器自己的点击。
+        val scope = rememberCoroutineScope()
+        val savedText = stringResource(R.string.common_image_saved)
+        val failedPattern = stringResource(R.string.common_image_save_failed)
+        Box(
+            modifier = Modifier.combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    // media-preview 里那份就是最终要存的字节，不用再拉一次上游
+                    val local = shown.path?.let(::File)
+                    scope.launch {
+                        val result = if (local != null && local.isFile) {
+                            saveVideoToGallery(context, local, attachment.fileName.ifBlank { "video.mp4" })
+                        } else {
+                            Result.failure<IllegalStateException>(IllegalStateException("视频文件不可用"))
+                        }
+                        val message = result.fold(
+                            onSuccess = { savedText },
+                            onFailure = { failedPattern.format(it.message ?: "未知错误") }
+                        )
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        ) {
+            InlineVideoPlayer(
+                mediaUri = shown,
+                modifier = Modifier.padding(top = 4.dp),
+                onFullscreen = { fullscreenUri = shown }
+            )
+        }
     }
     fullscreenUri?.let { target ->
         FullscreenVideoDialog(mediaUri = target, onDismiss = { fullscreenUri = null })

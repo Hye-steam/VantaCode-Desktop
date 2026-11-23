@@ -128,8 +128,13 @@ class PluginModelImageCodec(private val hostPaths: PluginHostPaths) {
         const val MAX_OUTPUT_IMAGE_CHARS = 1536 * 1024
         const val MAX_OUTPUT_IMAGES_CHARS = 2 * 1024 * 1024
 
-        /** 模型直出的图片：跳过空数据，超过单图/总量上限的丢弃并标记截断。 */
-        fun encodeOutput(images: List<AgentImage>): PluginModelEncodedImages {
+        /**
+         * 模型直出的图片：超出单图/总量上限的不再直接丢弃，而是落盘后以 path 返回。
+         *
+         * 生图模型的成品常常 2~5MB（base64 后更大），原样丢掉等于这次生成白做。
+         * 落盘失败（无工作区/磁盘满/base64 损坏）才真的丢掉，并标记 truncated。
+         */
+        fun encodeOutput(images: List<AgentImage>, spill: ((AgentImage) -> String?)? = null): PluginModelEncodedImages {
             val result = mutableListOf<JsonObject>()
             var totalChars = 0
             var truncated = false
@@ -137,7 +142,16 @@ class PluginModelImageCodec(private val hostPaths: PluginHostPaths) {
                 val base64 = image.base64Data
                 if (base64.isEmpty()) continue
                 if (base64.length > MAX_OUTPUT_IMAGE_CHARS || totalChars + base64.length > MAX_OUTPUT_IMAGES_CHARS) {
-                    truncated = true
+                    val path = spill?.invoke(image)
+                    if (path != null) {
+                        // 换成路径交付：插件照样能拿到图，只是不走 base64
+                        result.add(buildJsonObject {
+                            put("mimeType", image.mimeType)
+                            put("path", path)
+                        })
+                    } else {
+                        truncated = true
+                    }
                     continue
                 }
                 totalChars += base64.length

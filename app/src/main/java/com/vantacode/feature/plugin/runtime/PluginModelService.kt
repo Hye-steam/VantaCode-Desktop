@@ -1058,7 +1058,9 @@ class PluginModelService internal constructor(
         }
         if (providerState.isNotEmpty()) put("providerState", providerState)
         if (response.images.isNotEmpty()) put("imageCount", response.images.size)
-        val images = PluginModelImageCodec.encodeOutput(response.images)
+        val images = PluginModelImageCodec.encodeOutput(response.images) { image ->
+            spillGeneratedImage(image)
+        }
         if (images.array.isNotEmpty()) put("images", images.array)
         if (images.truncated) put("imagesTruncated", true)
         put("usage", buildJsonObject {
@@ -1068,6 +1070,34 @@ class PluginModelService internal constructor(
             put("cacheCreation", response.cacheCreationTokens)
         })
         put("durationMs", durationMs)
+    }
+
+    /**
+     * 把超出 base64 上限的生成图落到工作区，返回供插件引用的路径。
+     *
+     * 失败（无工作区 / 磁盘满 / base64 损坏）返回 null，由调用方标记 truncated。
+     * 这一步不能省：生图模型成品动辄 2~5MB，丢掉就等于这次生成白做。
+     */
+    private fun spillGeneratedImage(image: AgentImage): String? {
+        image.path.takeIf { it.isNotBlank() }?.let { existing ->
+            if (runCatching { java.io.File(existing).isFile }.getOrDefault(false)) return existing
+        }
+        val base64 = image.base64Data
+        if (base64.isBlank()) return null
+        val root = workspaceRepository.current.value?.path?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            val dir = java.io.File(root, "generated-images").apply { mkdirs() }
+            val ext = when (image.mimeType.lowercase()) {
+                "image/png" -> "png"
+                "image/jpeg" -> "jpg"
+                "image/webp" -> "webp"
+                "image/gif" -> "gif"
+                else -> "png"
+            }
+            val file = java.io.File(dir, "img-${System.currentTimeMillis()}-${java.util.UUID.randomUUID().toString().take(8)}.$ext")
+            file.writeBytes(java.util.Base64.getDecoder().decode(base64))
+            file.absolutePath
+        }.getOrNull()
     }
 
     private fun mapError(error: Throwable): Pair<String, String> = when (error) {
