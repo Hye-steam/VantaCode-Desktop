@@ -31,8 +31,19 @@ object MediaProxy {
         return ALLOWED_HOSTS.any { host == it || host.endsWith(".$it") }
     }
 
-    /** 图片缓存目录。放在共享存储，客户端能直接读。 */
-    private val CACHE_DIR = java.io.File("/sdcard/VantaGate/media")
+    /**
+     * 媒体缓存目录。App 层启动时通过 [setCacheDir] 注入可写路径；
+     * 没注入时回退到共享存储（桌面端 / 有权限的设备）。
+     */
+    @Volatile
+    private var cacheDir: java.io.File? = null
+
+    fun setCacheDir(dir: java.io.File) {
+        cacheDir = dir
+    }
+
+    private val CACHE_DIR: java.io.File get() =
+        cacheDir ?: java.io.File("/sdcard/VantaGate/media")
 
     /**
      * 把远端媒体落到本地文件，返回文件绝对路径。
@@ -64,6 +75,26 @@ object MediaProxy {
             if (file.isFile && file.length() > 0L) file.absolutePath else null
         } catch (e: Exception) {
             runCatching { file.delete() }
+            null
+        }
+    }
+
+    /**
+     * 把 base64 字节直接写成媒体文件，返回绝对路径。
+     *
+     * 用于 `blob:` 这类只在页面会话内有效的产物：视频动辄几十 MB，
+     * 塞进 chat 响应会把客户端和网关一起撞爆，只能落盘后给本地路径。
+     */
+    fun saveBase64(base64: String, ext: String): String? {
+        return try {
+            if (!CACHE_DIR.isDirectory && !CACHE_DIR.mkdirs()) return null
+            val safeExt = if (ext.startsWith(".")) ext else ".$ext"
+            val name = "muse-" + System.currentTimeMillis() + safeExt
+            val file = java.io.File(CACHE_DIR, name)
+            val bytes = java.util.Base64.getDecoder().decode(base64)
+            java.io.FileOutputStream(file).use { it.write(bytes) }
+            if (file.isFile && file.length() > 0L) file.absolutePath else null
+        } catch (e: Exception) {
             null
         }
     }

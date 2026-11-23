@@ -944,6 +944,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * 添加 muse.ai 账号：账号本身就是一份登录 cookie。
+     *
+     * 必需 hatch_sess，其余（hatch_vml / hatch_gw）能带上就带，
+     * 页面打开后会自动续期并回写。
+     */
+    fun addMuseAccount(rawCookie: String): Boolean {
+        val ck = rawCookie.trim()
+        if (ck.isBlank()) {
+            notify("Cookie 不能为空")
+            return false
+        }
+        if (!ck.contains("hatch_sess")) {
+            notify("Cookie 里缺少 hatch_sess，请重新导出")
+            return false
+        }
+        // uid 用 hatch_sess 前 8 位：同一账号重复导入会覆盖而不是新增
+        val sess = Regex("hatch_sess=([^;\\s]+)").find(ck)?.groupValues?.get(1).orEmpty()
+        val uid = sess.take(8).ifEmpty { "muse" + System.currentTimeMillis() % 100000 }
+        engine.pool.add(
+            dev.aigw.provider.ProviderAccount(
+                providerId = "muse",
+                uid = uid,
+                displayName = "muse " + uid,
+                secret = ck,
+            ),
+        )
+        refreshAll()
+        notify("muse 账号已添加")
+        return true
+    }
+
     fun startTraeLogin(region: String) {
         viewModelScope.launch {
             val ticket = withContext(Dispatchers.IO) {

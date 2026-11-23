@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import dev.aigw.gateway.Engine
 import dev.aigw.gateway.GatewayHttpServer
 import dev.aigw.app.data.ChatglmWebTransport
+import dev.aigw.app.data.MuseWebTransport
 import dev.aigw.app.data.DeepSeekWebTransport
 import java.io.File
 
@@ -24,6 +25,9 @@ class AiGatewayApp : Application() {
 
     /** 智谱清言：对话请求走这个 WebView 通道（WAF 签名由页面环境注入）。 */
     val chatglmTransport: ChatglmWebTransport by lazy { ChatglmWebTransport(this) }
+
+    /** muse.ai 页面通道：懒加载，首次生成时才建 WebView。 */
+    val museTransport: MuseWebTransport by lazy { MuseWebTransport(this) }
 
 
     /** 桌面宠物。不挂在网关服务上：开关一开就该出现，和网关是否运行无关。 */
@@ -61,8 +65,16 @@ class AiGatewayApp : Application() {
         // 首个启动的免费池初始化：放主线程之前，保证首帧就能看到模型
         runCatching { engine.seedFreePoolIfNeeded() }
             .onFailure { engine.eventLog.error("设置", "免费池初始化失败：${it.message}") }
+        // 媒体缓存目录：App 私有外部目录，无需存储权限也能写，
+        // VantaCode 读这个路径同样无障碍。
+        runCatching {
+            val dir = java.io.File(getExternalFilesDir(null) ?: filesDir, "media")
+            dir.mkdirs()
+            dev.aigw.gateway.MediaProxy.setCacheDir(dir)
+        }
         // 智谱清言页面通道：懒加载，提前挂到引擎上（真正请求时才创建 WebView）
         engine.chatglmWebTransport = chatglmTransport
+        engine.museWebTransport = museTransport
         // App 启动即静默上报一次（不阻塞首帧，失败静默），保证后台能先看到设备
         Thread {
             runCatching { engine.syncRemote(appVersion) }

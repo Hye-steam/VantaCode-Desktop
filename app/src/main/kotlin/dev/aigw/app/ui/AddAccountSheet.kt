@@ -84,6 +84,7 @@ internal fun AddAccountSheet(
 ) {
     var showDoubaoForm by remember { mutableStateOf(false) }
     var showCallbackPaste by remember { mutableStateOf(false) }
+    var showMuseCookie by remember { mutableStateOf(false) }
     val enabled = vm.state.providerEnabled[kind.providerId] ?: true
     if (showDoubaoForm) {
         DoubaoAccountDialog(
@@ -105,6 +106,19 @@ internal fun AddAccountSheet(
                 val ok = vm.pasteCallbackUrl(raw)
                 if (ok) {
                     showCallbackPaste = false
+                    onDismiss()
+                }
+            },
+        )
+        return
+    }
+    if (showMuseCookie) {
+        MuseCookieDialog(
+            onDismiss = { showMuseCookie = false },
+            onSubmit = { raw ->
+                val ok = vm.addMuseAccount(raw)
+                if (ok) {
+                    showMuseCookie = false
                     onDismiss()
                 }
             },
@@ -222,6 +236,16 @@ internal fun AddAccountSheet(
                         onDismiss()
                     }
                     OpButton("刷新余额", Icons.Outlined.Refresh) { vm.refreshCredits(kind.providerId) }
+                    OpButton("JSON 导入登录", Icons.Outlined.Code) {
+                        onImport()
+                    }
+                }
+                DetailKind.Muse -> {
+                    // muse.ai 的生成只对页面开放，账号就是一份登录 cookie。
+                    // 在浏览器里登录后把 cookie 粘进来即可。
+                    OpButton("粘贴 Cookie 登录", Icons.Outlined.ContentPaste, primary = true) {
+                        showMuseCookie = true
+                    }
                     OpButton("JSON 导入登录", Icons.Outlined.Code) {
                         onImport()
                     }
@@ -688,6 +712,42 @@ internal fun DoubaoAccountDialog(
                 if (vm.addDoubaoAccount(name.ifBlank { "豆包账号" }, cookie, deviceId, webId)) {
                     onDismiss()
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MuseCookieDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    LoopSheet(visible = true, onDismiss = onDismiss) {
+        LoopSheetHeader(
+            icon = Icons.Outlined.ContentPaste,
+            iconBg = LoopColors.brandSoft,
+            iconTint = LoopColors.brand,
+            title = "muse.ai 登录",
+            onDismiss = onDismiss,
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+        ) {
+            Text(
+                "在浏览器登录 muse.ai 后，把整串 Cookie 粘进来（必须含 hatch_sess）。" +
+                    "开发者工具 → Network → 任意请求 → Request Headers → Cookie。",
+                fontSize = 12.5.sp,
+                lineHeight = 19.sp,
+                color = LoopColors.muted,
+            )
+            Spacer(Modifier.height(14.dp))
+            DoubaoField("Cookie", text, lines = 4) { text = it }
+            Spacer(Modifier.height(16.dp))
+            OpButton("确认", Icons.Outlined.Check, primary = true) {
+                onSubmit(text.trim())
             }
         }
     }

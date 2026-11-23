@@ -130,6 +130,12 @@ private enum class ProviderKind(
         providerId = "chatgpt",
         logoRes = R.drawable.ic_provider_chatgpt,
     ),
+    Muse(
+        title = "muse.ai",
+        tagline = "生图与生视频 · 网页会话",
+        providerId = "muse",
+        logoRes = R.drawable.ic_provider_muse,
+    ),
     Relay(
         title = "自定义供应商",
         tagline = "填 Base URL 与密钥即可添加",
@@ -350,6 +356,7 @@ private fun providerIconBg(kind: ProviderKind): Color = when (kind) {
     ProviderKind.Doubao -> LoopColors.accentBlueSoft
     ProviderKind.Jimeng -> LoopColors.brandSoft
     ProviderKind.Chatgpt -> LoopColors.accentGreenSoft
+    ProviderKind.Muse -> LoopColors.brandSoft
     ProviderKind.FreePool -> LoopColors.accentGreenSoft
     ProviderKind.Relay -> LoopColors.brandSoft
 }

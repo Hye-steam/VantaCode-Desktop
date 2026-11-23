@@ -39,6 +39,7 @@ import dev.aigw.provider.deepseek.DeepSeekProvider
 import dev.aigw.provider.doubao.DoubaoProvider
 import dev.aigw.provider.chatgpt.ChatGptProvider
 import dev.aigw.provider.jimeng.JimengProvider
+import dev.aigw.provider.muse.MuseProvider
 import dev.aigw.provider.freepool.FreePoolProvider
 import dev.aigw.provider.loomy.LoomyProvider
 import dev.aigw.provider.mimo.MimoProvider
@@ -92,6 +93,10 @@ class Engine(val dataDir: File) {
     @Volatile
     var chatglmWebTransport: WebTransport? = null
 
+    /** muse.ai 的页面通道：生成能力只对真实页面开放，靠 WebView 操作 DOM。 */
+    @Volatile
+    var museWebTransport: WebTransport? = null
+
     private val providers: List<Provider> = listOf(
         CustomProvider(),
         CodeBuddyProvider(),
@@ -109,6 +114,7 @@ class Engine(val dataDir: File) {
         DoubaoProvider(),
         JimengProvider(),
         ChatGptProvider(),
+        MuseProvider(transport = { museWebTransport }),
     )
     private val providerById: Map<String, Provider> = providers.associateBy { it.id }
     private val gates = ConcurrentHashMap<String, Semaphore>()
@@ -333,6 +339,14 @@ class Engine(val dataDir: File) {
             }
             return routes
         }
+        if (prefix == MuseProvider.ID) {
+            if (!isProviderEnabled(MuseProvider.ID)) return routes
+            if (!modelAvailable(MuseProvider.ID, actual)) return routes
+            pool.available(MuseProvider.ID).forEach { e ->
+                routes.add(Route(e.account, actual, "muse:${e.account.uid}"))
+            }
+            return routes
+        }
         if (prefix == FreePoolProvider.ID) {
             if (!isProviderEnabled(FreePoolProvider.ID)) return routes
             // 免费池下挂多个渠道，模型名是「渠道/模型」两级；
@@ -391,6 +405,7 @@ class Engine(val dataDir: File) {
         prefix == DoubaoProvider.ID -> DoubaoProvider.ID
         prefix == JimengProvider.ID -> JimengProvider.ID
         prefix == ChatGptProvider.ID -> ChatGptProvider.ID
+        prefix == MuseProvider.ID -> MuseProvider.ID
         else -> null
     }
 

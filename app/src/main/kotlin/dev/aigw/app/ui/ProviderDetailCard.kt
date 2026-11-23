@@ -131,6 +131,7 @@ internal fun SwipeableAccountCard(
         DetailKind.Doubao -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         DetailKind.Jimeng -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         DetailKind.Chatgpt -> account.name.takeIf { it.isNotBlank() } ?: account.uid
+        DetailKind.Muse -> account.name.takeIf { it.isNotBlank() } ?: account.uid
         else -> account.uid
     }
     val cooling = account.cooldownUntil > System.currentTimeMillis()
@@ -150,6 +151,7 @@ internal fun SwipeableAccountCard(
         DetailKind.Mimo -> "小米 AI Studio"
         DetailKind.Jimeng -> "即梦 · 图片生成"
         DetailKind.Chatgpt -> "Codex 后端 · 文字推理"
+        DetailKind.Muse -> "网页会话 · 生图与生视频"
         else -> buildString {
             append(if (account.region == "global") "国际版" else "国内版")
             if (account.enterprise) append(" · 企业号")
