@@ -1171,7 +1171,7 @@ class StatefulAgentWorkflow @Inject constructor(
      * 提示词来自 [SystemPromptProvider] 的 `agent/title-generator.md`。
      * 生成失败或取不到标题时返回 null（调用方保留临时标题）。
      */
-    override suspend fun generateTitle(sessionId: String, request: String): String? = runCatching {
+    override suspend fun generateTitle(sessionId: String, request: String): String? = runCatching<String?> {
         val provider = resolveTitleFallbackProvider(sessionId) ?: getEffectiveProvider(sessionId)
         val prompt = promptProvider.resolvePrompt(TITLE_GENERATOR_FILE)
             .replace(LEADING_COMMENT, "")
@@ -1218,10 +1218,25 @@ class StatefulAgentWorkflow @Inject constructor(
                 )
             }
         }
-        response.content.trim().take(TITLE_MAX_CHARS).ifBlank { null }
+        // 部分 provider（尤其是插件类）会把正文而不是标题返回，导致标题变成
+        // `![muse 生成](/storage/...)` 这样一串路径。遇到不像标题的结果就回退成用户原话。
+        val raw = response.content.trim().take(TITLE_MAX_CHARS).ifBlank { null } ?: return@runCatching null
+        if (looksLikeMediaPath(raw)) null else raw
     }.onFailure { e ->
         FileLogger.w(TAG, "生成会话标题失败", e)
     }.getOrNull()
+
+    /** 标题候选里出现这些痕迹时，说明拿到的是图片/路径而不是一句话标题。 */
+    private fun looksLikeMediaPath(title: String): Boolean {
+        val t = title.trim()
+        if (t.isEmpty()) return true
+        return t.contains("![") ||
+            t.startsWith("data:") ||
+            t.contains(";base64,") ||
+            t.contains("/storage/") ||
+            t.contains("/Android/") ||
+            t.contains("://")
+    }
 
     override suspend fun generateCommitMessage(diff: String): String? = runCatching {
         if (diff.isBlank()) return@runCatching null

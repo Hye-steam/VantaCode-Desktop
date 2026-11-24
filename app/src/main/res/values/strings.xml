@@ -2420,6 +2420,9 @@
     <string name="plugins_section_title">插件</string>
     <string name="plugins_dev_section">插件开发</string>
     <string name="markdown_image_failed">图片加载失败</string>
+    <string name="markdown_video_tap_to_play">点击播放视频</string>
+    <string name="markdown_video_loading">视频加载中…</string>
+    <string name="markdown_video_failed">视频无法播放</string>
     <string name="plugins_downloading_percent">正在下载 %1$d%%</string>
     <string name="plugins_store_badge_official">官方</string>
     <string name="plugins_downloading_bytes">正在下载 %1$s</string>

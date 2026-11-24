@@ -55,6 +55,9 @@ internal class MarkdownImageTransformer(
     private val remoteCache: RemoteImageCache? = null
 ) : ImageTransformer {
 
+    /** 供正文里的视频播放器复用同一个文件访问器（内嵌播放器需要它把容器路径落成真实文件）。 */
+    internal fun fileAccess(): FileAccessProvider = fileAccess
+
     private sealed interface LoadState {
         object Loading : LoadState
         object Failed : LoadState
@@ -64,6 +67,9 @@ internal class MarkdownImageTransformer(
     @Composable
     override fun transform(link: String): ImageData? {
         if (!canRender(link)) return null
+        // 视频不归这里管：MarkdownComponents.image 回调会接管，那里能放真正的播放器。
+        // 若不管而落到 BitmapFactory，解 mp4 必然失败，正文就是一片空白。
+        if (isVideoLink(link)) return null
         val state by produceState<LoadState>(LoadState.Loading, key1 = link) {
             value = withContext(Dispatchers.IO) {
                 decode(link)?.let { LoadState.Ready(it) } ?: LoadState.Failed
@@ -158,9 +164,18 @@ internal class MarkdownImageTransformer(
         return !u.contains("://")
     }
 
-    private companion object {
+    companion object {
         const val TAG = "MarkdownImage"
         /** 显示最大高度（dp），超长图等比缩放。 */
         val MAX_HEIGHT_DP = 320.dp
+
+        /** 视频扩展名（与 AgentAttachment.isVideo 保持一致）。 */
+        private val VIDEO_EXTS = listOf(".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v", ".3gp")
+
+        /** 链接是否指向视频文件。视频由播放器渲染，不能交给图片解码器。 */
+        internal fun isVideoLink(url: String): Boolean {
+            val path = url.trim().substringBefore('?').substringBefore('#').lowercase()
+            return VIDEO_EXTS.any { path.endsWith(it) }
+        }
     }
 }

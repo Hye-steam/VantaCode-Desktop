@@ -1,8 +1,11 @@
 package com.vantacode.feature.agent.presentation.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,11 +22,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -36,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vantacode.R
 import com.vantacode.core.theme.semanticColors
+import com.vantacode.feature.workspace.domain.FileAccessProvider
 import com.mikepenz.markdown.compose.MarkdownElement
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.LocalMarkdownDimens
@@ -188,6 +196,13 @@ internal fun MarkdownContent(
     }
 
     val processed = remember(text) { MarkdownPreprocessor.process(text) }
+    // 正文里的视频不能交给 Markdown：图片渲染链最终落到 BitmapFactory，解 mp4 必定失败，
+    // 正文就是一片空白。这里把视频链接从正文摘出来，正文照常当图片语法删掉，
+    // 播放器在正文下面单独渲染。
+    val videoLinks = remember(processed) { extractVideoLinks(processed) }
+    val textForMarkdown = remember(processed, videoLinks) {
+        if (videoLinks.isEmpty()) processed else stripVideoLinks(processed, videoLinks)
+    }
     val baseTransformer = LocalMarkdownImageTransformer.current
     val mathTransformer = remember(baseTransformer, body.fontSize.value) {
         MathImageTransformer(baseTransformer, body.fontSize.value)
@@ -199,10 +214,10 @@ internal fun MarkdownContent(
     val density = LocalDensity.current
     val textSizePx = with(density) { body.fontSize.toPx() }
     val colorArgb = color.toArgb()
-    LaunchedEffect(processed, textSizePx, colorArgb) {
-        if (!processed.contains("aicode-math-")) return@LaunchedEffect
+    LaunchedEffect(textForMarkdown, textSizePx, colorArgb) {
+        if (!textForMarkdown.contains("aicode-math-")) return@LaunchedEffect
         withContext(Dispatchers.Default) {
-            MathImageTransformer.prewarm(processed, textSizePx, colorArgb)
+            MathImageTransformer.prewarm(textForMarkdown, textSizePx, colorArgb)
         }
     }
 
@@ -218,14 +233,14 @@ internal fun MarkdownContent(
         // 显示原文纯文本，流式场景下每次文本变化都会闪现「最新文本的裸文本」（底部字在闪）。
         // 因此 Loading 期间优先渲染最近一次成功解析的结果（旧文本的完整 md 排版），解析
         // 完成后再平滑切到新文本，内容只增不跳。
-        val mdState = rememberMarkdownState(content = processed, retainState = true)
+        val mdState = rememberMarkdownState(content = textForMarkdown, retainState = true)
         val parseState by mdState.state.collectAsState()
-        val cachedState = cache?.get(processed)
-        val prefixFallback = cache?.getBestPrefix(processed)
+        val cachedState = cache?.get(textForMarkdown)
+        val prefixFallback = cache?.getBestPrefix(textForMarkdown)
         // 委托属性不能智能转换，先取局部快照再判断
         val currentState = parseState
         val parsedState: MarkdownParseState = when {
-            currentState is MarkdownParseState.Success && currentState.content == processed -> currentState
+            currentState is MarkdownParseState.Success && currentState.content == textForMarkdown -> currentState
             cachedState != null -> cachedState
             else -> currentState
         }
@@ -339,6 +354,15 @@ internal fun MarkdownContent(
                 components = mdComponents,
                 success = successRenderer,
             )
+            // 正文里被摘掉的视频：放在 Markdown 下面用真播放器渲染。
+            if (videoLinks.isNotEmpty() && baseTransformer is MarkdownImageTransformer) {
+                val access = baseTransformer.fileAccess()
+                videoLinks.forEach { link ->
+                    Box(Modifier.padding(top = 8.dp)) {
+                        InlineMarkdownVideo(link, access)
+                    }
+                }
+            }
         } else if (loading != null) {
             loading()
         } else {
@@ -461,4 +485,88 @@ private fun PlainMarkdownText(
         modifier = modifier,
         style = MaterialTheme.typography.bodyMedium.copy(color = color, lineHeight = 21.sp)
     )
+}
+
+
+/**
+ * Markdown 正文里的内嵌视频播放器。
+ *
+ * Markdown 图片节点本来只能吃 Painter，装不下 ExoPlayer；`MarkdownComponents.image`
+ * 是 @Composable 回调，所以能直接放播放器。播放/暂停/全屏全走 [InlineVideoPlayer] 那套。
+ */
+@Composable
+private fun InlineMarkdownVideo(url: String, fileAccess: FileAccessProvider) {
+    val context = LocalContext.current
+    // null = 尚未加载完成；Loaded(null) = 加载失败
+    var state by remember(url) { mutableStateOf<Result<android.net.Uri>?>(null) }
+    var fullscreen by remember(url) { mutableStateOf(false) }
+
+    LaunchedEffect(url) {
+        state = withContext(Dispatchers.IO) {
+            runCatching {
+                if (isRemoteUrl(url)) android.net.Uri.parse(url)
+                else android.net.Uri.fromFile(fileAccess.copyToLocal(url))
+            }
+        }
+    }
+
+    val loaded = state
+    val current = loaded?.getOrNull()
+    if (current == null) {
+        // 载入中与失败都给一个占位，避免正文出现空洞
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(
+                    if (loaded == null) R.string.markdown_video_loading else R.string.markdown_video_failed
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
+    }
+
+    InlineVideoPlayer(
+        mediaUri = current,
+        modifier = Modifier.fillMaxWidth(),
+        onFullscreen = { fullscreen = true }
+    )
+
+    if (fullscreen) {
+        FullscreenVideoDialog(mediaUri = current, onDismiss = { fullscreen = false })
+    }
+}
+
+/** 匹配 Markdown 图片语法 `![alt](url)`，用来找出指向视频的那几个。 */
+private val MARKDOWN_IMAGE_SYNTAX = Regex("""!\[[^\]]*]\(([^)]+)\)""")
+
+/** 正文里所有指向视频文件的图片语法链接（含 alt 之外的原始路径）。 */
+private fun extractVideoLinks(text: String): List<String> {
+    if (!text.contains("![") || !text.contains(".mp4") && !text.contains(".webm") &&
+        !text.contains(".mov") && !text.contains(".mkv")
+    ) return emptyList()
+    return MARKDOWN_IMAGE_SYNTAX.findAll(text)
+        .mapNotNull { m ->
+            val url = m.groupValues[1].trim().substringBefore(' ').trim()
+            if (url.isNotEmpty() && MarkdownImageTransformer.isVideoLink(url)) url else null
+        }
+        .distinct()
+        .toList()
+}
+
+/** 把指向视频的图片语法从正文里删掉，避免 Markdown 试图把它当图片画。 */
+private fun stripVideoLinks(text: String, links: List<String>): String {
+    if (links.isEmpty()) return text
+    val targets = links.toSet()
+    return MARKDOWN_IMAGE_SYNTAX.replace(text) { m ->
+        val url = m.groupValues[1].trim().substringBefore(' ').trim()
+        if (url in targets) "" else m.value
+    }
 }
