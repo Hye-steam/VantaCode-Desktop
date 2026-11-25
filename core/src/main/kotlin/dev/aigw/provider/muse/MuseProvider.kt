@@ -9,6 +9,7 @@ import dev.aigw.provider.ChatResult
 import dev.aigw.provider.Provider
 import dev.aigw.provider.ProviderAccount
 import dev.aigw.provider.SseSink
+import dev.aigw.provider.WebTokenSupport
 import dev.aigw.provider.WebTransport
 import dev.aigw.util.Log
 
@@ -26,7 +27,7 @@ import dev.aigw.util.Log
  * - `muse-image`  出图
  * - `muse-video`  出视频
  */
-class MuseProvider(private val transport: () -> WebTransport?) : Provider {
+class MuseProvider(private val transport: () -> WebTransport?) : Provider, WebTokenSupport {
 
     override val id = ID
     override val displayName = "muse.ai"
@@ -52,6 +53,29 @@ class MuseProvider(private val transport: () -> WebTransport?) : Provider {
             val stripped = LACKS_SUBJECT.replace(prompt, "")
             return stripped.count { it.isLetterOrDigit() } >= 2
         }
+    }
+
+    /** 网页登录入口：muse 登录后 cookie 里就有 hatch_sess。 */
+    override val loginPageUrl = "https://muse.ai/"
+
+    /**
+     * 用页面登录后拿到的 cookie 建账号。
+     *
+     * uid 取 hatch_sess 前 8 位：同一账号重复登录会覆盖而不是新增。
+     */
+    override fun loginWithToken(token: String): ProviderAccount {
+        val ck = token.trim()
+        require(ck.isNotEmpty()) { "cookie 为空" }
+        require(ck.contains("hatch_sess")) { "cookie 里缺少 hatch_sess，登录可能没完成" }
+        val sess = Regex("hatch_sess=([^;\\s]+)").find(ck)?.groupValues?.get(1).orEmpty()
+        require(sess.isNotEmpty()) { "无法从 cookie 解析 hatch_sess" }
+        val uid = sess.take(8)
+        return ProviderAccount(
+            providerId = ID,
+            uid = uid,
+            displayName = "muse $uid",
+            secret = ck,
+        )
     }
 
     override fun listModels(account: ProviderAccount): Result<List<String>> =
@@ -162,11 +186,10 @@ class MuseProvider(private val transport: () -> WebTransport?) : Provider {
         }
         val path = MediaProxy.saveBase64(media.base64, ext)
             ?: return "已生成${if (isVideo) "视频" else "图片"}（${String.format("%.1f", sizeMb)} MB），但写入本地失败。"
-        return if (isVideo) {
-            "已生成视频（${String.format("%.1f", sizeMb)} MB）。\n\n`$path`"
-        } else {
-            "![muse 生成]($path)"
-        }
+        // 两种产物都用 Markdown 图片语法：客户端只认 ![](...)，
+        // 裸路径会当普通文字显示，视频播放器也不会出现。
+        val label = if (isVideo) "muse 视频" else "muse 生成"
+        return "![$label]($path)"
     }
 
     /** 取最后一条 user 消息的纯文本。 */

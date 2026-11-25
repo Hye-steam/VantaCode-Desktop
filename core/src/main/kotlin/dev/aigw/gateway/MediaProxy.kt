@@ -46,6 +46,17 @@ object MediaProxy {
         cacheDir ?: java.io.File("/sdcard/VantaGate/media")
 
     /**
+     * 落在 /Android/data/ 下的文件对别的应用不可读（Android 11 起的目录隔离），
+     * 客户端拿到路径也打不开，只会显示空白。这里明确记一笔，便于排查。
+     */
+    private fun warnIfInaccessible(path: String): String {
+        if (path.contains("/Android/data/")) {
+            dev.aigw.util.Log.warn("媒体落在跨 App 不可访问的目录，客户端读不到：$path")
+        }
+        return path
+    }
+
+    /**
      * 把远端媒体落到本地文件，返回文件绝对路径。
      *
      * VantaCode 的 Markdown 图片渲染器只认本地路径（含 :// 的一律不渲染），
@@ -54,7 +65,7 @@ object MediaProxy {
     fun localize(url: String): String? {
         val name = Integer.toHexString(url.hashCode()) + guessExt(url)
         val file = java.io.File(CACHE_DIR, name)
-        if (file.isFile && file.length() > 0L) return file.absolutePath
+        if (file.isFile && file.length() > 0L) return warnIfInaccessible(file.absolutePath)
         return try {
             if (!CACHE_DIR.isDirectory && !CACHE_DIR.mkdirs()) return null
             val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
@@ -72,7 +83,7 @@ object MediaProxy {
             } finally {
                 runCatching { conn.disconnect() }
             }
-            if (file.isFile && file.length() > 0L) file.absolutePath else null
+            if (file.isFile && file.length() > 0L) warnIfInaccessible(file.absolutePath) else null
         } catch (e: Exception) {
             runCatching { file.delete() }
             null

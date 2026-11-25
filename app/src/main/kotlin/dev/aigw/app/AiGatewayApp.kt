@@ -27,6 +27,24 @@ class AiGatewayApp : Application() {
     val chatglmTransport: ChatglmWebTransport by lazy { ChatglmWebTransport(this) }
 
     /** muse.ai 页面通道：懒加载，首次生成时才建 WebView。 */
+    /**
+     * 媒体落的公共目录。
+     *
+     * 私有目录 /Android/data/<包名>/ 从 Android 11 起对其他应用完全隔离，
+     * 客户端拿到路径也读不到，所以优先写公共媒体目录；建不出来才退回私有目录
+     * （退化后客户端仍看不到，至少不会让生成直接失败）。
+     */
+    private fun resolveMediaDir(): java.io.File {
+        val public = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS,
+            ),
+            "VantaGate/media",
+        )
+        if (public.isDirectory || public.mkdirs()) return public
+        return java.io.File(getExternalFilesDir(null) ?: filesDir, "media")
+    }
+
     val museTransport: MuseWebTransport by lazy { MuseWebTransport(this) }
 
 
@@ -65,10 +83,11 @@ class AiGatewayApp : Application() {
         // 首个启动的免费池初始化：放主线程之前，保证首帧就能看到模型
         runCatching { engine.seedFreePoolIfNeeded() }
             .onFailure { engine.eventLog.error("设置", "免费池初始化失败：${it.message}") }
-        // 媒体缓存目录：App 私有外部目录，无需存储权限也能写，
-        // VantaCode 读这个路径同样无障碍。
+        // 媒体落盘目录：必须放在公共存储。
+        // Android 11 起 /Android/data/<包名>/ 对其他应用完全隔离，
+        // 客户端即使有 MANAGE_EXTERNAL_STORAGE 也读不到那里的文件。
         runCatching {
-            val dir = java.io.File(getExternalFilesDir(null) ?: filesDir, "media")
+            val dir = resolveMediaDir()
             dir.mkdirs()
             dev.aigw.gateway.MediaProxy.setCacheDir(dir)
         }

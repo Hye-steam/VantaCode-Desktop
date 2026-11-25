@@ -242,8 +242,12 @@ internal fun AddAccountSheet(
                 }
                 DetailKind.Muse -> {
                     // muse.ai 的生成只对页面开放，账号就是一份登录 cookie。
-                    // 在浏览器里登录后把 cookie 粘进来即可。
-                    OpButton("粘贴 Cookie 登录", Icons.Outlined.ContentPaste, primary = true) {
+                    // 优先用网页登录（自动取 cookie），粘 Cookie 留给已有凭证的场景。
+                    OpButton("网页登录", Icons.Outlined.Public, primary = true) {
+                        vm.startMuseLogin()
+                        onDismiss()
+                    }
+                    OpButton("粘贴 Cookie 登录", Icons.Outlined.ContentPaste) {
                         showMuseCookie = true
                     }
                     OpButton("JSON 导入登录", Icons.Outlined.Code) {

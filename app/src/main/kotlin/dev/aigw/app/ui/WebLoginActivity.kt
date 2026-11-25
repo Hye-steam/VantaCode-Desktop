@@ -157,6 +157,9 @@ class WebLoginActivity : Activity() {
         val web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            // 站点按 Accept-Language 决定界面语言；WebView 默认只有 en-US，
+            // 不设就会一直出英文界面。
+            setZhLanguages(settings)
             settings.setSupportMultipleWindows(true)
             settings.javaScriptCanOpenWindowsAutomatically = true
             addJavascriptInterface(LoginBridge(), "__aigwBridge")
@@ -351,6 +354,33 @@ class WebLoginActivity : Activity() {
                 Thread.sleep(2000)
                 if (!polling) return@Thread
 
+
+                if (providerId == "muse") {
+                    // muse.ai：登录态全在 cookie 里。未登录时也会有 datr/theme 这类
+                    // 公共 cookie，必须靠 hatch_sess 判断是否真的登录了。
+                    var rawMuse: String? = null
+                    val latchMuse = CountDownLatch(1)
+                    runOnUiThread {
+                        rawMuse = CookieManager.getInstance().getCookie("https://muse.ai").orEmpty()
+                        latchMuse.countDown()
+                    }
+                    latchMuse.await(3, TimeUnit.SECONDS)
+                    val museCookie = rawMuse.orEmpty()
+                    if (!museCookie.contains("hatch_sess=")) {
+                        runOnUiThread { statusView?.text = "请在页面完成 muse.ai 登录" }
+                        return@repeat
+                    }
+                    if (museCookie == lastCred) return@repeat
+                    lastCred = museCookie
+                    val museResult = runCatching {
+                        app.engine.completeTokenLogin(providerId, museCookie)
+                    }
+                    museResult.onSuccess { finishWithAccount(it.displayName) }
+                        .onFailure { e ->
+                            runOnUiThread { statusView?.text = "登录失败：${e.message}" }
+                        }
+                    return@Thread
+                }
 
                 if (providerId == "mimo") {
                     // MiMo（小米 AI Studio）：登录态就在 cookie 里，
@@ -709,6 +739,14 @@ class WebLoginActivity : Activity() {
         webView?.let { runCatching { it.stopLoading(); it.destroy() } }
         webView = null
         super.onDestroy()
+    }
+
+    /** `setAcceptLanguages` 在部分 compileSdk 下是隐藏 API，走反射以免编译期报错。 */
+    private fun setZhLanguages(s: android.webkit.WebSettings) {
+        runCatching {
+            val m = android.webkit.WebSettings::class.java.getMethod("setAcceptLanguages", String::class.java)
+            m.invoke(s, "zh-CN,zh")
+        }
     }
 
     companion object {

@@ -754,6 +754,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
 
+    /** muse.ai 网页登录：登录后从 cookie 取 hatch_sess 存为账号。 */
+    fun startMuseLogin() {
+        val ctx = getApplication<Application>()
+        runCatching {
+            ctx.startActivity(
+                Intent(ctx, WebLoginActivity::class.java)
+                    .putExtra(WebLoginActivity.EXTRA_URL, "https://muse.ai/")
+                    .putExtra(WebLoginActivity.EXTRA_PROVIDER, "muse")
+                    .putExtra(WebLoginActivity.EXTRA_MODE, WebLoginActivity.MODE_TOKEN)
+                    .putExtra(WebLoginActivity.EXTRA_DESKTOP, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { notify("打开 muse.ai 登录页失败：${it.message}") }
+    }
+
     fun startChatglmLogin() {
         // 提前预热页面通道：登录完成后对话可直接走 WebView
         gateway.chatglmTransport.warmUp()

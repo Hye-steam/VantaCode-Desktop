@@ -73,10 +73,6 @@ class MuseWebTransport(private val context: Context) : WebTransport {
         return true
     }
 
-    /** 全局串行：WebView 构造、导航、销毁都必须在主线程上按序完成。
-     *  并发请求在这里排队，而不是各自往主线程塞任务把队列堵死。 */
-    private val serialGate: java.util.concurrent.Semaphore = java.util.concurrent.Semaphore(1, true)
-
     override fun post(
         path: String,
         headers: Map<String, String>,
@@ -90,16 +86,10 @@ class MuseWebTransport(private val context: Context) : WebTransport {
         }.getOrDefault("")
         if (prompt.isBlank()) return WebTransportResult(400, "", "缺少 prompt")
 
-        // 等前一个生成结束：同一个 WebView、同一条旁聊链，不能并行。
-        if (!serialGate.tryAcquire(10, TimeUnit.SECONDS)) {
-            return WebTransportResult(429, "", "上一个生成还没结束，请稍后重试")
-        }
-        return try {
-            val session = session()
-            session.generate(prompt, expect)
-        } finally {
-            serialGate.release()
-        }
+        // 不再自己加队列：Engine 已经按账号并发闸门逐个放行，
+        // 这里再拦一道会让名额被占着等更久（视频要等好几分钟），
+        // 后续请求全部撞「并发占满」而被判失败。
+        return session().generate(prompt, expect)
     }
 
     /** 一次生成的独立页面上下文。 */
@@ -150,6 +140,9 @@ class MuseWebTransport(private val context: Context) : WebTransport {
                 settings.domStorageEnabled = true
                 settings.databaseEnabled = true
                 settings.userAgentString = UA_DESKTOP
+                // 页面按 Accept-Language 决定界面语言，默认 en-US 会让产物
+                // 附带英文说明，且生成的对话历史也是英文。
+                setZhLanguages(settings)
                 settings.useWideViewPort = true
                 settings.loadWithOverviewMode = true
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -379,6 +372,15 @@ class MuseWebTransport(private val context: Context) : WebTransport {
         data class Fail(val message: String) : Event
     }
 
+
+    /** `setAcceptLanguages` 在部分 compileSdk 下是隐藏 API，走反射以免编译期报错。 */
+    private fun setZhLanguages(s: android.webkit.WebSettings) {
+        runCatching {
+            val m = android.webkit.WebSettings::class.java.getMethod("setAcceptLanguages", String::class.java)
+            m.invoke(s, "zh-CN,zh")
+        }
+    }
+
     companion object {
         const val HOME = "https://muse.ai/thread/new"
 
@@ -484,10 +486,14 @@ class MuseWebTransport(private val context: Context) : WebTransport {
       if(el.closest('form, [class*=chat-user-bubble], [class*="group/msg"]')) return;
       var v = el.querySelector('video') || (el.tagName === 'VIDEO' ? el : null);
       var img = el.querySelector('img') || (el.tagName === 'IMG' ? el : null);
-      var isVid = (tid || '').indexOf('video') !== -1 || !!v;
-      var primary = isVid ? (v || img) : (img || v);
+      // 判定必须看真实元素，不能看容器 id：视频未渲染完时容器里只有一个
+      // 封面 <img>（presentation-image），按 id 判会把封面当成成品返回。
+      var isVid = !!v;
+      var primary = isVid ? v : img;
       var src = primary ? (primary.currentSrc || primary.src || '') : '';
       if(!src || src.indexOf('avatar') !== -1 || src.indexOf('emoji') !== -1) return;
+      // 视频还在转时先别把封面当结果：有 poster 的 <video> 只有拿到真实源才算
+      if (isVid && !(v.currentSrc || v.src)) return;
       if(seen.has(src)) return;
       seen.add(src);
       out.push({src: src, isVideo: isVid});

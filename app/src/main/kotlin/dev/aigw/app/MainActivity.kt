@@ -33,10 +33,35 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        requestMediaAccessIfNeeded()
         setContent {
             // Material 色板跟随 LoopColors 走，必须在主题切换的重建范围内，
             // 所以由 AppRoot 内部包裹（见 AppRoot）。
             AiGatewayRoot()
+        }
+    }
+
+    /**
+     * 申请「所有文件访问」。
+     *
+     * 生成出来的图片/视频要落在公共目录，客户端才读得到；没有这个权限只能写进
+     * /Android/data/<包名>，那边对其他应用是隔离的。用户拒绝也不阻断使用，
+     * 只是媒体会退到私有目录并打告警。
+     */
+    private fun requestMediaAccessIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        if (android.os.Environment.isExternalStorageManager()) return
+        val prefs = getSharedPreferences("aigw_ui", MODE_PRIVATE)
+        // 只在首次进入时引导一次，之后由设置页手动开启，避免每次启动都弹系统页
+        if (prefs.getBoolean("media_access_asked", false)) return
+        prefs.edit().putBoolean("media_access_asked", true).apply()
+        runCatching {
+            startActivity(
+                android.content.Intent(
+                    android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    android.net.Uri.parse("package:$packageName"),
+                ),
+            )
         }
     }
 

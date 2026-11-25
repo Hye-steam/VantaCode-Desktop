@@ -288,8 +288,14 @@ class GatewayHttpServer(private val engine: Engine) {
                                     ?.firstOrNull()?.asJsonObject
                                     ?.getAsJsonObject("message")
                                     ?.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                                val model = json.get("model")?.takeIf { it.isJsonPrimitive }?.asString
                                 if (content.isNotEmpty()) {
-                                    pipeOut.write(Sse.frame(chunkJson(content)).toByteArray(StandardCharsets.UTF_8))
+                                    pipeOut.write(Sse.frame(chunkJson(content, model)).toByteArray(StandardCharsets.UTF_8))
+                                    // 收尾帧：OpenAI 流式以 finish_reason=stop 的 delta 结束，
+                                    // 只发内容和 [DONE] 时部分客户端会判成流被截断并触发重试。
+                                    pipeOut.write(
+                                        Sse.frame(stopJson(model)).toByteArray(StandardCharsets.UTF_8),
+                                    )
                                     pipeOut.flush()
                                 }
                                 pipeOut.write(Sse.frame(Sse.DONE).toByteArray(StandardCharsets.UTF_8))
@@ -414,13 +420,32 @@ class GatewayHttpServer(private val engine: Engine) {
                 add("choices", JsonArray())
             }
 
-        /** 把一次性结果包成 OpenAI 流式 delta 帧。 */
-        private fun chunkJson(content: String): String =
+        /** 流式收尾帧：空 delta + finish_reason=stop。 */
+        private fun stopJson(model: String?): String =
             JsonObject().apply {
                 addProperty("id", "chatcmpl-" + System.currentTimeMillis())
                 addProperty("object", "chat.completion.chunk")
                 addProperty("created", System.currentTimeMillis() / 1000)
-                add("model", com.google.gson.JsonNull.INSTANCE)
+                if (model.isNullOrBlank()) add("model", com.google.gson.JsonNull.INSTANCE)
+                else addProperty("model", model)
+                add("choices", JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("index", 0)
+                        add("delta", JsonObject())
+                        addProperty("finish_reason", "stop")
+                    })
+                })
+            }.toString()
+
+        /** 把一次性结果包成 OpenAI 流式 delta 帧。 */
+        private fun chunkJson(content: String, model: String?): String =
+            JsonObject().apply {
+                addProperty("id", "chatcmpl-" + System.currentTimeMillis())
+                addProperty("object", "chat.completion.chunk")
+                addProperty("created", System.currentTimeMillis() / 1000)
+                // 带上真实模型名：客户端靠它判断多模态能力，null 会被当成未知模型
+                if (model.isNullOrBlank()) add("model", com.google.gson.JsonNull.INSTANCE)
+                else addProperty("model", model)
                 add("choices", JsonArray().apply {
                     add(JsonObject().apply {
                         addProperty("index", 0)
