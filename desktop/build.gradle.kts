@@ -126,6 +126,10 @@ kotlin {
             implementation("org.slf4j:slf4j-simple:2.0.9")
         }
         jvmTest.dependencies {
+            // JUnit 4 — every jvmTest file imports org.junit (Test/Assert).
+            // Without this, :desktop:compileTestKotlinJvm fails with 100+
+            // unresolved references and no test ever runs.
+            implementation("junit:junit:4.13.2")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
             implementation("io.mockk:mockk:1.14.11")
         }
