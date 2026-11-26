@@ -51,11 +51,26 @@ enum class UpdateChannel {
 /**
  * 解析版本标签里的数字版本号：`v1.3.0` / `v1.4.0-rc1` → `1.3.0`。
  * 标签里找不到数字版本时返回 null，该 Release 会被忽略。
+ * 注意：调用方须先用 [isDesktopReleaseTag] 过滤 Tag，否则别的产品的
+ * Tag（如 `v5.9.4`、`vantagate-v2.17`）也会被解析出数字版本。
  */
 fun parseVersionTag(tag: String): String? =
     Regex("(\\d+(?:\\.\\d+){1,3})").find(tag)?.value
 
 /** 逐段比较 a、b 的数字版本：a>b 返回正数，a<b 返回负数，相等返回 0。 */
+
+/** 桌面版已发布的无前缀历史 Tag，新 Tag 一律用 `desktop-v` 前缀。 */
+private val LEGACY_DESKTOP_TAGS = setOf("v1.2.0", "v1.3.0", "v1.4.0")
+
+/**
+ * 判断一个 Release Tag 是否属于桌面版：新 Tag 必须以 `desktop-v` 开头，
+ * 另接受上面三个已发布的历史 Tag；安卓（`v5.x`）、VantaGate（`vantagate-v*`、
+ * `vantagate-desktop-v*`）的 Tag 一律排除，避免把别的产品的版本当成桌面更新。
+ * 供单元测试调用，故为 internal 而非 private。
+ */
+internal fun isDesktopReleaseTag(tag: String): Boolean =
+    tag.startsWith("desktop-v", ignoreCase = true) || tag in LEGACY_DESKTOP_TAGS
+
 fun compareVersions(a: String, b: String): Int {
     val pa = a.split('.').map { it.toIntOrNull() ?: 0 }
     val pb = b.split('.').map { it.toIntOrNull() ?: 0 }
@@ -69,6 +84,8 @@ fun compareVersions(a: String, b: String): Int {
 
 /**
  * 从 GitHub Releases 拉取版本信息并生成更新日志。
+ * 只认桌面版的 Tag（`desktop-v*` 前缀，或 v1.2.0/v1.3.0/v1.4.0 三个历史 Tag），
+ * 同仓库的安卓/VantaGate Release 会被丢弃，不会出现在更新日志里。
  * 桌面端不在应用内安装：只返回版本信息和资产，由界面展示变更日志并打开 Release 页面。
  */
 suspend fun checkForUpdate(
@@ -92,6 +109,7 @@ suspend fun checkForUpdate(
             val releases = array.mapNotNull { el ->
                 val obj = runCatching { el.asJsonObject }.getOrNull() ?: return@mapNotNull null
                 val tag = obj.get("tag_name")?.asString ?: return@mapNotNull null
+                if (!isDesktopReleaseTag(tag)) return@mapNotNull null
                 val version = parseVersionTag(tag) ?: return@mapNotNull null
                 ReleaseInfo(
                     version = version,
