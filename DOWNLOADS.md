@@ -11,7 +11,6 @@
 | VantaCode 桌面版（Windows x64） | 1.4.0 | [VantaCode-1.4.0.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v1.4.0/VantaCode-1.4.0.exe) | 2026-11-21 | 402.3 MiB（421,829,632 字节），SHA-256 `E18BF0962440FBDB68360F197C646504D1B43FD5F31F23ACDD58EE102B03F244` |
 | VantaCode 安卓版 | v5.9.4 | [VantaCode-5.9.4.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.4/VantaCode-5.9.4.apk) | 2026-11-25 | 34.6 MiB（36,233,194 字节） |
 | VantaGate 安卓版 | 2.17 | [VantaGate-2.17.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.17/VantaGate-2.17.apk) | 2026-11-25 | 23.0 MiB（24,135,688 字节） |
-| VantaGate 桌面版（Windows x64） | v2.0.2 | [VantaGate-2.0.2-win64.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.0.2/VantaGate-2.0.2-win64.exe) | 2026-11-26 | 228.5 MiB（239,595,008 字节） |
 
 桌面版安装时会弹出 GPL 许可接受页；首次启动会自动解包内置 ffmpeg（约 100 MB，仅一次），无需手动安装。
 
@@ -63,9 +62,3 @@
 - 2.3（2026-11-18）：[VantaGate-2.3.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.3/VantaGate-2.3.apk)
 - 2.2（2026-11-18）：[VantaGate-2.2.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.2/VantaGate-2.2.apk)
 - v1.0.0（2026-11-17）：[VantaGate-v1.0.0.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v1.0.0/VantaGate-v1.0.0.apk)
-
-### VantaGate 桌面版
-
-- v2.0.1（2026-11-26）：[VantaGate-2.0.1-win64.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.0.1/VantaGate-2.0.1-win64.exe)
-- v2.0.0（2026-11-26）：[VantaGate-2.0.0-win64.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.0.0/VantaGate-2.0.0-win64.exe)
-- v1.0.0（2026-11-26）：[VantaGate-1.0.0-win64.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v1.0.0/VantaGate-1.0.0-win64.exe)（另有 `vantagate-1.0.0-all.jar`）

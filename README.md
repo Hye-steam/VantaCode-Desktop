@@ -23,7 +23,6 @@
 | VantaCode 桌面版（Windows x64） | 1.4.0（2026-11-21） | [VantaCode-1.4.0.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v1.4.0/VantaCode-1.4.0.exe)（402.3 MiB） |
 | VantaCode 安卓版 | v5.9.4（2026-11-25） | [VantaCode-5.9.4.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.4/VantaCode-5.9.4.apk)（34.6 MiB） |
 | VantaGate 安卓版 | 2.17（2026-11-25） | [VantaGate-2.17.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.17/VantaGate-2.17.apk)（23.0 MiB） |
-| VantaGate 桌面版（Windows x64） | v2.0.2（2026-11-26） | [VantaGate-2.0.2-win64.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.0.2/VantaGate-2.0.2-win64.exe)（228.5 MiB） |
 
 历史版本见 [DOWNLOADS.md](DOWNLOADS.md)；分支、Tag、Release 对照见 [docs/repo-guide.md](docs/repo-guide.md)。
 
