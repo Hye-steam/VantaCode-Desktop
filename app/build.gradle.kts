@@ -37,7 +37,7 @@ fun resolveStoreFile(raw: String): File {
 
 // gitVersionName 从 git tag 动态解析，彻底解决“发版时手改 build.gradle.kts 与 tag 双向不同步”问题。
 // 规则：
-//   1. 若当前 commit 刚好有 tag（如 v1.7.0 或 v1.7.0-rc1），直接提取为 "1.7.0" 或 "1.7.0-rc1"；
+//   1. 若当前 commit 刚好有 tag（如 v1.7.0、v1.7.0-rc1、android-v5.9.5），直接提取为 "1.7.0"、"1.7.0-rc1" 或 "5.9.5"；
 //   2. 若当前 commit 比上个 tag 多了 N 个提交（如 v1.7.0-2-g04bc2fa），提取为 "1.7.0-dev.2+g04bc2fa"；
 //   3. 若无 git 环境或报错，fallback 到默认版本号 "1.7.0-dev"。
 // providers.exec 而非 Runtime.exec：配置缓存要求配置阶段的外部进程调用登记为 provider 输入，
@@ -50,8 +50,13 @@ val gitDescribeOutput = providers.exec {
 
 fun gitVersionName(): String = try {
     val raw = gitDescribeOutput.get().trim()
-    if (raw.startsWith("v")) {
-        val version = raw.substring(1) // 去掉开头的 'v'
+    // tag 前缀两种写法都接受：v5.9.5 与 android-v5.9.5。
+    val version = when {
+        raw.startsWith("android-v") -> raw.removePrefix("android-v")
+        raw.startsWith("v") -> raw.removePrefix("v")
+        else -> null
+    }
+    if (version != null) {
         // 如 "1.7.0"、"1.7.0-rc1" 或 "1.7.0-2-g04bc2fa"
         // 将 git describe 格式 "1.7.0-2-g04bc2fa" 转为规范语义化版本 "1.7.0-dev.2+g04bc2fa"
         val devRegex = Regex("""^(\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+)?)-(\d+)-g([0-9a-f]+)(.*)$""")
@@ -89,6 +94,10 @@ fun gitCommitCount(): Int = try {
 
 // git 历史被重写或 .git 丢失时提交数会归零，导致用户无法升级。
 // 这里再记一份持久化计数，取两者较大值，保证 versionCode 单调不减。
+// 注意：version-code.txt 必须不低于已发布正式版的 versionCode——
+// 正式版 5.9.4 的 versionCode 是 135（本地未 squash 历史的提交数），而本分支
+// squash 后只有 10 个提交；若文件低于 135，新包 versionCode 会小于已装版本，
+// Android 拒绝覆盖安装。发版后务必把更新后的 version-code.txt 一起提交。
 val versionCodeFile = rootProject.file("version-code.txt")
 val persistedVersionCode = versionCodeFile
     .takeIf { it.isFile }
@@ -99,9 +108,38 @@ val resolvedVersionCode = maxOf(gitCommitCount(), persistedVersionCode + 1)
 // 出正式包传 -PtestBuild=false（脚本见 build-release.sh）。
 val testBuild = (findProperty("testBuild") as String?)?.toBoolean() ?: true
 
+// 正式版 versionName 的解析顺序（发版时 tag 必须真实生效，禁止再写死版本号）：
+//   1. -PversionName=...（CI 打 tag 时显式传入，优先级最高）；
+//   2. gitVersionName()：当前提交恰好打了 tag（v5.9.5 / android-v5.9.5）时返回该版本；
+//   3. 兜底 FALLBACK_RELEASE_VERSION_NAME：无 tag 构建时使用，取值必须不低于已发布正式版。
+// 只有干净的 X.Y.Z[-后缀] 才被接受；dev 形态（"5.9.5-dev.2+g..."、"1.7.0-dev..."）
+// 一律回落到兜底，避免测试构建或脏树构建冒用正式版本号。
+// 之前这里写死 "5.9.3"，而 v5.9.3 与 v5.9.4 指向同一提交，导致已装 5.9.4 的用户
+// 永远收到更新提示（更新检查拿 tag v5.9.4 与 versionName 5.9.3 比较）。
+val fallbackReleaseVersionName = "5.9.4"
+val releaseVersionRegex = Regex("""^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$""")
+
+fun versionFromTagText(text: String?): String? {
+    var t = text?.trim().orEmpty()
+    if (t.startsWith("android-v")) t = t.removePrefix("android-v")
+    else if (t.startsWith("v")) t = t.removePrefix("v")
+    return t.takeIf { releaseVersionRegex.matches(it) }
+}
+
+fun releaseVersionName(): String {
+    versionFromTagText(findProperty("versionName") as String?)?.let { return it }
+    val fromGit = gitVersionName()
+    // gitVersionName() 的兜底 "1.7.0-dev"（无 git 环境时）不是 tag，必须排除——
+    // 它恰好符合版本号正则，放行会让无 git 构建拿到 1.7.0-dev 而不是兜底版本。
+    if (fromGit != "1.7.0-dev") {
+        versionFromTagText(fromGit)?.let { return it }
+    }
+    return fallbackReleaseVersionName
+}
+
 // 测试版版本名带构建时间，装完能一眼看出是哪一次构建。
 val buildStamp = SimpleDateFormat("MMdd-HHmm", Locale.US).format(Date())
-val appVersionName = if (testBuild) "5.9-test.$buildStamp" else "5.9.3"
+val appVersionName = if (testBuild) "5.9-test.$buildStamp" else releaseVersionName()
 
 // 构建后把本次用到的 versionCode 落盘，供下次取 max 兜底。
 val persistVersionCode = tasks.register("persistVersionCode") {
