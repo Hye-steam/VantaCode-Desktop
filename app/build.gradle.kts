@@ -101,7 +101,7 @@ val testBuild = (findProperty("testBuild") as String?)?.toBoolean() ?: true
 
 // 测试版版本名带构建时间，装完能一眼看出是哪一次构建。
 val buildStamp = SimpleDateFormat("MMdd-HHmm", Locale.US).format(Date())
-val appVersionName = if (testBuild) "5.9-test.$buildStamp" else "5.9.3"
+val appVersionName = if (testBuild) "5.9.5-test.$buildStamp" else "5.9.5"
 
 // 构建后把本次用到的 versionCode 落盘，供下次取 max 兜底。
 val persistVersionCode = tasks.register("persistVersionCode") {

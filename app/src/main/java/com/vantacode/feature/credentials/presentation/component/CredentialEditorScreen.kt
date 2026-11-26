@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -100,10 +101,42 @@ internal fun CredentialEditorSheet(
                 label = stringResource(R.string.credential_host),
                 placeholder = "github.com"
             )
+
+            // 常用服务商一键填入。国内访问 GitHub 不稳，CNB / Gitee 是常见替代，
+            // 手敲域名容易被打成 cnb.com 之类，这里直接给正确的。
+            // 有固定用户名的平台（CNB 必须是 cnb）顺手填进去，否则用户填账号名会一直认证失败。
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
+            ) {
+                HostPresets.forEach { preset ->
+                    FilterChip(
+                        selected = host.trim().equals(preset.host, ignoreCase = true),
+                        onClick = {
+                            host = preset.host
+                            preset.username?.let { fixed ->
+                                if (username.isBlank()) username = fixed
+                            }
+                        },
+                        label = { Text(preset.label, style = MaterialTheme.typography.labelMedium) }
+                    )
+                }
+            }
+            // 固定用户名的平台给出说明并锁住输入框：改了就登不上，不能让它看起来是可选的。
+            val fixedUsername = HostPresets
+                .firstOrNull { it.host.equals(host.trim(), ignoreCase = true) }
+                ?.username
             CredentialField(
                 value = username,
-                onValueChange = { username = it },
-                label = stringResource(R.string.common_username)
+                onValueChange = { if (fixedUsername == null) username = it },
+                label = stringResource(R.string.common_username),
+                enabled = fixedUsername == null,
+                placeholder = fixedUsername,
+                supportingText = if (fixedUsername != null) {
+                    { Text(stringResource(R.string.credential_username_fixed, fixedUsername)) }
+                } else {
+                    null
+                }
             )
             CredentialField(
                 value = token,
@@ -152,6 +185,8 @@ private fun CredentialField(
     placeholder: String? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    enabled: Boolean = true,
+    supportingText: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null
 ) {
     AppTextField(
@@ -160,9 +195,26 @@ private fun CredentialField(
         label = label,
         placeholder = placeholder,
         singleLine = true,
+        enabled = enabled,
+        supportingText = supportingText,
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         trailingIcon = trailingIcon,
         modifier = modifier.fillMaxWidth()
     )
 }
+
+/**
+ * 常用 Git 服务商：显示名、主机名、该平台认证要求的固定用户名。
+ *
+ * CNB（cnb.cool）是腾讯云的国内代码托管，访问速度和合规性对国内用户更友好；
+ * Gitee 同理。两家都用「用户名 + token」，但 CNB 的用户名不是账号名——
+ * 官方要求固定填 `cnb`，填成自己的账号名会一直认证失败。
+ */
+private data class HostPreset(val label: String, val host: String, val username: String?)
+
+private val HostPresets = listOf(
+    HostPreset("GitHub", "github.com", null),
+    HostPreset("CNB", "cnb.cool", "cnb"),
+    HostPreset("Gitee", "gitee.com", null)
+)

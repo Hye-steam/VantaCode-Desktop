@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +49,7 @@ import com.vantacode.feature.settings.presentation.SkillUiEntry
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Book
 import compose.icons.feathericons.ChevronRight
+import compose.icons.feathericons.Search
 import compose.icons.feathericons.Trash2
 
 /**
@@ -70,9 +73,24 @@ internal fun SkillsSection(
     onBatchDelete: (List<SkillUiEntry>) -> Unit,
     onBatchSetEnabled: (List<SkillUiEntry>, Boolean) -> Unit
 ) {
+    // 技能装多了以后，光靠「全局/项目」两组翻找太慢：加一层搜索 + 「只看启用」筛选。
+    var query by rememberSaveable { mutableStateOf("") }
+    var onlyEnabled by rememberSaveable { mutableStateOf(false) }
+
+    val visible = remember(entries, query, onlyEnabled) {
+        val q = query.trim().lowercase()
+        entries.filter { e ->
+            val matchQuery = q.isEmpty() ||
+                e.name.lowercase().contains(q) ||
+                e.description.lowercase().contains(q)
+            val matchEnabled = !onlyEnabled || !e.disabled
+            matchQuery && matchEnabled
+        }
+    }
+
     // 只在数据变化时分组，避免每次重组都产生两份新 List。
-    val (projectSkills, globalSkills) = remember(entries) {
-        entries.filter { it.scope == SkillScope.PROJECT } to entries.filter { it.scope == SkillScope.GLOBAL }
+    val (projectSkills, globalSkills) = remember(visible) {
+        visible.filter { it.scope == SkillScope.PROJECT } to visible.filter { it.scope == SkillScope.GLOBAL }
     }
 
     var showBatchDeleteConfirm by remember { mutableStateOf(false) }
@@ -171,6 +189,40 @@ internal fun SkillsSection(
             )
         }
 
+        // 只要装了技能就显示筛选条。之前按数量（>5）决定显隐，装不到 5 个的用户
+        // 根本看不到搜索框，想找某个技能时只能副跟翻——搜索是基本功能，不该按数量藏起来。
+        if (entries.isNotEmpty()) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text(stringResource(R.string.skills_search_hint)) },
+                leadingIcon = { Icon(FeatherIcons.Search, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                FilterChip(
+                    selected = onlyEnabled,
+                    onClick = { onlyEnabled = !onlyEnabled },
+                    label = { Text(stringResource(R.string.skills_filter_enabled_only)) }
+                )
+                Text(
+                    text = stringResource(R.string.skills_count_hint, visible.size, entries.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -192,7 +244,14 @@ internal fun SkillsSection(
             if (projectExpanded) {
                 if (projectSkills.isEmpty()) {
                     item(key = "project-empty", contentType = "empty") {
-                        SettingsGroup { SkillEmptyHint(stringResource(R.string.skills_no_project_skills)) }
+                        SettingsGroup {
+                            SkillEmptyHint(
+                                stringResource(
+                                    if (entries.any { it.scope == SkillScope.PROJECT }) R.string.skills_filter_no_match
+                                    else R.string.skills_no_project_skills
+                                )
+                            )
+                        }
                     }
                 } else {
                     itemsIndexed(
@@ -224,7 +283,14 @@ internal fun SkillsSection(
             if (globalExpanded) {
                 if (globalSkills.isEmpty()) {
                     item(key = "global-empty", contentType = "empty") {
-                        SettingsGroup { SkillEmptyHint(stringResource(R.string.skills_no_global_skills)) }
+                        SettingsGroup {
+                            SkillEmptyHint(
+                                stringResource(
+                                    if (entries.any { it.scope == SkillScope.GLOBAL }) R.string.skills_filter_no_match
+                                    else R.string.skills_no_global_skills
+                                )
+                            )
+                        }
                     }
                 } else {
                     itemsIndexed(

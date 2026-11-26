@@ -69,6 +69,7 @@ class PluginRuntimeManager @Inject constructor(
     private val introspectionService: PluginIntrospectionService,
     private val toolService: PluginToolService,
     private val httpService: PluginHttpService,
+    private val webViewService: PluginWebViewService,
     /** 插件拉到模型后回写到自己的供应商记录；用 Provider 避免与
      *  PluginInstallService 形成循环依赖（后者依赖本类）。 */
     private val providerRegistrar: dagger.Lazy<PluginProviderRegistrar>
@@ -174,6 +175,10 @@ class PluginRuntimeManager @Inject constructor(
                     processes.remove(key, entry)
                     entry.transport.close()
                 }
+        }
+        // WebView 不在进程里，关进程不会带走，必须单独销毁，否则一直占着内存和网络。
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            runCatching { webViewService.closeAll(pluginId) }
         }
     }
 
@@ -336,6 +341,14 @@ class PluginRuntimeManager @Inject constructor(
             "host.ui.openUrl" -> hostCall {
                 systemService.openUrl(pluginId, PluginHostPaths.requireString(params, "url"))
             }
+            "host.webview.open" -> hostCall { webViewService.open(pluginId, params) }
+            "host.webview.setCookies" -> hostCall { webViewService.setCookies(pluginId, params) }
+            "host.webview.getCookies" -> hostCall { webViewService.getCookies(pluginId, params) }
+            "host.webview.eval" -> hostCall { webViewService.eval(pluginId, params) }
+            "host.webview.waitFor" -> hostCall { webViewService.waitFor(pluginId, params) }
+            "host.webview.awaitMessage" -> hostCall { webViewService.awaitMessage(pluginId, params) }
+            "host.webview.saveBlob" -> hostCall { webViewService.saveBlob(pluginId, params) }
+            "host.webview.close" -> hostCall { webViewService.close(pluginId, params) }
             "host.app.info" -> hostCall { systemService.appInfo(pluginId) }
             "host.log" -> hostCall {
                 systemService.log(

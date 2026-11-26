@@ -419,6 +419,9 @@
     <string name="common_image_preview">图片预览</string>
     <string name="common_image_saved">已保存到相册</string>
     <string name="common_image_save_failed">保存失败：%1$s</string>
+    <string name="common_video_download">下载视频</string>
+    <string name="common_video_saved">视频已保存到相册</string>
+    <string name="common_video_save_failed">视频保存失败</string>
     <string name="common_image_save_hint">长按图片可保存到相册</string>
     <string name="common_image_load_failed">图片加载失败，文件可能已被移动或删除</string>
     <string name="common_expand">展开</string>
@@ -443,6 +446,7 @@
     <string name="common_enabled">已启用</string>
     <string name="common_disabled">已禁用</string>
     <string name="credential_token">访问令牌（Token / PAT）</string>
+    <string name="credential_username_fixed">该平台要求用户名固定为 %1$s</string>
     <string name="credential_auto_inject_title">自动注入凭证</string>
     <string name="credential_auto_inject_hint">把应用中保存的 git 凭据同步到远程服务器，仅对当前工作区根目录下的仓库生效，不影响你在服务器上手动使用 git</string>
     <string name="credential_auto_inject_prompt_title">自动注入 git 凭证？</string>
@@ -1359,6 +1363,10 @@
     <string name="skills_empty_hint">点右上角「+」新建或导入</string>
     <string name="skills_no_project_skills">当前项目暂无技能</string>
     <string name="skills_no_global_skills">暂无全局技能</string>
+    <string name="skills_search_hint">搜索技能名称或描述</string>
+    <string name="skills_filter_enabled_only">只看已启用</string>
+    <string name="skills_count_hint">显示 %1$d / %2$d</string>
+    <string name="skills_filter_no_match">没有符合筛选条件的技能</string>
     <string name="skills_enable">是否启用</string>
     <string name="skills_summary">摘要</string>
     <string name="skills_delete_confirm_title">删除技能</string>

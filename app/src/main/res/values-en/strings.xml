@@ -1333,6 +1333,10 @@
     <string name="skills_empty_hint">Tap + in the top bar to create or import one.</string>
     <string name="skills_no_project_skills">No skills for the current project</string>
     <string name="skills_no_global_skills">No global skills</string>
+    <string name="skills_search_hint">Search skills by name or description</string>
+    <string name="skills_filter_enabled_only">Enabled only</string>
+    <string name="skills_count_hint">Showing %1$d / %2$d</string>
+    <string name="skills_filter_no_match">No skills match the filter</string>
     <string name="skills_enable">Enable</string>
     <string name="skills_summary">Summary</string>
     <string name="skills_delete_confirm_title">Delete Skill</string>

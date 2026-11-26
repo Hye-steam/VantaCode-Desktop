@@ -19,8 +19,11 @@ import javax.inject.Singleton
 /**
  * git 凭据的文件实现（真源 = `filesDir/aicode/git-credentials`，容器内 `/root/.aicode/git-credentials`）。
  *
- * 文件采用 git-credential-store 标准格式：每行 `https://user:token@host`，每主机一条（保存同主机覆盖旧值），
- * 由容器/远程服务器的 `credential.helper=store` 直接读取，UI 与 git 共用同一份。
+ * 文件内容为 git-credential-store 的格式（每行 `https://user:token@host`，每主机一条，保存同主机覆盖旧值），
+ * 但整体做了 base64 + 反转编码，**所以 `credential.helper=store` 读不懂它**——store 只认明文，
+ * 默认路径也是 `~/.git-credentials` 而非本目录。实际读取方是自定义 helper
+ * `git-credential-aicode`（与 App 同处 `~/.aicode`，知道这套编码），它命中就直出凭据、
+ * 未命中则经文件 IPC 让 App 弹窗回填。
  * 内存以 StateFlow 缓存，写操作（save/delete）原子落盘后刷新。
  */
 @Singleton

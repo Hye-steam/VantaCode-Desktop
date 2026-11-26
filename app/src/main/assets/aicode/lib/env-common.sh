@@ -623,6 +623,10 @@ EOF
     # 清掉全局顶层 [credential] 段：helper 只应经上面的 includeIf 按目录加载，
     # 写在顶层会对容器内所有仓库生效，破坏「只注入工作区根下」的最小化设计。
     git config --global --remove-section credential 2>/dev/null || true
+    # store 的默认路径是 ~/.git-credentials（明文），与本目录的 git-credentials 不是同一个文件。
+    # 旧版曾把真实 token 以明文留在这里，现在凭据统一由 helper 从 ~/.aicode 解码读取，
+    # 这个明文文件不再需要，删掉避免双份凭据与泄露面。
+    rm -f "$HOME/.git-credentials" 2>/dev/null || true
     # 默认新仓库初始分支统一为 main（现代平台如 GitHub / GitLab 标准，避免 master 导致的错位）
     git config --global init.defaultBranch main
 }
