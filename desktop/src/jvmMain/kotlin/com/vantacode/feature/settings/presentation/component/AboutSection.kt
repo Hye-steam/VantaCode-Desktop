@@ -4,24 +4,35 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 import com.vantacode.core.platform.DesktopContext
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +57,8 @@ import com.vantacode.di.AppGraph
 import com.vantacode.feature.settings.data.remote.UpdateCheckResult
 import com.vantacode.feature.settings.data.repository.UpdateCheckSettingsRepository
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Heart
+import compose.icons.feathericons.Star
 import compose.icons.feathericons.Tag
 import compose.icons.feathericons.MessageCircle
 import compose.icons.feathericons.MessageSquare
@@ -78,6 +91,19 @@ internal fun AboutSection(
     val scope = rememberCoroutineScope()
     var showLicenseDialog by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
+    var showDonateDialog by remember { mutableStateOf(false) }
+    var showStarDialog by remember { mutableStateOf(false) }
+
+    // “不再提示”持久化：与更新设置同款 SharedPreferences。
+    // 手动点开关于页入口时不受此标志影响（用户明确想看）；供以后自动弹出 Star 提示时读取。
+    val supportPrefs = remember {
+        context.getSharedPreferences(SUPPORT_PREFS, DesktopContext.MODE_PRIVATE)
+    }
+
+    // 赞赏码：对话框打开时才读（145KB JPG，打包进 jar，与 icon.png 同款加载方式）。
+    val donateQrBitmap = remember(showDonateDialog) {
+        if (showDonateDialog) loadDonateQrBitmap() else null
+    }
     var checkingUpdate by remember { mutableStateOf(false) }
     var updateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
 
@@ -196,6 +222,23 @@ internal fun AboutSection(
             )
         }
 
+        SettingsGroupHeader(text = "支持")
+        SettingsGroup {
+            SettingsRow(
+                icon = FeatherIcons.Heart,
+                title = "赞赏作者",
+                onClick = { showDonateDialog = true },
+                trailing = { Chevron() }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Star,
+                title = "支持 VantaCode",
+                onClick = { showStarDialog = true },
+                trailing = { Chevron() }
+            )
+        }
+
         Text(
             text = "GPL-3.0 · VantaCode Desktop\nFork 自 AiCode，对应源码见本仓库（${REPO_URL}）",
             style = MaterialTheme.typography.bodySmall,
@@ -237,6 +280,56 @@ internal fun AboutSection(
             currentVersion = com.vantacode.core.platform.PlatformInfo.VERSION_NAME,
             onDismiss = { showUpdateDialog = false },
             onOpenRelease = { url -> runCatching { uriHandler.openUri(url) } }
+        )
+    }
+
+    if (showDonateDialog) {
+        AlertDialog(
+            onDismissRequest = { showDonateDialog = false },
+            title = { Text("赞赏作者") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (donateQrBitmap != null) {
+                        Image(
+                            bitmap = donateQrBitmap,
+                            contentDescription = "辉夜 的赞赏码（微信收款码）",
+                            modifier = Modifier.size(280.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Text(
+                            text = "赞赏码加载失败，请稍后重试",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    Text(
+                        text = "微信扫一扫，支持作者",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDonateDialog = false }) { Text(Strings.common_close) }
+            }
+        )
+    }
+
+    if (showStarDialog) {
+        StarSupportDialog(
+            appIcon = appIcon,
+            onOpenGithub = { runCatching { uriHandler.openUri(REPO_URL) } },
+            onDismissForever = {
+                supportPrefs.edit { putBoolean(KEY_STAR_PROMPT_DISMISSED, true) }
+                showStarDialog = false
+            },
+            onDismissOnce = { showStarDialog = false },
+            onDismissRequest = { showStarDialog = false }
         )
     }
 }
@@ -307,6 +400,103 @@ private fun AboutHeaderCard(appName: String, appIcon: androidx.compose.ui.graphi
     }
 }
 
+/**
+ * Star 支持弹窗（照 AiCode 关于页样式）。
+ * 顶部 app 图标 + 金色星标，标题/正文居中，主按钮跳 GitHub，
+ * 下方“不再提示”（写 SharedPreferences，供以后自动弹出时读取）与“下次一定”。
+ */
+@Composable
+private fun StarSupportDialog(
+    appIcon: ImageBitmap?,
+    onOpenGithub: () -> Unit,
+    onDismissForever: () -> Unit,
+    onDismissOnce: () -> Unit,
+    onDismissRequest: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(Spacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // app 图标 + 右下角金色星标
+                Box(modifier = Modifier.size(64.dp)) {
+                    if (appIcon != null) {
+                        Image(
+                            bitmap = appIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp).align(Alignment.Center)
+                        )
+                    } else {
+                        Spacer(Modifier.size(56.dp).align(Alignment.Center))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .align(Alignment.BottomEnd)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFC107)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            FeatherIcons.Star,
+                            contentDescription = null,
+                            tint = Color(0xFF1A1A1A),
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(Spacing.md))
+                Text(
+                    text = "喜欢 VantaCode 吗？",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                Text(
+                    text = "VantaCode 完全开源免费。如果它帮到了你的日常开发，欢迎去 GitHub 点个 Star 支持，让更多开发者看到这个项目。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(Spacing.lg))
+                Button(
+                    onClick = onOpenGithub,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        FeatherIcons.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text("前往 GitHub 点 Star")
+                }
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    TextButton(onClick = onDismissForever) {
+                        Text("不再提示", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = onDismissOnce) {
+                        Text("下次一定", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private data class AppVersion(val name: String, val code: Long)
 
 private fun loadAppIconBitmap(@Suppress("UNUSED_PARAMETER") context: DesktopContext): ImageBitmap? = runCatching {
@@ -314,4 +504,13 @@ private fun loadAppIconBitmap(@Suppress("UNUSED_PARAMETER") context: DesktopCont
     object {}.javaClass.getResourceAsStream("/icon.png")?.readBytes()?.decodeToImageBitmap()
 }.getOrNull()
 
+/** 赞赏码：读打包进 jar 的 JPG（与 icon.png 同款加载方式）。 */
+private fun loadDonateQrBitmap(): ImageBitmap? = runCatching {
+    object {}.javaClass.getResourceAsStream("/donate-qrcode.jpg")?.readBytes()?.decodeToImageBitmap()
+}.getOrNull()
+
 private const val QQ_GROUP_NUMBER = "1094669183"
+
+/** “不再提示”存这里；与更新设置同款 SharedPreferences。 */
+private const val SUPPORT_PREFS = "support_prefs"
+private const val KEY_STAR_PROMPT_DISMISSED = "star_prompt_dismissed"
