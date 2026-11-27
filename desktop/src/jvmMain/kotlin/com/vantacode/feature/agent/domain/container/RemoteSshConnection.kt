@@ -147,6 +147,13 @@ class RemoteSshConnection @Inject constructor(
         sftpSshClient = null
     }
 
+    /**
+     * 建立一条独立的 SSH transport，供端口转发等长连接场景使用（与 exec/SFTP 隔离，
+     * 参照上游 PortForwardManager 的独立 tunnel client）。调用方负责关闭返回的 client。
+     * 阻塞式连接 + 认证，调用方须在 IO 线程调用。
+     */
+    fun newDedicatedClient(config: RemoteConnectionConfig): SSHClient = newSshClient(config)
+
     /** 建立一条 SSH transport 并完成认证与保活（exec 与 SFTP 各建一条）。 */
     private fun newSshClient(config: RemoteConnectionConfig): SSHClient = SSHClient().apply {
         addHostKeyVerifier(hostKeyVerifier)

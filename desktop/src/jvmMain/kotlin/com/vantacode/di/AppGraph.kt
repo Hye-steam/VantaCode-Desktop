@@ -184,6 +184,7 @@ import com.vantacode.feature.plugin.runtime.PluginHttpService
 import com.vantacode.feature.plugin.runtime.PluginIntrospectionService
 import com.vantacode.feature.plugin.runtime.PluginModelService
 import com.vantacode.feature.plugin.runtime.PluginNotifier
+import com.vantacode.feature.plugin.runtime.PluginPortForwardManager
 import com.vantacode.feature.plugin.runtime.PluginProviderRegistrar
 import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
 import com.vantacode.feature.plugin.runtime.PluginSecretStore
@@ -543,6 +544,9 @@ object AppGraph {
     val pluginTerminalRunner: PluginTerminalRunner by lazy {
         PluginTerminalRunner(terminalSessionProvider, pluginManager)
     }
+    val pluginPortForwardManager: PluginPortForwardManager by lazy {
+        PluginPortForwardManager(remoteSshConnection, executionModeHolder)
+    }
     val pluginProviderRegistrar: PluginProviderRegistrar by lazy {
         PluginProviderRegistrar(pluginManager, aiProviderRepository)
     }
@@ -591,7 +595,7 @@ object AppGraph {
         PluginRuntimeManager(
             pluginManager, containerInstaller, nativeCommandEngine, fileAccess, pathHomeResolver,
             commandEngine, workspaceRepository, executionModeHolder, pluginEventBus, pluginNotifier,
-            pluginTerminalRunner, pluginShizukuRunner, pluginTipManager, pluginChatService,
+            pluginTerminalRunner, pluginPortForwardManager, pluginShizukuRunner, pluginTipManager, pluginChatService,
             pluginModelService, pluginSecretStore, pluginSystemService, pluginIntrospectionService,
             pluginToolService, pluginHttpService, aiProviderRepository
         )

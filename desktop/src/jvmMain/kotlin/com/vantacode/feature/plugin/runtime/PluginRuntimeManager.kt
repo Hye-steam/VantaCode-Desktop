@@ -17,6 +17,7 @@ import com.vantacode.feature.workspace.domain.PathHomeResolver
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,8 +28,10 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
@@ -52,6 +55,7 @@ class PluginRuntimeManager @Inject constructor(
     private val eventBus: PluginEventBus,
     private val notifier: PluginNotifier,
     private val terminalRunner: PluginTerminalRunner,
+    private val portForwardManager: PluginPortForwardManager,
     private val shizukuRunner: PluginShizukuRunner,
     private val tipManager: PluginTipManager,
     private val chatService: PluginChatService,
@@ -135,6 +139,7 @@ class PluginRuntimeManager @Inject constructor(
 
     /** 插件停用、卸载或版本替换时关闭它的进程。 */
     fun closePlugin(pluginId: String) {
+        portForwardManager.closeAll(pluginId)
         synchronized(processes) {
             processes.entries
                 .filter { (_, entry) -> entry.pluginId == pluginId }
@@ -277,6 +282,9 @@ class PluginRuntimeManager @Inject constructor(
             "host.terminal.close" -> terminalStop(pluginId, params, close = true)
             "host.terminal.write" -> terminalWrite(pluginId, params)
             "host.terminal.list" -> terminalCall { terminalRunner.list(pluginId) }
+            "host.ports.forward" -> portsForward(pluginId, params)
+            "host.ports.list" -> portsList(pluginId)
+            "host.ports.close" -> portsClose(pluginId, params)
             "host.chat.listSessions" -> hostCall { chatService.listSessions(pluginId, params) }
             "host.chat.createSession" -> hostCall { chatService.createSession(pluginId, params) }
             "host.chat.listMessages" -> hostCall { chatService.listMessages(pluginId, params) }
@@ -474,6 +482,66 @@ class PluginRuntimeManager @Inject constructor(
             throw PluginProcessException(e.code, e.message)
         }
         return buildJsonObject { put("ok", written) }
+    }
+
+    private suspend fun portsForward(pluginId: String, params: JsonObject): JsonElement {
+        val port = readPort(params["port"])
+            ?: throw PluginProcessException("PARAM_INVALID", "port is required")
+        val localPort = readPort(params["localPort"])
+        val host = (params["host"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            .ifEmpty { "127.0.0.1" }
+        val info = portsCall { portForwardManager.forward(pluginId, host, port, localPort) }
+        return buildJsonObject {
+            put("id", info.id)
+            put("localPort", info.localPort)
+            put("remoteHost", info.remoteHost)
+            put("remotePort", info.remotePort)
+            put("url", info.url)
+            put("direct", info.direct)
+        }
+    }
+
+    private suspend fun portsList(pluginId: String): JsonElement = buildJsonArray {
+        portsCall { portForwardManager.list(pluginId) }.forEach { info ->
+            add(
+                buildJsonObject {
+                    put("id", info.id)
+                    put("localPort", info.localPort)
+                    put("remoteHost", info.remoteHost)
+                    put("remotePort", info.remotePort)
+                    put("url", info.url)
+                    put("direct", info.direct)
+                }
+            )
+        }
+    }
+
+    private suspend fun portsClose(pluginId: String, params: JsonObject): JsonElement {
+        val id = (params["id"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+        if (id.isEmpty()) throw PluginProcessException("PARAM_INVALID", "id is required")
+        val closed = portsCall { portForwardManager.close(pluginId, id) }
+        if (!closed) throw PluginProcessException("PORT_NOT_FOUND", "unknown port mapping: $id")
+        return buildJsonObject { put("closed", true) }
+    }
+
+    private suspend fun <T> portsCall(block: suspend () -> T): T = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: PortForwardException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    /**
+     * 读端口参数：接受 JSON 数字或数字字符串；缺失返回 null（调用方决定是否必填），
+     * 范围校验在 [PluginPortForwardManager.forward] 里统一做。
+     */
+    private fun readPort(element: JsonElement?): Int? {
+        val primitive = element as? JsonPrimitive ?: return null
+        primitive.intOrNull?.let { return it }
+        val text = primitive.contentOrNull?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return text.toIntOrNull()
+            ?: throw PluginProcessException("PARAM_INVALID", "invalid port: $text")
     }
 
     private fun isActive(pluginId: String): Boolean {
