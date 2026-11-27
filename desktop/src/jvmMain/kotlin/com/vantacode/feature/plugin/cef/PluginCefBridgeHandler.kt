@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 页面桥：实现 aicode.js 契约。
  * 方法名与错误码和 Android 版保持一致；桌面无等价能力的返回稳定错误码而非崩溃。
- * Phase 1：补齐商店插件实际用到的 fs.*/clipboard/bash/ui.openUrl/chat.*/model.* 等方法。
+ * Phase 1：补齐商店插件实际用到的 fs.*、clipboard、bash、ui.openUrl、chat.*、model.* 等方法。
  */
 class PluginCefBridgeHandler(
     private val page: PluginPage,
@@ -60,7 +60,7 @@ class PluginCefBridgeHandler(
 
     private val closed = AtomicBoolean(false)
 
-    /** fs.*/bash 的宿主路径解析（工作区挂载 + 沙箱），与 Android 版同款。 */
+    /** fs.* 与 bash 的宿主路径解析（工作区挂载 + 沙箱），与 Android 版同款。 */
     private val hostPaths = PluginHostPaths(fileAccess, homeResolver, workspaceRoot, page.pluginId)
 
     override fun onQuery(
