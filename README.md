@@ -1,18 +1,24 @@
-# VantaGate
+# VantaGate Desktop
 
-本地 AI 网关。把多个 AI 服务商的账号或免费额度接到同一个 OpenAI 兼容接口上，
+本地 AI 网关（Windows 桌面版）。把多个 AI 服务商的账号或免费额度接到同一个 OpenAI 兼容接口上，
 让任何支持自定义 base URL 的客户端都能用上这些模型。
 
-- **不需要服务端**：网关跑在手机本地，`http://127.0.0.1:8790/v1`
-- **凭据不出设备**：账号、Token、密钥只存在本机 `files/aigw/` 下
+- **不需要服务端**：网关跑在本机 Windows 上，`http://127.0.0.1:8790/v1`
+- **凭据不出设备**：账号、Token、密钥只存在本机 `~/.aigw` 下
 - **OpenAI 兼容**：`/v1/models`、`/v1/chat/completions`，流式与非流式都支持
+
+## 下载
+
+最新正式版：[VantaGate Desktop v2.17.0](https://github.com/Hye-steam/VantaCode-Desktop/releases/tag/vantagate-desktop-v2.17.0)（单个 zip，302 MB，解压即装）
+
+校验：SHA-256 应为 `097d2d9192145717f03ea57c846d426bd9a20640b8a10ef3e4b397daf5cc60c2`
 
 ## 界面
 
-| 仪表盘 | 供应商 | 系统提示词 |
+| 首页 | 供应商 | 模型 |
 |---|---|---|
-| ![仪表盘](docs/screenshots/dashboard.jpg) | ![供应商](docs/screenshots/providers.jpg) | ![系统提示词](docs/screenshots/system-prompt.jpg) |
-| 网关开关与今日统计 | 各供应商入口与状态 | 网关层统一注入 |
+| ![首页](docs/screenshots/desktop-home.png) | ![供应商](docs/screenshots/desktop-providers.png) | ![模型](docs/screenshots/desktop-models.png) |
+| 网关开关、今日统计、账号与额度 | 各供应商入口与状态 | 47 个模型与免费池 |
 
 ## 功能
 
@@ -56,28 +62,17 @@
 - 会话粘性（同一会话优先路由到同一账号）
 - 签到 / 余额查询 / 额度自动刷新
 
-### 桌面宠物
-
-基于 [dsh-pet](https://github.com/) 引擎的 webm 帧动画桌宠：
-
-- 透明悬浮窗，可拖动，位置持久化
-- 点击触发回应动作并显示当前积分
-- 30 个动作（待机 / 点击 / 移动 / 余额 / 工作状态 / 随机小动作）
-
 ### 外观
 
-六套主题，深浅各半：
+五套主题：
 
-| 主题 | 底色 | 性格 |
+| 主题 | 明暗 | 强调色 |
 |---|---|---|
-| 石墨 | `#09090B` | 中性灰黑，强调色也是灰 |
-| 深海 | `#05080F` | 蓝黑 + 沉蓝 |
-| 靛夜 | `#08070F` | 紫黑 + 靛蓝 |
-| 墨林 | `#05100B` | 墨绿黑 + 翠绿 |
-| 炭焰 | `#0C0A08` | 暖炭黑 + 琥珀 |
-| **白昼** | `#F6F6F8` | 浅灰白 + 中性蓝（默认） |
-
-所有主题的正文对比度 ≥ 4.5:1，按钮白字对比 ≥ 5:1。
+| 默认 | 浅色 | `#10B981`（翠绿） |
+| 暗夜蓝 | 深色 | `#38BDF8`（天蓝） |
+| 薄荷紫 | 浅色 | `#8B5CF6`（紫罗兰） |
+| 日落橙 | 浅色 | `#F97316`（橙） |
+| 樱花粉 | 浅色 | `#FB7185`（蔷薇粉） |
 
 ### 系统提示词注入
 
@@ -87,32 +82,30 @@
 
 ## 构建
 
-```bash
-# 调试包（不混淆，体积大但便于排查）
-sh gradlew :app:assembleDebug
-
-# 发布包（R8 混淆，22.8MB）
-sh gradlew :app:assembleRelease
+```bat
+.\gradlew.bat :desktop:packageExeZh
 ```
 
-需要 JDK 17 与 Android SDK（compileSdk 35）。签名配置在 `app/build.gradle.kts` 的
-`signingConfigs`，本地构建前需自行提供 keystore。
+产物：中文 Inno Setup 安装包 `desktop/build/compose/binaries/main/exe/VantaGate-2.17.0-win64.exe`。
+需要 JDK 21。另有 `:desktop:packageExe`（WiX 安装包）与绿色 app image（`desktop/build/compose/binaries/main/app/`）。
 
 ## 技术栈
 
-Kotlin · Jetpack Compose · NanoHTTPD · Gson · WebView（部分供应商需要页面环境签名）
+Kotlin · Compose Multiplatform · JCEF · NanoHTTPD · Gson
 
 ## 目录
 
 ```
-core/         网关引擎、供应商实现、HTTP 服务
+core/         网关引擎、供应商实现、HTTP 服务（与 Android 版共用，不改）
   gateway/      Engine / HttpServer / Settings / PromptInject
   provider/     各供应商 Provider 实现
-app/          Android 应用
-  service/      GatewayService（前台服务）
-  ui/           界面（Compose）
-  assets/pet/   桌宠资源
+desktop/      桌面应用（Compose Multiplatform）
+  src/jvmMain/  MainKt 入口、界面、JCEF 登录通道、系统托盘
+  installer/    Inno Setup 中文安装包脚本
+docs/         文档与截图
 ```
+
+技术细节见 [docs/vantagate-desktop.md](docs/vantagate-desktop.md)。
 
 ## 说明
 

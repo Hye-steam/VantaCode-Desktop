@@ -18,14 +18,20 @@ Compose Multiplatform + Kotlin JVM，Windows `.exe`（Inno Setup 中文安装包
 `pool/state/` / `logs/` 格式与 Android 端完全相同，可共用数据目录结构。
 生成媒体输出到 `~/Downloads/VantaGate/media`（桌面无权限流程，直接写文件）。
 
+## 界面
+
+| 首页 | 供应商 | 模型 |
+|---|---|---|
+| ![首页](screenshots/desktop-home.png) | ![供应商](screenshots/desktop-providers.png) | ![模型](screenshots/desktop-models.png) |
+| 网关开关、今日统计、账号与额度 | 各供应商入口与状态 | 47 个模型与免费池 |
+
 ## 构建
 
 ```bat
-.\gradlew.bat :desktop:packageExe
+.\gradlew.bat :desktop:packageExeZh
 ```
 
-产物：`desktop/build/compose/binaries/main/exe/VantaGate-2.17.0.exe`
-（Inno Setup 中文安装包，任务 `:desktop:packageExeZh`；另有绿色 app image 在 `desktop/build/compose/binaries/main/app/`）。
+产物：中文 Inno Setup 安装包 `desktop/build/compose/binaries/main/exe/VantaGate-2.17.0-win64.exe`（任务 `:desktop:packageExeZh`；另有绿色 app image 在 `desktop/build/compose/binaries/main/app/`，以及 `:desktop:packageExe` 的 WiX 安装包作为备用）。
 
 构建期生成式资源（不进 git，任务自动产出）：
 
@@ -74,6 +80,7 @@ WAKE_LOCK（Android 上也是死权限）。对应替代：后台线程 + 系统
 ## CI
 
 `.github/workflows/build-vantagate-desktop.yml` 不能随分支推送（Muse GitHub
-App 没有 Workflows 权限，推 workflow 文件会 403）。完整 YAML 在
-`~/workspace/vantagate-desktop-workflow.yml`，由维护者在浏览器里手动创建；
-CI 跑通之前不要宣称编译通过、不要打 tag、不要发 Release。
+App 没有 Workflows 权限，推 workflow 文件会 403），须由维护者在浏览器里手动创建/修改。
+CI 已跑通：托盘修复提交 `db282756` 的 run 46011860065（7m53s）Success，产物
+`VantaGate-2.17.0-win64.zip`（SHA-256 `097d2d9192145717f03ea57c846d426bd9a20640b8a10ef3e4b397daf5cc60c2`）；
+Tag `vantagate-desktop-v2.17.0` 已指向 `db282756`，正式版已于 2026-11-27 发布。
