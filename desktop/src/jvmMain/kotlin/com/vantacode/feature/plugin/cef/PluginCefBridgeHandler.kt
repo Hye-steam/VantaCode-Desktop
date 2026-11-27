@@ -9,6 +9,8 @@ import com.vantacode.feature.plugin.domain.PluginManager
 import com.vantacode.feature.plugin.domain.PluginPage
 import com.vantacode.feature.plugin.runtime.PluginChatService
 import com.vantacode.feature.plugin.runtime.PluginModelService
+import com.vantacode.feature.plugin.runtime.PluginOverlayException
+import com.vantacode.feature.plugin.runtime.PluginOverlayManager
 import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
 import com.vantacode.feature.plugin.runtime.PluginSystemService
 import com.vantacode.feature.plugin.runtime.PluginTipException
@@ -20,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -55,7 +58,10 @@ class PluginCefBridgeHandler(
     private val chatService: PluginChatService,
     private val modelService: PluginModelService,
     private val tipManager: PluginTipManager,
-    private val systemService: PluginSystemService
+    private val systemService: PluginSystemService,
+    // 浮层宿主：配置页调 aicode.overlay.create/update/close/postMessage 时用；
+    // self/resize/setDragRegion 等只在浮层页面自己的桥（PluginOverlayCefBridgeHandler）里提供。
+    private val overlayManager: PluginOverlayManager
 ) : CefMessageRouterHandlerAdapter() {
 
     private val closed = AtomicBoolean(false)
@@ -244,6 +250,31 @@ class PluginCefBridgeHandler(
                 "chat.sendMessage" -> chatService.sendMessage(page.pluginId, params)
                 "chat.setDraft" -> chatService.setDraft(page.pluginId, params)
                 "chat.stop" -> chatService.stop(page.pluginId, params)
+                // ---- 浮层（对照 Android PluginWebBridge）：配置页可创建/关闭/更新/发消息 ----
+                "overlay.create" -> overlayCall {
+                    val surface = (params["surface"] as? JsonPrimitive)?.contentOrNull
+                    overlayManager.create(page.pluginId, surface, params)
+                }
+                "overlay.update" -> overlayCall {
+                    overlayManager.update(
+                        page.pluginId,
+                        PluginHostPaths.requireString(params, "overlayId"),
+                        params
+                    )
+                }
+                "overlay.close" -> overlayCall {
+                    overlayManager.close(
+                        page.pluginId,
+                        PluginHostPaths.requireString(params, "overlayId")
+                    )
+                }
+                "overlay.postMessage" -> overlayCall {
+                    overlayManager.postMessage(
+                        page.pluginId,
+                        PluginHostPaths.requireString(params, "overlayId"),
+                        params["payload"] ?: JsonNull
+                    )
+                }
                 // ---- Phase 1：模型 ----
                 "model.listProviders" -> modelService.listProviders(page.pluginId)
                 "model.listModels" -> modelService.listModels(page.pluginId, params)
@@ -285,6 +316,13 @@ class PluginCefBridgeHandler(
         } catch (e: PluginTipException) {
             throw PluginHostException(e.code, e.message.orEmpty())
         }
+    }
+
+    /** 浮层调用的宿主错误码透传（与 hostCall 同款）。 */
+    private suspend fun <T> overlayCall(block: suspend () -> T): T = try {
+        block()
+    } catch (e: PluginOverlayException) {
+        throw PluginHostException(e.code, e.message.orEmpty())
     }
 
     private fun errorReply(id: String, code: String, message: String): Pair<String, String> = id to buildJsonObject {

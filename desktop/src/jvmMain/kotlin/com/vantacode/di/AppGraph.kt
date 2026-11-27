@@ -9,6 +9,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.vantacode.core.db.MigrationLoader
 import com.vantacode.core.net.applyTcpKeepAlive
+import com.vantacode.core.platform.DesktopAssets
 import com.vantacode.core.platform.DesktopContext
 import com.vantacode.core.platform.PlatformInfo
 import com.vantacode.core.platform.PlatformPaths
@@ -184,6 +185,11 @@ import com.vantacode.feature.plugin.runtime.PluginHttpService
 import com.vantacode.feature.plugin.runtime.PluginIntrospectionService
 import com.vantacode.feature.plugin.runtime.PluginModelService
 import com.vantacode.feature.plugin.runtime.PluginNotifier
+import com.vantacode.feature.plugin.cef.CefPluginOverlayWindowFactory
+import com.vantacode.feature.plugin.runtime.FilePluginOverlayPositionStore
+import com.vantacode.feature.plugin.runtime.PluginOverlayManager
+import com.vantacode.feature.plugin.runtime.PluginOverlayPositionStore
+import com.vantacode.feature.plugin.runtime.PluginOverlayWindowFactory
 import com.vantacode.feature.plugin.runtime.PluginPortForwardManager
 import com.vantacode.feature.plugin.runtime.PluginProviderRegistrar
 import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
@@ -591,11 +597,41 @@ object AppGraph {
 
     // PluginTipManager ↔ PluginRuntimeManager 互为依赖：用 javax.inject.Provider 惰性取，打断初始化环。
     val pluginTipManager: PluginTipManager by lazy { PluginTipManager(pluginManager, Provider { pluginRuntimeManager }) }
+
+    /**
+     * 插件浮层（桌宠）宿主：只在插件调用 `host.overlay.create` 时建窗，没有内置桌宠。
+     * 位置存 `~/.vantacode/plugin-overlay-positions.json`；窗口是 JFrame + JCEF 透明 OSR。
+     */
+    val pluginOverlayPositionStore: PluginOverlayPositionStore by lazy {
+        FilePluginOverlayPositionStore(
+            File(System.getProperty("user.home"), ".vantacode/plugin-overlay-positions.json")
+        )
+    }
+    val pluginOverlayWindowFactory: PluginOverlayWindowFactory by lazy {
+        CefPluginOverlayWindowFactory(
+            hostAsset = { name ->
+                runCatching {
+                    DesktopAssets.open("plugin-ui/$name").use { it.readBytes() }
+                }.getOrNull()
+            },
+            themeCss = { ":root { color-scheme: light dark; }" }
+        )
+    }
+    val pluginOverlayManager: PluginOverlayManager by lazy {
+        PluginOverlayManager(
+            source = { pluginId ->
+                pluginManager.plugins.value.firstOrNull { it.id == pluginId && it.isActive }?.content?.overlay
+            },
+            windowFactory = pluginOverlayWindowFactory,
+            positionStore = pluginOverlayPositionStore
+        )
+    }
     val pluginRuntimeManager: PluginRuntimeManager by lazy {
         PluginRuntimeManager(
             pluginManager, containerInstaller, nativeCommandEngine, fileAccess, pathHomeResolver,
             commandEngine, workspaceRepository, executionModeHolder, pluginEventBus, pluginNotifier,
-            pluginTerminalRunner, pluginPortForwardManager, pluginShizukuRunner, pluginTipManager, pluginChatService,
+            pluginTerminalRunner, pluginPortForwardManager, pluginShizukuRunner, pluginTipManager, pluginOverlayManager,
+            pluginChatService,
             pluginModelService, pluginSecretStore, pluginSystemService, pluginIntrospectionService,
             pluginToolService, pluginHttpService, aiProviderRepository
         )

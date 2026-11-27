@@ -25,12 +25,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
@@ -58,6 +60,7 @@ class PluginRuntimeManager @Inject constructor(
     private val portForwardManager: PluginPortForwardManager,
     private val shizukuRunner: PluginShizukuRunner,
     private val tipManager: PluginTipManager,
+    private val overlayManager: PluginOverlayManager,
     private val chatService: PluginChatService,
     private val modelService: PluginModelService,
     private val secretStore: PluginSecretStore,
@@ -80,7 +83,31 @@ class PluginRuntimeManager @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        // 桌面端没有 overlay（Android 专有）；overlay.* host API 统一返回 UNSUPPORTED。
+        // 浮层页面发给插件进程的消息（aicode.overlay.postMessage）转调插件的 overlay.message handler，
+        // 与 Android 同款；插件没实现该 handler 时只记日志，不影响浮层本身。
+        overlayManager.setEventSink { pluginId, overlayId, payload ->
+            scope.launch {
+                val plugin = pluginManager.plugins.value.firstOrNull { it.id == pluginId && it.isActive }
+                    ?: return@launch
+                val runtime = plugin.content.runtime ?: return@launch
+                runCatching {
+                    invoke(
+                        pluginId = pluginId,
+                        version = plugin.manifest?.version?.toString().orEmpty(),
+                        runtime = runtime,
+                        handler = "overlay.message",
+                        args = buildJsonObject {
+                            put("overlayId", overlayId)
+                            put("payload", payload)
+                        },
+                        method = "ui.invoke",
+                        timeoutMs = OVERLAY_MESSAGE_TIMEOUT_MS
+                    )
+                }.onFailure {
+                    FileLogger.w(TAG, "overlay message failed: $pluginId", it)
+                }
+            }
+        }
         scope.launch {
             while (isActive) {
                 delay(IDLE_CHECK_MS)
@@ -139,6 +166,7 @@ class PluginRuntimeManager @Inject constructor(
 
     /** 插件停用、卸载或版本替换时关闭它的进程。 */
     fun closePlugin(pluginId: String) {
+        overlayManager.closePlugin(pluginId)
         portForwardManager.closeAll(pluginId)
         synchronized(processes) {
             processes.entries
@@ -255,26 +283,23 @@ class PluginRuntimeManager @Inject constructor(
                     PluginHostPaths.requireString(params, "base64")
                 )
             }
-            // 桌面端没有 overlay / Shizuku 后端，host API 以 UNSUPPORTED 明确失败，
+            // 桌面端没有 Shizuku 后端，host API 以 UNSUPPORTED 明确失败，
             // 由 hostCall 统一转成 JSON-RPC 错误码回给插件。
-            "host.app.isForeground" -> JsonPrimitive(true)
+            "host.app.isForeground" -> JsonPrimitive(overlayManager.isAppForeground())
             "host.bash" -> bash(params)
             "host.notify" -> notifier.notify(pluginId, params)
             "host.shizuku.exec" -> hostCall<JsonElement> {
                 throw PluginHostException("UNSUPPORTED", "桌面端不支持 host.shizuku.exec")
             }
-            "host.overlay.create" -> hostCall<JsonElement> {
-                throw PluginHostException("UNSUPPORTED", "桌面端不支持 host.overlay.create")
-            }
-            "host.overlay.close" -> hostCall<JsonElement> {
-                throw PluginHostException("UNSUPPORTED", "桌面端不支持 host.overlay.close")
-            }
-            "host.overlay.postMessage" -> hostCall<JsonElement> {
-                throw PluginHostException("UNSUPPORTED", "桌面端不支持 host.overlay.postMessage")
-            }
-            "host.overlay.update" -> hostCall<JsonElement> {
-                throw PluginHostException("UNSUPPORTED", "桌面端不支持 host.overlay.update")
-            }
+            "host.overlay.create" -> overlayCreate(pluginId, params)
+            "host.overlay.close" -> overlayClose(pluginId, params)
+            "host.overlay.postMessage" -> overlayPostMessage(pluginId, params)
+            "host.overlay.update" -> overlayUpdate(pluginId, params)
+            "host.overlay.resize" -> overlayResize(pluginId, params)
+            "host.overlay.moveBy" -> overlayMoveBy(pluginId, params)
+            "host.overlay.self" -> overlaySelf(pluginId, params)
+            "host.overlay.setDragRegion" -> overlaySetDragRegion(pluginId, params)
+            "host.overlay.setVisibilityPolicy" -> overlaySetVisibilityPolicy(pluginId, params)
             "host.tip" -> tip(pluginId, params)
             "host.terminal.run" -> terminalRun(pluginId, params)
             "host.terminal.poll" -> terminalPoll(pluginId, params)
@@ -524,6 +549,105 @@ class PluginRuntimeManager @Inject constructor(
         return buildJsonObject { put("closed", true) }
     }
 
+    /** 浮层宿主方法（对照 Android PluginRuntimeManager 的 overlay* 系列）。 */
+    private suspend fun overlayCreate(pluginId: String, params: JsonObject): JsonElement = try {
+        val surface = (params["surface"] as? JsonPrimitive)?.contentOrNull
+        overlayManager.create(pluginId, surface, params)
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlayClose(pluginId: String, params: JsonObject): JsonElement = try {
+        val overlayId = (params["overlayId"] as? JsonPrimitive)?.contentOrNull
+        val surfaceId = (params["surface"] as? JsonPrimitive)?.contentOrNull
+        when {
+            !overlayId.isNullOrBlank() -> overlayManager.close(pluginId, overlayId)
+            !surfaceId.isNullOrBlank() -> overlayManager.closeBySurface(pluginId, surfaceId)
+            else -> throw PluginProcessException("PARAM_INVALID", "overlayId or surface required")
+        }
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlayPostMessage(pluginId: String, params: JsonObject): JsonElement = try {
+        val overlayId = (params["overlayId"] as? JsonPrimitive)?.contentOrNull
+        val surfaceId = (params["surface"] as? JsonPrimitive)?.contentOrNull
+        val payload = params["payload"] ?: JsonNull
+        when {
+            !overlayId.isNullOrBlank() -> overlayManager.postMessage(pluginId, overlayId, payload)
+            !surfaceId.isNullOrBlank() -> overlayManager.postMessageBySurface(pluginId, surfaceId, payload)
+            else -> throw PluginProcessException("PARAM_INVALID", "overlayId or surface required")
+        }
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlayUpdate(pluginId: String, params: JsonObject): JsonElement = try {
+        overlayManager.update(pluginId, PluginHostPaths.requireString(params, "overlayId"), params)
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    // Android 的 host 桥没有下面这几个方法（只有页面侧 aicode.overlay.* 有）；
+    // vanta.niang 的进程侧调了 host.overlay.resize，桌面一并补齐，语义与页面侧相同。
+    private fun overlayResize(pluginId: String, params: JsonObject): JsonElement = try {
+        val overlayId = PluginHostPaths.requireString(params, "overlayId")
+        val width = (params["width"] as? JsonPrimitive)?.intOrNull
+            ?: throw PluginProcessException("PARAM_INVALID", "width required")
+        val height = (params["height"] as? JsonPrimitive)?.intOrNull
+            ?: throw PluginProcessException("PARAM_INVALID", "height required")
+        val animate = (params["animate"] as? JsonPrimitive)?.booleanOrNull ?: false
+        val x = (params["x"] as? JsonPrimitive)?.floatOrNull
+        val y = (params["y"] as? JsonPrimitive)?.floatOrNull
+        overlayManager.resize(pluginId, overlayId, width, height, animate, x, y)
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlayMoveBy(pluginId: String, params: JsonObject): JsonElement = try {
+        val overlayId = PluginHostPaths.requireString(params, "overlayId")
+        val dx = (params["dx"] as? JsonPrimitive)?.floatOrNull ?: 0f
+        val dy = (params["dy"] as? JsonPrimitive)?.floatOrNull ?: 0f
+        overlayManager.moveBy(pluginId, overlayId, dx, dy)
+        buildJsonObject { put("ok", true) }
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlaySelf(pluginId: String, params: JsonObject): JsonElement = try {
+        overlayManager.selfInfo(pluginId, PluginHostPaths.requireString(params, "overlayId"))
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlaySetDragRegion(pluginId: String, params: JsonObject): JsonElement = try {
+        val overlayId = PluginHostPaths.requireString(params, "overlayId")
+        val left = (params["left"] as? JsonPrimitive)?.floatOrNull
+            ?: throw PluginProcessException("PARAM_INVALID", "left required")
+        val top = (params["top"] as? JsonPrimitive)?.floatOrNull
+            ?: throw PluginProcessException("PARAM_INVALID", "top required")
+        val width = (params["width"] as? JsonPrimitive)?.floatOrNull
+            ?: throw PluginProcessException("PARAM_INVALID", "width required")
+        val height = (params["height"] as? JsonPrimitive)?.floatOrNull
+            ?: throw PluginProcessException("PARAM_INVALID", "height required")
+        if (width <= 0f || height <= 0f) {
+            throw PluginProcessException("PARAM_INVALID", "drag region must be positive")
+        }
+        overlayManager.setDragRegion(pluginId, overlayId, OverlayDragRegion(left, top, width, height))
+        buildJsonObject { put("ok", true) }
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    private fun overlaySetVisibilityPolicy(pluginId: String, params: JsonObject): JsonElement = try {
+        val overlayId = PluginHostPaths.requireString(params, "overlayId")
+        val policy = PluginHostPaths.requireString(params, "policy")
+        overlayManager.setVisibilityPolicy(pluginId, overlayId, policy)
+        buildJsonObject { put("ok", true) }
+    } catch (e: PluginOverlayException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
     private suspend fun <T> portsCall(block: suspend () -> T): T = try {
         block()
     } catch (e: CancellationException) {
@@ -619,6 +743,7 @@ class PluginRuntimeManager @Inject constructor(
     private companion object {
         const val TAG = "PluginRuntime"
         const val TOOL_TIMEOUT_MS = 120_000L
+        const val OVERLAY_MESSAGE_TIMEOUT_MS = 30_000L
         const val IDLE_TIMEOUT_MS = 10 * 60_000L
         const val IDLE_CHECK_MS = 60_000L
         const val MAX_TERMINAL_TITLE_CHARS = 120
