@@ -283,7 +283,7 @@ class PluginOverlayManager @Inject constructor(
         record.describe()
     }
 
-    fun close(pluginId: String, overlayId: String): JsonObject {
+    override fun close(pluginId: String, overlayId: String): JsonObject {
         val record = synchronized(lock) { windows[overlayId] }
             ?: throw PluginOverlayException("OVERLAY_NOT_FOUND", "overlay not found: $overlayId")
         if (record.pluginId != pluginId) {
@@ -408,8 +408,6 @@ class PluginOverlayManager @Inject constructor(
         synchronized(lock) { record.visibilityPolicy = validated }
         applyVisibility(record)
     }
-
-    override fun close(pluginId: String, overlayId: String): JsonObject = close(pluginId, overlayId)
 
     override fun postMessageToPlugin(pluginId: String, overlayId: String, payload: JsonElement) {
         requireOwned(pluginId, overlayId)
