@@ -13,7 +13,7 @@
 | 分支 | 产品 | 版本线 | 当前版本 | HEAD（核实日） | 顶层目录 | 构建 |
 |---|---|---|---|---|---|---|
 | `main`（默认分支） | VantaCode 桌面版 | 1.x | 1.4.0（2026-11-21） | `a1a6619` | `desktop/`、`terminal-emulator/`、`docs-site/`、`docs/`、`scripts/`、`data/` | `.\gradlew.bat :desktop:createDistributable`（便携目录）；`.\gradlew.bat :desktop:packageExe`（需 WiX 3.11） |
-| `vantacode-android` | VantaCode 安卓版 | 5.x | v5.9.5（2026-11-27） | `333c4a7d` | `app/`、`terminal-emulator/`、`terminal-view/`、`skills-registry.json`、`build-flavor.sh`、`build-release.sh` | 见该分支的 `build-release.sh` / `build-flavor.sh` |
+| `vantacode-android` | VantaCode 安卓版 | 5.x | v5.9.6（2026-11-27） | `88417076` | `app/`、`terminal-emulator/`、`terminal-view/`、`skills-registry.json`、`build-flavor.sh`、`build-release.sh` | 见该分支的 `build-release.sh` / `build-flavor.sh` |
 | `vantagate-android` | VantaGate 安卓版 | 2.x | 2.17（2026-11-25） | `9d1bc25f` | `app/`、`core/`、`aigw-admin/`、`libs/`、`build.sh`、`test/` | 见该分支的 `build.sh` |
 | `vantagate-desktop` | VantaGate 桌面版 | 2.x | 2.17.0（2026-11-27） | `db282756` | `desktop/`、`core/`、`docs/` | `.\gradlew.bat :desktop:packageExeZh`（中文 Inno 安装包） |
 
@@ -24,7 +24,7 @@
 | 产品 | 分支 | 当前版本 | 新 Tag 前缀（以后强制） | Release 标题前缀 |
 |---|---|---|---|---|
 | VantaCode 桌面版（Windows） | `main` | 1.4.0 | `desktop-v`，如 `desktop-v1.5.0` | `[桌面]` |
-| VantaCode 安卓版 | `vantacode-android` | v5.9.5 | `android-v`，如 `android-v5.9.5` | `[安卓]` |
+| VantaCode 安卓版 | `vantacode-android` | v5.9.6 | `android-v`，如 `android-v5.9.6` | `[安卓]` |
 | VantaGate 安卓版 | `vantagate-android` | 2.17 | `vantagate-v`，如 `vantagate-v2.18` | `[VantaGate]` |
 | VantaGate 桌面版（Windows） | `vantagate-desktop` | 2.17.0 | `vantagate-desktop-v`，如 `vantagate-desktop-v2.17.0` | `VantaGate Desktop` |
 
@@ -69,6 +69,7 @@
 | `v5.9.3` | `305836a2` | 2026-11-24 | ✅ | 曾是安卓分支 HEAD |
 | `v5.9.4` | `305836a2` | 2026-11-25 | ✅ | 曾是安卓分支 HEAD |
 | `v5.9.5` | `305836a2` | 2026-11-27 | ✅ | Tag 指向 305836a2；分支 HEAD 已是 333c4a7d |
+| `v5.9.6` | `333c4a7d` | 2026-11-27 | ✅ | Tag 指向 333c4a7d；分支 HEAD 已是 88417076 |
 
 > 打错的 Tag 一律不动：每个背后都有真实 Release 和真实 APK，挪了 Release 就对不上了。`v5.9.2` 没有 Tag 也没有 Release，是跳过的版本号，无需处理。
 
