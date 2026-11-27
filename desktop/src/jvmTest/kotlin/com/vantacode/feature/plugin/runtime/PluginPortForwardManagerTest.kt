@@ -106,27 +106,30 @@ class PluginPortForwardManagerTest {
 
     @Test
     fun forwardInvalidPort_throwsParamInvalid() = runTest {
-        val badRemote = try {
+        var badRemote: PortForwardException? = null
+        try {
             manager.forward("test.plugin", "127.0.0.1", 0)
             fail("port 0 应抛 PARAM_INVALID")
         } catch (e: PortForwardException) {
-            e
+            badRemote = e
         }
-        assertEquals("PARAM_INVALID", badRemote.code)
-        val tooBig = try {
+        assertEquals("PARAM_INVALID", badRemote?.code)
+        var tooBig: PortForwardException? = null
+        try {
             manager.forward("test.plugin", "127.0.0.1", 70000)
             fail("port 70000 应抛 PARAM_INVALID")
         } catch (e: PortForwardException) {
-            e
+            tooBig = e
         }
-        assertEquals("PARAM_INVALID", tooBig.code)
-        val badLocal = try {
+        assertEquals("PARAM_INVALID", tooBig?.code)
+        var badLocal: PortForwardException? = null
+        try {
             manager.forward("test.plugin", "127.0.0.1", echoPort, 70000)
             fail("localPort 70000 应抛 PARAM_INVALID")
         } catch (e: PortForwardException) {
-            e
+            badLocal = e
         }
-        assertEquals("PARAM_INVALID", badLocal.code)
+        assertEquals("PARAM_INVALID", badLocal?.code)
     }
 
     @Test
@@ -137,13 +140,14 @@ class PluginPortForwardManagerTest {
         // localPort 取 deadPort 相邻端口（必不相等，避免两次取临时端口撞号）。
         val deadPort = freePort()
         val proxyPort = if (deadPort < 65535) deadPort + 1 else deadPort - 1
-        val error = try {
+        var error: PortForwardException? = null
+        try {
             manager.forward("test.plugin", "127.0.0.1", deadPort, proxyPort)
             fail("不可达目标应抛 TARGET_UNREACHABLE")
         } catch (e: PortForwardException) {
-            e
+            error = e
         }
-        assertEquals("TARGET_UNREACHABLE", error.code)
+        assertEquals("TARGET_UNREACHABLE", error?.code)
         assertTrue(manager.list("test.plugin").isEmpty())
     }
 
@@ -151,13 +155,14 @@ class PluginPortForwardManagerTest {
     fun closeUnknownId_returnsFalseAndForeignId_forbidden() = runTest {
         assertFalse(manager.close("test.plugin", "no-such-id"))
         val info = manager.forward("test.plugin", "127.0.0.1", echoPort)
-        val error = try {
+        var error: PortForwardException? = null
+        try {
             manager.close("other.plugin", info.id)
             fail("关别人的映射应抛 FORBIDDEN")
         } catch (e: PortForwardException) {
-            e
+            error = e
         }
-        assertEquals("FORBIDDEN", error.code)
+        assertEquals("FORBIDDEN", error?.code)
         assertTrue(manager.close("test.plugin", info.id))
     }
 
