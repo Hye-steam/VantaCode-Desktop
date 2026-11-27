@@ -520,6 +520,17 @@
     <!-- About -->
     <string name="about_version">Version</string>
     <string name="about_github_repo">GitHub Repository</string>
+    <string name="about_star">Star the Project</string>
+    <string name="star_prompt_title">Enjoying VantaCode?</string>
+    <string name="star_prompt_body">VantaCode is completely free and open source. If it helps your daily work, a star on GitHub means a lot and helps other developers find it.</string>
+    <string name="star_prompt_action">Star on GitHub</string>
+    <string name="star_prompt_never">Don\'t ask again</string>
+    <string name="star_prompt_later">Maybe later</string>
+    <string name="about_donate">Support the Developer</string>
+    <string name="about_donate_desc">Built for the love of it, any amount is appreciated</string>
+    <string name="about_donate_hint">Scan with WeChat, or tap the image to save it</string>
+    <string name="about_donate_saved">Donation code saved to gallery</string>
+    <string name="about_donate_load_failed">Failed to load donation code</string>
     <string name="about_license">Open Source License</string>
     <string name="about_description">Universal AI Coding Agent for Android · Linux dev environment · Local &amp; remote SSH</string>
     <string name="about_check_update">Check for updates</string>

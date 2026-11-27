@@ -90,12 +90,7 @@ internal fun PluginStoreSection(
     val languageTag = currentLanguageTag()
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
-    LaunchedEffect(state.preview) {
-        state.preview?.let { preview ->
-            onShowPreview(preview)
-            viewModel.consumePreview()
-        }
-    }
+    // 预览确认框由上层 PluginsSection 统一观察并弹出（商店页签可能不在组合中）。
     LaunchedEffect(viewModel) {
         viewModel.refreshResult.collect { failed ->
             val message = if (failed > 0) {
@@ -339,12 +334,16 @@ internal fun PluginStoreDetailSection(
     val languageTag = currentLanguageTag()
     val installing = state.installingPluginId == latest.plugin.id
 
+    // 预览确认框正常由上层 PluginsSection 观察 state.preview 弹出。
+    // 但商店详情渲染时 PluginsSection 已不在组合树里（外层是 when 分支），
+    // 它的 LaunchedEffect 不会跑，于是在详情页点安装只会停在下完包、不弹确认——
+    // 必须退出商店回列表才弹出来。这里补一份观察，保证详情页里也能立刻弹。
+    // consumePreview 保证两边不会各弹一次。
     LaunchedEffect(state.preview) {
-        // 预览是全局单槽状态；只弹出当前插件的预览，避免 A 的安装结果覆盖到 B 的详情页。
-        val preview = state.preview?.takeIf { it.preview.manifest.id == latest.plugin.id }
-            ?: return@LaunchedEffect
-        onShowPreview(preview)
-        viewModel.consumePreview()
+        state.preview?.let { preview ->
+            onShowPreview(preview)
+            viewModel.consumePreview()
+        }
     }
 
     Column(

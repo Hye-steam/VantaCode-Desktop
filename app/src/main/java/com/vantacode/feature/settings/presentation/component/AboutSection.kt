@@ -5,7 +5,11 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,7 +36,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.vantacode.core.ui.saveImageToGallery
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,6 +48,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vantacode.R
@@ -62,6 +70,8 @@ import compose.icons.feathericons.Globe
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Tag
 import compose.icons.feathericons.MessageCircle
+import compose.icons.feathericons.Heart
+import compose.icons.feathericons.Star
 
 /**
  * 关于页：顶部应用信息、版本号（点击手动检查更新）、自动检查更新开关、更新通道、
@@ -82,6 +92,12 @@ internal fun AboutSection(
     val context = LocalContext.current
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     var showMirrorDialog by remember { mutableStateOf(false) }
+    var showDonateDialog by remember { mutableStateOf(false) }
+    // 进关于页时看是否该提醒 Star：用户点过「不再提示」或已去过 GitHub 就不再弹。
+    // 「下次一定」只关一次，但同一个进程里不再反复提，否则来回切页会一直弹。
+    var showStarDialog by remember {
+        mutableStateOf(!shouldSkipStarPrompt(context) && !starPromptDismissedThisSession)
+    }
     val termsUrl = stringResource(R.string.agreement_terms_url)
     val privacyUrl = stringResource(R.string.agreement_privacy_url)
 
@@ -176,6 +192,14 @@ internal fun AboutSection(
                 }
             )
             SettingsDivider()
+            // 赞赏：弹出赞赏码
+            SettingsRow(
+                icon = FeatherIcons.Heart,
+                title = stringResource(R.string.about_donate),
+                subtitle = stringResource(R.string.about_donate_desc),
+                onClick = { showDonateDialog = true }
+            )
+            SettingsDivider()
             // 开源许可证
             SettingsRow(
                 icon = FeatherIcons.Book,
@@ -222,6 +246,33 @@ internal fun AboutSection(
                 showMirrorDialog = false
             },
             onDismiss = { showMirrorDialog = false }
+        )
+    }
+
+    if (showDonateDialog) {
+        DonateDialog(onDismiss = { showDonateDialog = false })
+    }
+
+    if (showStarDialog) {
+        StarPromptDialog(
+            appIcon = appIcon,
+            onOpenGithub = {
+                context.startActivity(android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(GITHUB_REPO_URL)
+                ))
+                // 去了就不再打扰，不然后面每次进来都弹
+                markStarPromptDone(context)
+                showStarDialog = false
+            },
+            onNeverAgain = {
+                markStarPromptDone(context)
+                showStarDialog = false
+            },
+            onLater = {
+                starPromptDismissedThisSession = true
+                showStarDialog = false
+            }
         )
     }
 }
@@ -542,6 +593,232 @@ private fun loadAppIconBitmap(context: Context): ImageBitmap? {
         Canvas(bitmap).also { drawable.draw(it) }
         bitmap.asImageBitmap()
     }.getOrNull()
+}
+
+/**
+ * Star 提醒弹窗。
+ *
+ * 照搬用户给的参考样式：图标右下角压个小星星、居中标题、三行说明、
+ * 主按钮（去 GitHub）+ 底部两个文字按钮。
+ *
+ * 两个底部按钮的差别是「以后还提不提」：
+ *   不再提示 → 永久标记，以后不再自动弹
+ *   下次一定 → 只关这一次，下次启动还会问
+ * 这是很多开源 App 的惯例，把选择权留给用户。
+ */
+@Composable
+internal fun StarPromptDialog(
+    appIcon: ImageBitmap?,
+    onOpenGithub: () -> Unit,
+    onNeverAgain: () -> Unit,
+    onLater: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onLater,
+        confirmButton = {},
+        dismissButton = {},
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                // 图标 + 右下角星徽
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    if (appIcon != null) {
+                        Image(
+                            bitmap = appIcon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                        )
+                    } else {
+                        Icon(
+                            imageVector = FeatherIcons.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(Color(0xFFFFC107)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = FeatherIcons.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.star_prompt_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = stringResource(R.string.star_prompt_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.semanticColors.subtleText,
+                    textAlign = TextAlign.Center
+                )
+
+                // 主按钮：去 GitHub
+                Surface(
+                    onClick = onOpenGithub,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.semanticColors.cardSurface
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = FeatherIcons.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(
+                            text = stringResource(R.string.star_prompt_action),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    TextButton(onClick = onNeverAgain) {
+                        Text(
+                            text = stringResource(R.string.star_prompt_never),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.semanticColors.subtleText
+                        )
+                    }
+                    TextButton(onClick = onLater) {
+                        Text(
+                            text = stringResource(R.string.star_prompt_later),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.semanticColors.subtleText
+                        )
+                    }
+                }
+            }
+        }
+    )
+}
+
+/**
+ * 赞赏弹窗：展示微信赞赏码。
+ *
+ * 码图从 assets 读，不依赖网络。长按保存到相册，方便在电脑上扫码或转发。
+ * 用 AlertDialog 而非 bottom sheet：正方形图很高，sheet 会被手势拖拽误关。
+ */
+@Composable
+private fun DonateDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val qr = remember { loadAssetBitmap(context, "donate/wechat.png") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_close))
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.about_donate),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                if (qr != null) {
+                    Image(
+                        bitmap = qr,
+                        contentDescription = stringResource(R.string.about_donate),
+                        modifier = Modifier
+                            .widthIn(max = 260.dp)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                scope.launch {
+                                    saveImageToGallery(context, qr, "VantaCode-donate")
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        context.getString(R.string.about_donate_saved),
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.about_donate_load_failed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.semanticColors.subtleText
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.about_donate_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.semanticColors.subtleText
+                )
+            }
+        }
+    )
+}
+
+/** 从 assets 读图并转成 ImageBitmap；安卓不支持直接 decode 流里的自适应 PNG，必须先缓冲。 */
+private fun loadAssetBitmap(context: Context, path: String): ImageBitmap? = runCatching {
+    context.assets.open(path).use { input ->
+        android.graphics.BitmapFactory.decodeStream(input)?.asImageBitmap()
+    }
+}.getOrNull()
+
+/** Star 提醒的持久标记：只记一个布尔值，存 SharedPreferences 而非 DataStore。 */
+private const val STAR_PREFS = "star_prompt_prefs"
+private const val STAR_PROMPT_NEVER = "never_again"
+
+/**
+ * 本次进程内用户已选过「下次一定」。
+ *
+ * 只用 remember 不够：离开关于页后组合被销毁，下次进来又弹，
+ * 在页签间来回切会反复打扰。所以提到进程级变量。
+ */
+private var starPromptDismissedThisSession = false
+
+/** 用户已明确表示不再需要提醒（点过「不再提示」或已经去过 GitHub）。 */
+private fun shouldSkipStarPrompt(context: Context): Boolean =
+    context.getSharedPreferences(STAR_PREFS, Context.MODE_PRIVATE)
+        .getBoolean(STAR_PROMPT_NEVER, false)
+
+/** 以后不再弹 Star 提醒。 */
+private fun markStarPromptDone(context: Context) {
+    context.getSharedPreferences(STAR_PREFS, Context.MODE_PRIVATE)
+        .edit().putBoolean(STAR_PROMPT_NEVER, true).apply()
 }
 
 /** 交流群号：点一下复制。 */

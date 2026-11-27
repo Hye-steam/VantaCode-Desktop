@@ -550,6 +550,17 @@
     <!-- About -->
     <string name="about_version">版本</string>
     <string name="about_github_repo">GitHub 仓库</string>
+    <string name="about_star">Star 支持项目</string>
+    <string name="star_prompt_title">喜欢 VantaCode 吗？</string>
+    <string name="star_prompt_body">VantaCode 完全开源免费。如果它帮到了你的日常开发，欢迎去 GitHub 点个 Star 支持，让更多开发者看到这个项目。</string>
+    <string name="star_prompt_action">前往 GitHub 点 Star</string>
+    <string name="star_prompt_never">不再提示</string>
+    <string name="star_prompt_later">下次一定</string>
+    <string name="about_donate">赞赏开发者</string>
+    <string name="about_donate_desc">纯属为爱发电，心意随意</string>
+    <string name="about_donate_hint">微信扫码，或点图片保存到相册</string>
+    <string name="about_donate_saved">赞赏码已保存到相册</string>
+    <string name="about_donate_load_failed">赞赏码加载失败</string>
     <string name="about_license">开源许可证</string>
     <string name="about_description">Android 上的通用 AI Coding Agent · Linux 开发环境 · 支持本地与远程 SSH</string>
     <string name="about_check_update">检查更新</string>

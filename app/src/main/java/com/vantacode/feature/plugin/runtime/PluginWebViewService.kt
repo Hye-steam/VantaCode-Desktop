@@ -61,6 +61,8 @@ class PluginWebViewService @Inject constructor(
         val events: LinkedBlockingQueue<Event>,
         /** 挂窗用的 WindowManager；未挂窗时为 null。 */
         var hostWindow: android.view.WindowManager? = null,
+        /** 交互模式下实际挂上去的容器（包着 WebView + 完成按钮）；隐藏模式为 null。 */
+        var hostView: android.view.View? = null,
     ) {
 @Volatile
         var ready: Boolean = false
@@ -103,6 +105,9 @@ class PluginWebViewService @Inject constructor(
         val url = asStringOrThrow(obj["url"], "url")
         val userAgent = obj["userAgent"]?.let { (it as? JsonPrimitive)?.contentOrNull }
         val allow = obj["allowDomains"]?.asStringList().orEmpty()
+        // 交互模式：给用户真的能看到、能点的窗口（登录场景用）。
+        // 默认是隐藏模式：屏幕外 + 几乎透明，只为了自动抓生成结果。
+        val interactive = (obj["interactive"] as? JsonPrimitive)?.contentOrNull?.toBoolean() ?: false
         // 登录态必须在 loadUrl 之前落进 CookieManager，否则首次请求就是登出状态，
         // 页面水合完也拿不到生成入口。所以这里允许开页时一并带 cookie。
         val cookies = obj["cookies"]?.let { (it as? JsonPrimitive)?.contentOrNull }
@@ -166,6 +171,14 @@ class PluginWebViewService @Inject constructor(
             // 屏幕外 + alpha 0.01（不能用 0，部分机型会因此跳过合成）。
             runCatching {
                 val wm = context.getSystemService(android.view.WindowManager::class.java)
+                // 交互模式要能触摸、能聚焦，隐藏模式则相反（它只是后台扒数据的窗口）。
+                val baseFlags = if (interactive) {
+                    android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                } else {
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                }
                 val lp = android.view.WindowManager.LayoutParams(
                     // 尺寸对齐 muse2api 的 --window-size=1440,2400：卡片太窄时
                     // muse 会把媒体当成不可见区域、不触发懒加载。
@@ -176,17 +189,56 @@ class PluginWebViewService @Inject constructor(
                         @Suppress("DEPRECATION")
                         android.view.WindowManager.LayoutParams.TYPE_PHONE
                     },
-                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                        android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    baseFlags,
                     android.graphics.PixelFormat.TRANSLUCENT,
                 ).apply {
-                    gravity = android.view.Gravity.TOP or android.view.Gravity.START
-                    x = -500
-                    y = -900
+                    if (interactive) {
+                        width = android.view.WindowManager.LayoutParams.MATCH_PARENT
+                        height = android.view.WindowManager.LayoutParams.MATCH_PARENT
+                        gravity = android.view.Gravity.CENTER
+                        // 登录要输账号密码：键盘弹出时把窗口顶上去，否则输入框被遮住看不见。
+                        softInputMode = android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    } else {
+                        gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                        x = -500
+                        y = -900
+                    }
                 }
-                wv.alpha = 0.01f
-                wm.addView(wv, lp)
+                // 交互模式下必须完全不透明，否则用户看到蒙层却看不清内容
+                wv.alpha = if (interactive) 1f else 0.01f
+                if (interactive) {
+                    // 盖一层「完成登录」按钮：登录完成的判据必须是用户自己确认，
+                    // 不能靠 cookie 里出现某个字段——页面残留的过期 session 也会让那个判据成立。
+                    val root = android.widget.FrameLayout(context)
+                    root.addView(
+                        wv,
+                        android.widget.FrameLayout.LayoutParams(
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                        ),
+                    )
+                    val doneBtn = android.widget.Button(context).apply {
+                        text = "完成登录"
+                        setBackgroundColor(android.graphics.Color.parseColor("#6EA8FE"))
+                        setTextColor(android.graphics.Color.WHITE)
+                        setOnClickListener {
+                            // 用 Ok 事件把「用户点了完成」通知给插件，插件再去读 cookie
+                            session.events.offer(Event.Ok("{\"confirm\":true}"))
+                        }
+                    }
+                    val btnLp = android.widget.FrameLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply {
+                        gravity = android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+                        bottomMargin = 72
+                    }
+                    root.addView(doneBtn, btnLp)
+                    wm.addView(root, lp)
+                    session.hostView = root
+                } else {
+                    wm.addView(wv, lp)
+                }
                 session.hostWindow = wm
             }.onFailure { FileLogger.w(TAG, "WebView 挂窗失败（页面可能不会水合）", it) }
             wv.webViewClient = object : WebViewClient() {
@@ -447,8 +499,11 @@ class PluginWebViewService @Inject constructor(
         session.closed = true
         sessions.remove(session.id)
         runCatching {
-            session.hostWindow?.removeView(session.webView)
+            // 交互模式挂的是容器（FrameLayout），直接移除 webView 会抛
+            // 「not a child of this ViewGroup」。
+            session.hostWindow?.removeView(session.hostView ?: session.webView)
         }.onFailure { FileLogger.w(TAG, "WebView 移除窗口失败", it) }
+        session.hostView = null
         session.hostWindow = null
         runCatching {
             session.webView.stopLoading()
