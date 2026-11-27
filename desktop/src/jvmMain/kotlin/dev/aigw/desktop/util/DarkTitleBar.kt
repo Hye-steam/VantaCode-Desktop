@@ -2,7 +2,6 @@ package dev.aigw.desktop.util
 
 import com.sun.jna.Memory
 import com.sun.jna.Native
-import com.sun.jna.platform.win32.Dwmapi
 import com.sun.jna.platform.win32.WinDef.HWND
 import java.awt.Window
 import javax.swing.SwingUtilities
