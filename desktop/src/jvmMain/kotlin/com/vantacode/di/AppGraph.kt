@@ -186,6 +186,9 @@ import com.vantacode.feature.plugin.runtime.PluginIntrospectionService
 import com.vantacode.feature.plugin.runtime.PluginModelService
 import com.vantacode.feature.plugin.runtime.PluginNotifier
 import com.vantacode.feature.plugin.cef.CefPluginOverlayWindowFactory
+import com.vantacode.feature.plugin.cef.CefPluginWebViewBrowserFactory
+import com.vantacode.feature.plugin.cef.CefPluginWebViewCookieStore
+import com.vantacode.feature.plugin.cef.CefPluginWebViewLoginWindowFactory
 import com.vantacode.feature.plugin.runtime.FilePluginOverlayPositionStore
 import com.vantacode.feature.plugin.runtime.PluginOverlayManager
 import com.vantacode.feature.plugin.runtime.PluginOverlayPositionStore
@@ -200,6 +203,7 @@ import com.vantacode.feature.plugin.runtime.PluginTerminalRunner
 import com.vantacode.feature.plugin.runtime.PluginTipManager
 import com.vantacode.feature.plugin.runtime.PluginToolManager
 import com.vantacode.feature.plugin.runtime.PluginToolService
+import com.vantacode.feature.plugin.runtime.PluginWebViewService
 import com.vantacode.feature.plugin.tool.PluginTool
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -626,6 +630,17 @@ object AppGraph {
             positionStore = pluginOverlayPositionStore
         )
     }
+    /**
+     * 插件 WebView 通道（隐藏会话 + 网页登录窗口）：只在插件调用 `host.webview.*` /
+     * 配置页调 `aicode.webview.login` 时建浏览器，平时不初始化 JCEF。
+     */
+    val pluginWebViewService: PluginWebViewService by lazy {
+        PluginWebViewService(
+            browserFactory = CefPluginWebViewBrowserFactory(),
+            cookieStore = CefPluginWebViewCookieStore,
+            loginWindowFactory = CefPluginWebViewLoginWindowFactory()
+        )
+    }
     val pluginRuntimeManager: PluginRuntimeManager by lazy {
         PluginRuntimeManager(
             pluginManager, containerInstaller, nativeCommandEngine, fileAccess, pathHomeResolver,
@@ -633,7 +648,7 @@ object AppGraph {
             pluginTerminalRunner, pluginPortForwardManager, pluginShizukuRunner, pluginTipManager, pluginOverlayManager,
             pluginChatService,
             pluginModelService, pluginSecretStore, pluginSystemService, pluginIntrospectionService,
-            pluginToolService, pluginHttpService, aiProviderRepository
+            pluginToolService, pluginHttpService, aiProviderRepository, pluginWebViewService
         )
     }
     val pluginHookDispatcher: PluginHookDispatcher by lazy {

@@ -13,6 +13,8 @@ import com.vantacode.feature.plugin.runtime.PluginOverlayException
 import com.vantacode.feature.plugin.runtime.PluginOverlayManager
 import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
 import com.vantacode.feature.plugin.runtime.PluginSystemService
+import com.vantacode.feature.plugin.runtime.PluginWebViewException
+import com.vantacode.feature.plugin.runtime.PluginWebViewService
 import com.vantacode.feature.plugin.runtime.PluginTipException
 import com.vantacode.feature.plugin.runtime.PluginTipManager
 import com.vantacode.feature.workspace.domain.FileAccessProvider
@@ -61,7 +63,9 @@ class PluginCefBridgeHandler(
     private val systemService: PluginSystemService,
     // 浮层宿主：配置页调 aicode.overlay.create/update/close/postMessage 时用；
     // self/resize/setDragRegion 等只在浮层页面自己的桥（PluginOverlayCefBridgeHandler）里提供。
-    private val overlayManager: PluginOverlayManager
+    private val overlayManager: PluginOverlayManager,
+    // 网页登录：配置页调 aicode.webview.login 时用（pojia-gateway 的“网页登录”按钮）。
+    private val webViewService: PluginWebViewService
 ) : CefMessageRouterHandlerAdapter() {
 
     private val closed = AtomicBoolean(false)
@@ -93,9 +97,15 @@ class PluginCefBridgeHandler(
 
         val shortReq = request.take(300)
         FileLogger.d("PluginCefBridge", "dispatch start: $shortReq")
+        // 网页登录要等用户在窗口里操作（默认 10 分钟），不能用 30 秒的通用上限；
+        // 其它方法保持 30 秒，避免插件调用挂起。
+        val method = runCatching {
+            (Json.parseToJsonElement(request) as? JsonObject)?.get("method")?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+        val timeoutMs = if (method == "webview.login") WEBVIEW_LOGIN_TIMEOUT_MS else 30_000L
         scope.launch(Dispatchers.IO) {
             val reply = runCatching {
-                kotlinx.coroutines.withTimeout(30_000L) { dispatch(request) }
+                kotlinx.coroutines.withTimeout(timeoutMs) { dispatch(request) }
             }.getOrElse { e ->
                 FileLogger.e("PluginCefBridge", "dispatch failed: $shortReq", e)
                 // 兜底错误也要带回请求 id，否则 aicode.js 找不到 pending 项、插件调用会一直挂起。
@@ -275,6 +285,10 @@ class PluginCefBridgeHandler(
                         params["payload"] ?: JsonNull
                     )
                 }
+                // ---- 网页登录（pojia-gateway 配置页的“网页登录”按钮） ----
+                // Android 没有 aicode.webview.login；桌面用可见 JCEF 登录窗口实现，
+                // 与进程桥 host.webview.login 同款语义（见 PluginWebViewService.login）。
+                "webview.login" -> webViewCall { webViewService.login(page.pluginId, params) }
                 // ---- Phase 1：模型 ----
                 "model.listProviders" -> modelService.listProviders(page.pluginId)
                 "model.listModels" -> modelService.listModels(page.pluginId, params)
@@ -318,6 +332,13 @@ class PluginCefBridgeHandler(
         }
     }
 
+    /** webview 调用的宿主错误码透传（与 overlayCall 同款）。 */
+    private suspend fun <T> webViewCall(block: suspend () -> T): T = try {
+        block()
+    } catch (e: PluginWebViewException) {
+        throw PluginHostException(e.code, e.message.orEmpty())
+    }
+
     /** 浮层调用的宿主错误码透传（与 hostCall 同款）。 */
     private suspend fun <T> overlayCall(block: suspend () -> T): T = try {
         block()
@@ -354,5 +375,10 @@ class PluginCefBridgeHandler(
             }
         }
         append('"')
+    }
+
+    companion object {
+        /** 网页登录要等用户在窗口里操作：默认 10 分钟登录超时 + 60 秒余量。 */
+        const val WEBVIEW_LOGIN_TIMEOUT_MS = 660_000L
     }
 }

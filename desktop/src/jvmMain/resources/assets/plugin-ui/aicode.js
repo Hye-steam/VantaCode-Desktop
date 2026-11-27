@@ -238,6 +238,13 @@
         return call('overlay.postMessage', { payload: payload === undefined ? null : payload });
       }
     },
+    // 网页登录：宿主弹出可见登录窗口，用户登录后点「完成登录」，
+    // 返回 { cookies: { url: "k=v; ..." }, cookie, finalUrl }；用户关窗则报 LOGIN_CANCELED。
+    webview: {
+      login: function (options) {
+        return call('webview.login', options || {});
+      }
+    },
     // 调用同一插件的常驻进程 handler，返回 handler 的 result；不支持跨插件调用。
     invoke: function (handler, args) {
       return call('plugin.invoke', { handler: String(handler), args: args || {} });

@@ -68,7 +68,8 @@ class PluginRuntimeManager @Inject constructor(
     private val introspectionService: PluginIntrospectionService,
     private val toolService: PluginToolService,
     private val httpService: PluginHttpService,
-    private val providerRepository: com.vantacode.feature.settings.domain.repository.AIProviderRepository
+    private val providerRepository: com.vantacode.feature.settings.domain.repository.AIProviderRepository,
+    private val webViewService: PluginWebViewService
 ) {
 
     private class Entry(
@@ -168,6 +169,7 @@ class PluginRuntimeManager @Inject constructor(
     fun closePlugin(pluginId: String) {
         overlayManager.closePlugin(pluginId)
         portForwardManager.closeAll(pluginId)
+        webViewService.closeAll(pluginId)
         synchronized(processes) {
             processes.entries
                 .filter { (_, entry) -> entry.pluginId == pluginId }
@@ -310,6 +312,18 @@ class PluginRuntimeManager @Inject constructor(
             "host.ports.forward" -> portsForward(pluginId, params)
             "host.ports.list" -> portsList(pluginId)
             "host.ports.close" -> portsClose(pluginId, params)
+            // 隐藏 WebView 通道 + 网页登录（对照 Android PluginWebViewService）。
+            // muse 供应商必需 getCookies/saveBlob；github-mcp 用 login；交互 open 由插件自己
+            // awaitMessage + getCookies 完成登录。
+            "host.webview.open" -> webViewCall { webViewService.open(pluginId, params) }
+            "host.webview.setCookies" -> webViewCall { webViewService.setCookies(pluginId, params) }
+            "host.webview.getCookies" -> webViewCall { webViewService.getCookies(pluginId, params) }
+            "host.webview.eval" -> webViewCall { webViewService.eval(pluginId, params) }
+            "host.webview.waitFor" -> webViewCall { webViewService.waitFor(pluginId, params) }
+            "host.webview.awaitMessage" -> webViewCall { webViewService.awaitMessage(pluginId, params) }
+            "host.webview.saveBlob" -> webViewCall { webViewService.saveBlob(pluginId, params) }
+            "host.webview.close" -> webViewCall { webViewService.close(pluginId, params) }
+            "host.webview.login" -> webViewCall { webViewService.login(pluginId, params) }
             "host.chat.listSessions" -> hostCall { chatService.listSessions(pluginId, params) }
             "host.chat.createSession" -> hostCall { chatService.createSession(pluginId, params) }
             "host.chat.listMessages" -> hostCall { chatService.listMessages(pluginId, params) }
@@ -653,6 +667,15 @@ class PluginRuntimeManager @Inject constructor(
     } catch (e: CancellationException) {
         throw e
     } catch (e: PortForwardException) {
+        throw PluginProcessException(e.code, e.message.orEmpty())
+    }
+
+    /** webview 调用的宿主错误码透传（与 portsCall 同款）。 */
+    private suspend fun <T> webViewCall(block: suspend () -> T): T = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: PluginWebViewException) {
         throw PluginProcessException(e.code, e.message.orEmpty())
     }
 

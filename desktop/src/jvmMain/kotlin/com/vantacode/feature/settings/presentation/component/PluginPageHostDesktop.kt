@@ -146,7 +146,8 @@ private suspend fun createSession(page: PluginPage, onClose: () -> Unit): Sessio
         modelService = graph.pluginModelService,
         tipManager = graph.pluginTipManager,
         systemService = graph.pluginSystemService,
-        overlayManager = graph.pluginOverlayManager
+        overlayManager = graph.pluginOverlayManager,
+        webViewService = graph.pluginWebViewService
     )
     val client = PluginCef.newClient(requestHandler, bridge)
     val url = "${PluginCefRequestHandler.ORIGIN}${PluginCefRequestHandler.PLUGIN}${page.pageFile}"
