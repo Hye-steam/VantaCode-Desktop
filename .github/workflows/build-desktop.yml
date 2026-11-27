@@ -1,0 +1,19 @@
+name: Build VantaCode Desktop
+
+on:
+  push:
+    branches: [desktop/plugin-compat-phase1]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and test desktop
+        run: .\gradlew.bat :desktop:compileKotlinJvm :desktop:jvmTest --stacktrace
