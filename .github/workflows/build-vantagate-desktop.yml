@@ -23,21 +23,18 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      # Compose packageExe (TargetFormat.Exe) 需要 WiX Toolset (candle/light)。
-      # 若 runner 已自带 light.exe 则跳过安装。
-      - name: Install WiX Toolset if missing
+      # 中文安装器改用 Inno Setup（packageExeZh）；不再需要 WiX。
+      - name: Install Inno Setup if missing
         shell: pwsh
         run: |
-          if (-not (Get-Command light.exe -ErrorAction SilentlyContinue)) {
-            choco install wixtoolset --version=3.14.1 -y
-            $wix = 'C:\Program Files (x86)\WiX Toolset v3.14\bin'
-            if (Test-Path $wix) { Add-Content $env:GITHUB_PATH $wix }
+          if (-not (Get-Command ISCC.exe -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y
           } else {
-            Write-Host "WiX already present: $(Get-Command light.exe | Select-Object -ExpandProperty Source)"
+            Write-Host "Inno Setup already present: $(Get-Command ISCC.exe | Select-Object -ExpandProperty Source)"
           }
 
       - name: Build .exe
-        run: .\gradlew.bat :desktop:packageExe --stacktrace
+        run: .\gradlew.bat :desktop:packageExeZh --stacktrace
 
       - name: Run desktop tests
         run: .\gradlew.bat :desktop:jvmTest --tests "dev.aigw.desktop.update.UpdateCheckerTest"
@@ -48,4 +45,3 @@ jobs:
           name: VantaGate-2.17.0-win64
           path: desktop/build/compose/binaries/main/exe/*.exe
           if-no-files-found: error
----
