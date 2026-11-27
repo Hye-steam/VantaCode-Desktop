@@ -6,13 +6,14 @@ import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefLifeSpanHandlerAdapter
+import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import org.cef.handler.CefRequestHandler
 import org.cef.misc.BoolRef
 import org.cef.network.CefCookie
 import org.cef.network.CefCookieManager
-import org.cef.network.CefCookieVisitor
+import org.cef.callback.CefCookieVisitor
 import java.awt.Component
 import java.net.URI
 import java.util.Collections
@@ -118,7 +119,7 @@ class JcefBrowser(
             override fun onLoadError(
                 browser: CefBrowser?,
                 frame: CefFrame?,
-                errorCode: Int,
+                errorCode: CefLoadHandler.ErrorCode,
                 errorText: String?,
                 failedUrl: String?,
             ) {
