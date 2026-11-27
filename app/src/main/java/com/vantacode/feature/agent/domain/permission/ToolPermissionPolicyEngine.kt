@@ -31,14 +31,23 @@ import javax.inject.Singleton
 class ToolPermissionPolicyEngine @Inject constructor(
     private val rulesRepo: PermissionRulesRepository,
     private val toolSafetySettings: ToolSafetySettingsRepository,
+    private val rootSettings: com.vantacode.feature.agent.domain.root.RootSettingsRepository,
     @param:ApplicationContext private val appContext: Context
 ) {
     private companion object {
         /** 以 `command` 参数承载 shell 命令、按命令前缀做指令级匹配的工具。 */
-        val SHELL_TOOLS = setOf("Bash", SHIZUKU_TOOL)
+        val SHELL_TOOLS = setOf("Bash", SHIZUKU_TOOL, ROOT_TOOL)
 
         /** Shizuku 工具：以 adb shell 身份直接操作宿主 Android 系统，按高危处理（一律弹窗、不可记忆）。 */
         const val SHIZUKU_TOOL = "Shizuku"
+
+        /**
+         * Root 工具：比 Shizuku 权限更高（真 uid 0）。
+         *
+         * 默认同样一律弹窗且不可记忆；用户在设置里开启「跳过确认」后才免弹窗。
+         * 注意：这个开关打开即意味着 AI 可以不经确认直接拿到 root，属于用户明确选择的风险。
+         */
+        const val ROOT_TOOL = "Root"
 
         /**
          * 合并后的终端会话工具：其 `start` 动作承载 shell 命令，需走指令级前缀匹配；
@@ -151,6 +160,11 @@ class ToolPermissionPolicyEngine @Inject constructor(
             if (toolName == SHIZUKU_TOOL && !safetyDisabled) {
                 return EvalResult(Verdict.ASK, emptyList(), rememberDisabledReason = appContext.getString(R.string.tool_shizuku_confirmation_reason))
             }
+            // Root 比 Shizuku 权限更高，同样不在 AUTO 下自动放行。
+            // 但用户主动开了「跳过确认」时就尊重该选择。
+            if (toolName == ROOT_TOOL && !safetyDisabled && !rootSettings.isSkipConfirm()) {
+                return EvalResult(Verdict.ASK, emptyList(), rememberDisabledReason = appContext.getString(R.string.tool_root_confirmation_reason))
+            }
             return EvalResult(Verdict.ALLOW, emptyList())
         }
 
@@ -185,7 +199,10 @@ class ToolPermissionPolicyEngine @Inject constructor(
 
         val rules = rulesRepo.loadEffectiveForCurrentProject().filter { it.toolName == toolName }
         return if (isShellTool(toolName, args)) {
-            evaluateShell(rules, args, forceAsk = toolName == SHIZUKU_TOOL)
+            // Root 的「强制询问」可被用户设置关闭，Shizuku 则始终强制
+            val forceAsk = toolName == SHIZUKU_TOOL ||
+                (toolName == ROOT_TOOL && !rootSettings.isSkipConfirm())
+            evaluateShell(rules, args, forceAsk = forceAsk)
         } else {
             evaluateGeneric(rules, capabilities)
         }

@@ -43,6 +43,7 @@ import com.vantacode.feature.agent.domain.tool.container.TerminalSessionTool
 import com.vantacode.feature.agent.domain.tool.explorer.ListFilesTool
 import com.vantacode.feature.agent.domain.tool.explorer.SearchCodeTool
 import com.vantacode.feature.agent.domain.tool.shizuku.ShizukuTool
+import com.vantacode.feature.agent.domain.tool.root.RootTool
 import com.vantacode.feature.agent.domain.tool.phone.PhoneControlTool
 import com.vantacode.feature.agent.domain.tool.skill.LoadSkillTool
 import com.vantacode.feature.agent.domain.tool.question.AskUserQuestionTool
@@ -400,7 +401,9 @@ object AgentModule {
         taskTool: TaskTool,
         messageParentTool: MessageParentTool,
         browserTool: BrowserTool,
-        phoneControlTool: PhoneControlTool
+        phoneControlTool: PhoneControlTool,
+        rootTool: RootTool,
+        rootSettingsRepository: com.vantacode.feature.agent.domain.root.RootSettingsRepository
     ): ToolRegistry {
         return ToolRegistry().apply {
             register("readFile", readFileTool)
@@ -427,6 +430,11 @@ object AgentModule {
             register("messageParent", messageParentTool)
             register("browser", browserTool)
             register("phoneControl", phoneControlTool)
+            // root 总开关未开启时不注册：AI 看不到这个工具，也就不会去尝试调用。
+            // 这样「不开 root 不影响正常使用」是结构上保证的，不靠提示词约束。
+            if (rootSettingsRepository.isEnabled()) {
+                register("Root", rootTool)
+            }
         }
     }
 

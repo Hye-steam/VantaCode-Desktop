@@ -171,6 +171,7 @@ internal enum class SettingsSection(@param:StringRes val titleRes: Int) {
     Proxy(R.string.proxy_title),
     Log(R.string.settings_log),
     Permissions(R.string.settings_permissions),
+    Root(R.string.root_title),
     AppPermissions(R.string.settings_app_permissions),
     BackgroundRun(R.string.settings_category_background),
     RemoteServers(R.string.settings_remote_servers),
@@ -238,6 +239,10 @@ fun SettingsScreen(
     val projectRules by viewModel.projectRules.collectAsStateWithLifecycle()
     val currentProjectName by viewModel.currentProjectName.collectAsStateWithLifecycle()
     val disableSafetyInterception by viewModel.disableSafetyInterception.collectAsStateWithLifecycle()
+    val rootEnabled by viewModel.rootEnabled.collectAsStateWithLifecycle()
+    val rootSkipConfirm by viewModel.rootSkipConfirm.collectAsStateWithLifecycle()
+    val rootPrivateData by viewModel.rootPrivateData.collectAsStateWithLifecycle()
+    val rootProbe by viewModel.rootProbe.collectAsStateWithLifecycle()
     val keepaliveEnabled by viewModel.keepaliveEnabled.collectAsStateWithLifecycle()
     val screenOnEnabled by viewModel.screenOnEnabled.collectAsStateWithLifecycle()
     val agentSoundEnabled by viewModel.agentSoundEnabled.collectAsStateWithLifecycle()
@@ -1233,6 +1238,20 @@ fun SettingsScreen(
                     onPromote = { viewModel.promoteRuleToGlobal(it) },
                     onDeleteGlobal = { viewModel.deleteGlobalRule(it) }
                 )
+                SettingsSection.Root -> {
+                    // 进页时探一次：不显示设备到底能不能 root，用户开了开关只会看到工具报错
+                    LaunchedEffect(Unit) { viewModel.probeRoot() }
+                    RootSection(
+                        probe = rootProbe,
+                        enabled = rootEnabled,
+                        skipConfirm = rootSkipConfirm,
+                        privateDataAllowed = rootPrivateData,
+                        onToggleEnabled = { viewModel.setRootEnabled(it) },
+                        onToggleSkipConfirm = { viewModel.setRootSkipConfirm(it) },
+                        onTogglePrivateData = { viewModel.setRootPrivateData(it) },
+                        onReprobe = { viewModel.probeRoot() }
+                    )
+                }
                 SettingsSection.AppPermissions -> {
                     val shizukuViewModel: ShizukuViewModel =
                         androidx.hilt.navigation.compose.hiltViewModel()
@@ -1900,6 +1919,12 @@ internal fun SettingsMenu(
                 icon = FeatherIcons.Shield,
                 title = stringResource(SettingsSection.AppPermissions.titleRes),
                 onClick = { onOpen(SettingsSection.AppPermissions) }
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = FeatherIcons.Terminal,
+                title = stringResource(SettingsSection.Root.titleRes),
+                onClick = { onOpen(SettingsSection.Root) }
             )
             SettingsDivider()
             SettingsRow(

@@ -436,7 +436,9 @@ class SettingsViewModel @Inject constructor(
     private val apkVerifier: ApkVerifier,
     private val providerDashboardRunner: ProviderDashboardRunner,
     private val terminalSettingsRepository: TerminalSettingsRepository,
-    private val proxySettingsRepository: ProxySettingsRepository
+    private val proxySettingsRepository: ProxySettingsRepository,
+    private val rootSettingsRepository: com.vantacode.feature.agent.domain.root.RootSettingsRepository,
+    private val rootManager: com.vantacode.feature.agent.domain.root.RootManager
 ) : ViewModel() {
     private companion object {
         const val MAX_LOG_LINES = 1200
@@ -3054,6 +3056,54 @@ class SettingsViewModel @Inject constructor(
 
     fun setDisableSafetyInterception(disabled: Boolean) {
         viewModelScope.launch { toolSafetySettingsRepository.setDisableSafetyInterception(disabled) }
+    }
+
+    // ── Root 权限 ─────────────────────────────────
+
+    private val _rootEnabled = MutableStateFlow(rootSettingsRepository.isEnabled())
+    val rootEnabled: StateFlow<Boolean> = _rootEnabled.asStateFlow()
+
+    private val _rootSkipConfirm = MutableStateFlow(rootSettingsRepository.isSkipConfirm())
+    val rootSkipConfirm: StateFlow<Boolean> = _rootSkipConfirm.asStateFlow()
+
+    private val _rootPrivateData = MutableStateFlow(rootSettingsRepository.isPrivateDataAllowed())
+    val rootPrivateData: StateFlow<Boolean> = _rootPrivateData.asStateFlow()
+
+    private val _rootProbe = MutableStateFlow<com.vantacode.feature.settings.presentation.component.RootProbeUi>(
+        com.vantacode.feature.settings.presentation.component.RootProbeUi.Idle
+    )
+    val rootProbe: StateFlow<com.vantacode.feature.settings.presentation.component.RootProbeUi> =
+        _rootProbe.asStateFlow()
+
+    fun setRootEnabled(enabled: Boolean) {
+        rootSettingsRepository.setEnabled(enabled)
+        _rootEnabled.value = enabled
+    }
+
+    fun setRootSkipConfirm(skip: Boolean) {
+        rootSettingsRepository.setSkipConfirm(skip)
+        _rootSkipConfirm.value = skip
+    }
+
+    fun setRootPrivateData(allowed: Boolean) {
+        rootSettingsRepository.setPrivateDataAllowed(allowed)
+        _rootPrivateData.value = allowed
+    }
+
+    /** 探测设备 root 状态。进 Root 设置页时自动跑一次。 */
+    fun probeRoot() {
+        viewModelScope.launch {
+            _rootProbe.value = com.vantacode.feature.settings.presentation.component.RootProbeUi.Probing
+            _rootProbe.value = when (val r = rootManager.probe()) {
+                is com.vantacode.feature.agent.domain.root.RootManager.Availability.Granted ->
+                    com.vantacode.feature.settings.presentation.component.RootProbeUi.Granted(
+                        suPath = r.suPath,
+                        androidVersion = r.version
+                    )
+                is com.vantacode.feature.agent.domain.root.RootManager.Availability.Unavailable ->
+                    com.vantacode.feature.settings.presentation.component.RootProbeUi.Unavailable(r.reason)
+            }
+        }
     }
 }
 

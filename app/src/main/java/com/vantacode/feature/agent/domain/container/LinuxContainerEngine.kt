@@ -77,7 +77,8 @@ class LinuxContainerEngine @Inject constructor(
     private val containerInstaller: ContainerInstaller,
     private val containerOsDetector: ContainerOsDetector,
     private val containerSettingsRepository: com.vantacode.feature.settings.data.repository.ContainerSettingsRepository,
-    private val pathHomeResolver: com.vantacode.feature.workspace.domain.PathHomeResolver
+    private val pathHomeResolver: com.vantacode.feature.workspace.domain.PathHomeResolver,
+    private val rootSettings: com.vantacode.feature.agent.domain.root.RootSettingsRepository
 ) : CommandEngine {
     /** 容器初始化的实时进度，供所有入口（终端页/AI/后台终端/MCP）共享同一份状态。 */
     private val _initProgress = MutableStateFlow<ContainerInitState>(ContainerInitState.Idle)
@@ -856,10 +857,31 @@ class LinuxContainerEngine @Inject constructor(
     }
 
     private fun buildProcessBuilder(invocation: ProotInvocation): ProcessBuilder {
+        // 开了 root 就让 proot 以 uid 0 启动：否则容器内只有 proot 的伪 root（-0），
+        // 真实 uid 仍是 app，读写 /data/data 这类目录会被内核拒绕，-b 绑定也挂在半途。
+        val useRoot = runCatching { rootSettings.isEnabled() }.getOrDefault(false)
+        val su = if (useRoot) com.vantacode.feature.agent.domain.root.RootSupport.findSu() else null
+        if (su != null) {
+            // su -c 只收一条字符串命令，所以 env 必须自己拼成前缀；
+            // 逐个单引号转义，避免路径里的空格/元字符被 shell 吃掉。
+            val envPrefix = invocation.env.entries.joinToString(" ") { (k, v) ->
+                "$k=${shellQuote(v)}"
+            }
+            val cmdline = invocation.argv.joinToString(" ") { shellQuote(it) }
+            val full = if (envPrefix.isEmpty()) cmdline else "$envPrefix $cmdline"
+            val pb = ProcessBuilder(su, "-c", full)
+            // 环境不能空：su 会重置 PATH 等，导致 proot 找不到依赖库。
+            pb.environment().putAll(invocation.env)
+            return pb
+        }
         val processBuilder = ProcessBuilder(invocation.argv)
         processBuilder.environment().putAll(invocation.env)
         return processBuilder
     }
+
+    /** 单引号包裹，内部单引号按 POSIX 写法拆开转义。 */
+    private fun shellQuote(s: String): String =
+        "'" + s.replace("'", "'\\''") + "'"
 
     private fun buildNativeProcess(command: String, projectPath: String?): ProcessBuilder {
         // Fallback to Android's native shell
