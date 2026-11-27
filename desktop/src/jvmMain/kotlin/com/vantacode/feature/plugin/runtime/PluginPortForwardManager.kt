@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
@@ -92,7 +93,11 @@ class PluginPortForwardManager @Inject constructor(
 
     init {
         scope.launch {
-            sshConnection.connectionState.collect { state ->
+            // StateFlow 会立即重放当前值：只响应状态"变化"，不要把构造时的初始值当成一次断开。
+            // 否则初始 DISCONNECTED 的重放会在 forward() 之后随机触发 closeAll()，
+            // 把刚建好的映射连同代理的监听 socket / 正在转发的连接一起清掉，
+            // 回显测试在 CI 上随机挂（直通映射被从 list 清掉、代理回显读到 -1）。
+            sshConnection.connectionState.drop(1).collect { state ->
                 if (state != ConnectionState.CONNECTED) closeAll()
             }
         }

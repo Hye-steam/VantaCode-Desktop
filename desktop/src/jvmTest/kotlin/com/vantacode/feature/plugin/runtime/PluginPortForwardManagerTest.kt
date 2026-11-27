@@ -10,6 +10,7 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -102,6 +103,19 @@ class PluginPortForwardManagerTest {
         } finally {
             blocker.close()
         }
+    }
+
+    @Test
+    fun forward_survivesInitialDisconnectedEmission() = runBlocking {
+        // 回归：manager 构造时订阅 connectionState，StateFlow 会立即重放 DISCONNECTED；
+        // 旧实现把这次重放当成断开，closeAll() 会在 forward() 之后随机清掉映射。
+        // 先建映射再等 500ms（让 init 的收集协程有机会跑），映射与回显都必须还在。
+        val proxyPort = freePort()
+        val info = manager.forward("test.plugin", "127.0.0.1", echoPort, proxyPort)
+        assertFalse(info.direct)
+        Thread.sleep(500)
+        assertEquals(1, manager.list("test.plugin").size)
+        assertEquals("ping", echoThrough(info.localPort, "ping"))
     }
 
     @Test
