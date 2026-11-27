@@ -21,37 +21,52 @@ internal object PluginIndexParser {
         }
         if (index.schemaVersion != 1) throw PluginIndexException("不支持的 schema_version=${index.schemaVersion}")
         if (index.plugins.size > MAX_PLUGINS) throw PluginIndexException("插件数量超过 $MAX_PLUGINS")
+        // 逐条校验：单条不合法只跳过这条，不再整份拒绝。
+        // 上游同步脚本曾把 A 的 version 写到 B 名下，一条脏数据就让商店
+        // 整个打不开（甚至缓存的旧索引也一起失效），代价太大。
         val ids = HashSet<String>()
+        val accepted = ArrayList<PluginIndexPlugin>(index.plugins.size)
+        val rejected = ArrayList<String>()
         index.plugins.forEach { plugin ->
-            if (!PluginManifestParser.isValidPluginId(plugin.id)) {
-                throw PluginIndexException("非法插件 ID: ${plugin.id}")
-            }
-            if (!ids.add(plugin.id)) throw PluginIndexException("插件 ID 重复: ${plugin.id}")
-            validateLocalized(plugin.id, "name", plugin.name, MAX_NAME, allowNewlines = false)
-            validateLocalized(plugin.id, "description", plugin.description, MAX_DESCRIPTION, allowNewlines = true)
-            if (!AUTHOR.matches(plugin.author)) throw PluginIndexException("${plugin.id} 的 author 非法")
-            val repository = runCatching { java.net.URI(plugin.repository) }.getOrNull()
-            if (repository?.scheme != "https" || repository.host != "github.com") {
-                throw PluginIndexException("${plugin.id} 的 repository 不是 GitHub 地址")
-            }
-            plugin.version?.let { version ->
-                if (version.startsWith("v") || SemVer.parse(version) == null) {
-                    throw PluginIndexException("${plugin.id} 的 version 非法")
+            val problem: String? = runCatching<String?> {
+                if (!PluginManifestParser.isValidPluginId(plugin.id)) return@runCatching "非法插件 ID（${plugin.id}）"
+                if (!ids.add(plugin.id)) return@runCatching "插件 ID 重复"
+                validateLocalized(plugin.id, "name", plugin.name, MAX_NAME, allowNewlines = false)
+                validateLocalized(plugin.id, "description", plugin.description, MAX_DESCRIPTION, allowNewlines = true)
+                if (!AUTHOR.matches(plugin.author)) return@runCatching "author 非法"
+                val repository = java.net.URI(plugin.repository)
+                if (repository.scheme != "https" || repository.host != "github.com") {
+                    return@runCatching "repository 不是 GitHub 地址"
                 }
+                plugin.version?.let { version ->
+                    if (version.startsWith("v") || SemVer.parse(version) == null) {
+                        return@runCatching "version 非法（$version）"
+                    }
+                }
+                plugin.minAppVersion?.let {
+                    if (SemVer.parse(it) == null) return@runCatching "min_app_version 非法"
+                }
+                if (plugin.tags.any { it !in PluginTags.ALL }) return@runCatching "tags 含未知值"
+                if (plugin.tags.size > 4 || plugin.tags.distinct().size != plugin.tags.size) {
+                    return@runCatching "tags 数量或重复项非法"
+                }
+                plugin.logo?.let { requireHttps(it, "${plugin.id} logo") }
+                plugin.homepage?.let { requireHttps(it, "${plugin.id} homepage") }
+                null
+            }.getOrElse { e -> e.message ?: "校验异常" }
+            if (problem == null) {
+                accepted.add(plugin)
+            } else {
+                // 跳过的条目要把 id 释放掉，否则后面同 id 的合法条目会被判成重复
+                ids.remove(plugin.id)
+                rejected.add("${plugin.id}：$problem")
             }
-            plugin.minAppVersion?.let {
-                if (SemVer.parse(it) == null) throw PluginIndexException("${plugin.id} 的 min_app_version 非法")
-            }
-            if (plugin.tags.any { it !in PluginTags.ALL }) {
-                throw PluginIndexException("${plugin.id} 的 tags 含未知值")
-            }
-            if (plugin.tags.size > 4 || plugin.tags.distinct().size != plugin.tags.size) {
-                throw PluginIndexException("${plugin.id} 的 tags 数量或重复项非法")
-            }
-            plugin.logo?.let { requireHttps(it, "${plugin.id} logo") }
-            plugin.homepage?.let { requireHttps(it, "${plugin.id} homepage") }
         }
-        return index
+        // 全被拒才报错；只要还剩可用条目就照常展示
+        if (accepted.isEmpty() && rejected.isNotEmpty()) {
+            throw PluginIndexException("索引里没有可用插件（${rejected.take(3).joinToString("；")}）")
+        }
+        return index.copy(plugins = accepted)
     }
 
     private fun validateLocalized(
