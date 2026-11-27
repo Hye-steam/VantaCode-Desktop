@@ -45,3 +45,4 @@ jobs:
           name: VantaGate-2.17.0-win64
           path: desktop/build/compose/binaries/main/exe/*.exe
           if-no-files-found: error
+---
