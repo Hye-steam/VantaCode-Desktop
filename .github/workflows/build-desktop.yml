@@ -2,7 +2,7 @@ name: Build VantaCode Desktop
 
 on:
   push:
-    branches: [desktop/plugin-compat-phase1]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -17,3 +17,11 @@ jobs:
           java-version: '21'
       - name: Compile and test desktop
         run: .\gradlew.bat :desktop:compileKotlinJvm :desktop:jvmTest --stacktrace
+      - name: Package .exe
+        run: .\gradlew.bat :desktop:packageExe --stacktrace
+      - name: Upload .exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VantaCode-win64
+          path: desktop/build/compose/binaries/main/exe/*.exe
+          if-no-files-found: error
