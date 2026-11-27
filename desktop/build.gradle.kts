@@ -8,17 +8,17 @@ plugins {
 }
 
 // ---------------------------------------------------------------------------
-// 生成式资源（构建期产出，不进 git，见 docs/vantagate-desktop.md）:
+// 生成式资源（构建期产出，不进 git，见 docs/vantagate-desktop.md）：
 //
-// 1. 图标：desktop/icons/*.b64 是图标文件的 base64 文本（push_files 只能传
-//    UTF-8 文本，二进制图标无法直接进分支）。decodeIcons 在构建期解码成
-//    build/generated/assets/icon.{ico,png}：.ico 供 WiX 打包，.png 进 classpath
-//    做窗口图标。
-// 2. 桌宠资源：syncPetAssets 把分支内 app/src/main/assets/pet（Android 模块的
-//    21 MB 桌宠 H5/视频资源，分支里本来就有）拷到 build/generated/assets/pet，
-//    打包进 .exe 的 classpath；PetWindow 用虚拟 origin 按需提供这些文件。
-//    若源目录不存在（如只检出 desktop），任务只警告，桌宠窗口优雅降级。
+// 图标：desktop/icons/*.b64 是图标文件的 base64 文本（push_files 只能传
+// UTF-8 文本，二进制图标无法直接进分支）。decodeIcons 在构建期解码成
+// build/generated/assets/icon.{ico,png}：.ico 供安装器打包，.png 进 classpath
+// 做窗口图标。
+// （桌宠已移除：2026-11-27 删 PetWindow 及 syncPetAssets，不再打包 pet 资源。）
 // ---------------------------------------------------------------------------
+
+// 安装器版本（与下面 nativeDistributions.packageVersion、Inno 脚本共用）。
+val vantagateVersion = "2.17.0"
 val decodeIcons = tasks.register("decodeIcons") {
     val iconsDir = layout.projectDirectory.dir("icons")
     val outDir = layout.buildDirectory.dir("generated/assets")
@@ -33,24 +33,6 @@ val decodeIcons = tasks.register("decodeIcons") {
             out.resolve(outName).writeBytes(decoder.decode(b64File.readText()))
         }
         println("[decodeIcons] 图标已解码到 $out")
-    }
-}
-
-val syncPetAssets = tasks.register("syncPetAssets") {
-    val petSrc = rootProject.file("app/src/main/assets/pet")
-    val outDir = layout.buildDirectory.dir("generated/assets/pet")
-    inputs.dir(petSrc)
-    outputs.dir(outDir)
-    doLast {
-        val out = outDir.get().asFile
-        if (!petSrc.isDirectory) {
-            println("[syncPetAssets] 警告：未找到 $petSrc，桌宠资源不会打包，PetWindow 将显示缺失提示")
-            return@doLast
-        }
-        out.deleteRecursively()
-        petSrc.copyRecursively(out, overwrite = true)
-        val count = out.walkTopDown().count { it.isFile }
-        println("[syncPetAssets] 桌宠资源已同步：$count 个文件 -> $out")
     }
 }
 
@@ -77,7 +59,7 @@ kotlin {
 
             implementation(project(":core"))
 
-            // JCEF — 网页登录 + WebTransport（ChatGLM/Muse 必须 live page）+ 桌宠渲染。
+            // JCEF — 网页登录 + WebTransport（ChatGLM/Muse 必须 live page）。
             // natives jar（~163MiB）随 app image 进 lib/，首次运行由 jcefmaven
             // 解包到 ~/.vantagate/jcef（installDir 见 GateCef）。
             val jcefVersion = "152.0.6"
@@ -86,6 +68,10 @@ kotlin {
                 "me.friwi:jcef-natives-windows-amd64:" +
                     "jcef-17e805a+cef-152.0.6+g708dc14+chromium-152.0.7977.83"
             )
+
+            // JNA：DWM 深色标题栏（Windows 原生标题栏与深色主题统一）。
+            implementation("net.java.dev.jna:jna:5.14.0")
+            implementation("net.java.dev.jna:jna-platform:5.14.0")
         }
         jvmTest.dependencies {
             implementation("junit:junit:4.13.2")
@@ -97,7 +83,7 @@ kotlin {
 }
 
 tasks.named("jvmProcessResources") {
-    dependsOn(decodeIcons, syncPetAssets)
+    dependsOn(decodeIcons)
 }
 
 compose.desktop {
@@ -114,12 +100,12 @@ compose.desktop {
         )
 
         nativeDistributions {
-            // 正式分发 = 绿色 app image + EXE 安装包（WiX）。
+            // 正式分发 = 绿色 app image + EXE 安装包（Inno Setup 中文向导，见 packageExeZh）。
             targetFormats(TargetFormat.Exe)
             // 安装时显示许可证接受对话框（GPL 分发必须）：LICENSE 全文。
             licenseFile.set(rootProject.file("LICENSE"))
             packageName = "VantaGate"
-            packageVersion = "2.17.0"
+            packageVersion = vantagateVersion
             description = "VantaGate — AI gateway for desktop (GPL-3.0)"
             copyright = "GPL-3.0. VantaGate Android 2.17 desktop port."
             vendor = "VantaGate"
@@ -192,6 +178,32 @@ tasks.matching { it.name.contains("unpackDefaultComposeDesktopJvmApplicationReso
 // 打包前图标必须已解码（iconFile 指向 generated/assets/icon.ico）。
 tasks.matching { it.name.contains("package", ignoreCase = true) }.configureEach {
     dependsOn(decodeIcons)
+}
+
+// 中文安装器：Compose 的 packageExe（jpackage）不向 Exe 步骤传 --resource-dir，
+// WiX 向导语言改不成中文；改用 Inno Setup 打 .exe（自带简体中文向导）。
+// 依赖 createDistributable 产出的 app image + decodeIcons 解出的图标；
+// CI 需先装 Inno Setup（choco install innosetup），ISCC.exe 在 PATH。
+// 产物与原来同名同目录：build/compose/binaries/main/exe/VantaGate-<版本>-win64.exe。
+val packageExeZh = tasks.register<Exec>("packageExeZh") {
+    dependsOn("createDistributable", decodeIcons)
+    group = "distribution"
+    description = "使用 Inno Setup 打包中文安装向导的 .exe（替代 packageExe）"
+    val issFile = layout.projectDirectory.file("installer/vantagate.iss")
+    val exeOutDir = layout.buildDirectory.dir("compose/binaries/main/exe")
+    inputs.file(issFile)
+    inputs.dir(layout.buildDirectory.dir("compose/binaries/main/app"))
+    inputs.file(layout.buildDirectory.file("generated/assets/icon.ico"))
+    outputs.dir(exeOutDir)
+    doFirst {
+        exeOutDir.get().asFile.mkdirs()
+    }
+    commandLine(
+        "ISCC.exe",
+        "/Q",
+        "/DAppVersion=$vantagesVersion",
+        issFile.asFile.absolutePath,
+    )
 }
 
 // 开发期 gradlew run 也继承 JCEF/OSR 所需的模块开放参数（打包时上面 jvmArgs 已含）。

@@ -6,7 +6,7 @@ import java.io.File
 
 /**
  * 桌面端 UI 偏好（替代 Android 的 SharedPreferences）：
- * 桌宠/悬浮球位置等两个小标志。存在 ~/.aigw/ui-prefs.json。
+ * 悬浮球位置等小标志。存在 ~/.aigw/ui-prefs.json。
  */
 class UiPrefs(private val file: File) {
 

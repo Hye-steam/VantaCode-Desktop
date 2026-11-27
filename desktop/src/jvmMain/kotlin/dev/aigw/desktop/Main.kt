@@ -15,9 +15,9 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.aigw.desktop.cef.GateCef
 import dev.aigw.desktop.overlay.MonitorBubbleWindow
-import dev.aigw.desktop.overlay.PetWindow
 import dev.aigw.desktop.ui.AppRoot
 import dev.aigw.desktop.util.UiPrefs
+import dev.aigw.desktop.util.applyDarkTitleBar
 import dev.aigw.gateway.Engine
 import dev.aigw.gateway.GatewayHttpServer
 import dev.aigw.gateway.MediaProxy
@@ -66,13 +66,6 @@ fun main() {
 
     application {
         var windowVisible by remember { mutableStateOf(true) }
-        // 桌宠延迟 5 秒再挂（与 Android 的 pet 启动延迟一致）：避免 JCEF
-        // 首次初始化拖慢主窗口出现。
-        var petArmed by remember { mutableStateOf(false) }
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(5000)
-            petArmed = true
-        }
         val windowState = rememberWindowState(
             size = DpSize(1100.dp, 700.dp),
             position = WindowPosition(Alignment.Center),
@@ -127,26 +120,19 @@ fun main() {
                 vm.startGateway()
                 vm.refreshModels()
             }
+            // 原生标题栏切深色（DWM 沉浸式深色模式），与应用深色主题统一。
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                applyDarkTitleBar(window)
+            }
             AppRoot(vm, dataDir)
         }
 
-        // 悬浮球与桌宠互斥（与 Android 一致：桌宠开启时替代监测球）
-        val showBubble = vm.state.monitorBubble && !vm.state.petBubble
         MonitorBubbleWindow(
             engine = engine,
             theme = vm.theme(),
             prefs = prefs,
-            visible = showBubble,
+            visible = vm.state.monitorBubble,
             onClose = { vm.setMonitorBubble(false) },
-        )
-        PetWindow(
-            tapHint = {
-                val s = vm.state
-                if (s.creditsKnown > 0) "积分合计 %.1f（${s.creditsKnown} 个账号）".format(s.totalCredits) else "暂无余额数据"
-            },
-            prefs = prefs,
-            visible = vm.state.petBubble && petArmed,
-            onClose = { vm.setPetBubble(false) },
         )
     }
     cleanup()

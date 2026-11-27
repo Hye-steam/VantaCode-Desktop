@@ -1,7 +1,7 @@
 # VantaGate Desktop（分支 `vantagate-desktop`）
 
 VantaGate Android 2.17（分支 `vantagate-android`，head `9d1bc25f`）的桌面移植，
-Compose Multiplatform + Kotlin JVM，Windows `.exe`（WiX）分发。
+Compose Multiplatform + Kotlin JVM，Windows `.exe`（Inno Setup 中文安装包）分发。
 
 ## 分支结构
 
@@ -25,15 +25,15 @@ Compose Multiplatform + Kotlin JVM，Windows `.exe`（WiX）分发。
 ```
 
 产物：`desktop/build/compose/binaries/main/exe/VantaGate-2.17.0.exe`
-（WiX 安装包；另有绿色 app image 在 `desktop/build/compose/binaries/main/app/`）。
+（Inno Setup 中文安装包，任务 `:desktop:packageExeZh`；另有绿色 app image 在 `desktop/build/compose/binaries/main/app/`）。
 
 构建期生成式资源（不进 git，任务自动产出）：
 
 - 图标：`desktop/icons/*.b64` 是图标的 base64 文本（推送通道只能传 UTF-8
   文本，二进制图标无法直接进分支）。`decodeIcons` 任务解码成
   `build/generated/assets/icon.{ico,png}`。
-- 桌宠：`syncPetAssets` 把分支内 `app/src/main/assets/pet`（21 MB H5/视频）
-  拷进 `build/generated/assets/pet` 打包进 classpath；缺失时桌宠窗口降级提示。
+- 桌宠已移除（2026-11-27）：`PetWindow` 及 `syncPetAssets` 任务已删除，`app/src/main/assets/pet`
+  不再打包；悬浮监测球保留（设置里可开关）。
 
 ## 版本与更新
 
@@ -48,7 +48,7 @@ Compose Multiplatform + Kotlin JVM，Windows `.exe`（WiX）分发。
 ## JCEF（关键路径）
 
 网页登录、Cookie/Token 抓取、WebTransport（ChatGLM 主通道、DeepSeek 403 回退、
-Muse 生成）和桌宠渲染都用 JCEF（`me.friwi:jcefmaven:152.0.6`），见
+Muse 生成）都用 JCEF（`me.friwi:jcefmaven:152.0.6`），见
 `desktop/src/jvmMain/kotlin/dev/aigw/desktop/cef/`：
 
 - `GateCef`：CefApp 单例（懒加载，安装目录 `~/.vantagate/jcef`）。

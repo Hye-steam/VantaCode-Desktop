@@ -36,7 +36,6 @@ import kotlinx.coroutines.delay
  * 与 Android 的 MonitorBubble 一致：每 1s 轮询 Engine.activeRequests /
  * lastBubbleEvent；有在途请求时显示数量，最近 3.5s 内的事件（结束/换号/
  * 失败/模型上限）优先显示；无事件时显示待机色。位置持久化到 UiPrefs。
- * 与桌宠互斥（桌宠开启时不显示）。
  */
 @Composable
 fun MonitorBubbleWindow(

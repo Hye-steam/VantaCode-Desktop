@@ -130,7 +130,6 @@ data class UiState(
     val providerEnabled: Map<String, Boolean> = emptyMap(),
     val regionPrefs: Map<String, String> = emptyMap(),
     val monitorBubble: Boolean = false,
-    val petBubble: Boolean = true,
     val systemPrompt: String = "",
     val modelAliases: Map<String, String> = emptyMap(),
     val stripThinkTags: Boolean = false,
@@ -251,7 +250,6 @@ class GateViewModel(
                 engine.regionPref(id)?.let { id to it }
             }.toMap(),
             monitorBubble = s.monitorBubble,
-            petBubble = s.petBubble,
             systemPrompt = s.systemPrompt,
             modelAliases = s.modelAliases.orEmpty(),
             stripThinkTags = s.stripThinkTags,
@@ -595,16 +593,8 @@ class GateViewModel(
         refreshAll()
     }
 
-    fun setPetBubble(enabled: Boolean) {
-        engine.settings.petBubble = enabled
-        if (enabled) engine.settings.monitorBubble = false
-        Settings.save(dataDir, engine.settings)
-        refreshAll()
-    }
-
     fun setMonitorBubble(enabled: Boolean) {
         engine.settings.monitorBubble = enabled
-        if (enabled) engine.settings.petBubble = false
         Settings.save(dataDir, engine.settings)
         refreshAll()
     }

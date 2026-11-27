@@ -26,7 +26,7 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 /**
  * 设置（Android SettingsScreen 的桌面版）：
- * 网络端口 / 并发与容错 / 代理 / 请求改写 / 系统提示词 / 桌宠与悬浮球 /
+ * 网络端口 / 并发与容错 / 代理 / 请求改写 / 系统提示词 / 悬浮球 /
  * 外观主题 / 反馈工单 / 检查更新 / 关于。
  */
 @Composable
@@ -41,7 +41,7 @@ fun SettingsScreen(vm: GateViewModel, theme: ThemePalette, dataDir: File) {
         item { ProxySection(vm, theme) }
         item { RewriteSection(vm, theme) }
         item { SystemPromptSection(vm, theme) }
-        item { PetSection(vm, theme) }
+        item { BubbleSection(vm, theme) }
         item { ThemeSection(vm, theme) }
         item { FeedbackSection(vm, theme) }
         item { UpdateSection(vm, theme) }
@@ -236,12 +236,11 @@ private fun SystemPromptSection(vm: GateViewModel, theme: ThemePalette) {
 }
 
 @Composable
-private fun PetSection(vm: GateViewModel, theme: ThemePalette) {
+private fun BubbleSection(vm: GateViewModel, theme: ThemePalette) {
     val s = vm.state
     var opacity by remember(s.bubbleOpacity) { mutableStateOf(s.bubbleOpacity) }
     LoopCard(theme) {
-        SectionTitle(theme, "桌宠与悬浮球")
-        SwitchRow(theme, "桌面宠物", "开启后替代监测球（默认开启）", s.petBubble) { vm.setPetBubble(it) }
+        SectionTitle(theme, "悬浮球")
         SwitchRow(theme, "悬浮监测球", "显示在途请求与最近事件", s.monitorBubble) { vm.setMonitorBubble(it) }
         Spacer(Modifier.height(8.dp))
         Text("悬浮球透明度：${"%.2f".format(opacity)}", color = theme.ink2, fontSize = 13.sp)
