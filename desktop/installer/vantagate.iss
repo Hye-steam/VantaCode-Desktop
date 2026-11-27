@@ -32,7 +32,10 @@ UninstallDisplayIcon={app}\VantaGate.exe
 DisableProgramGroupPage=yes
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; 中文语言文件随仓库自带（desktop/installer/languages/ChineseSimplified.isl，
+; 取自 Inno Setup 官方仓库 jrsoftware/issrc），不依赖 runner 上 Inno Setup
+; 安装目录里有没有这个文件（choco 装的就没有）。
+Name: "chinesesimplified"; MessagesFile: "languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
