@@ -254,7 +254,7 @@ class PluginCefBridgeHandler(
                 put("data", result)
             }.toString()
         } catch (e: PluginHostException) {
-            errorReply(id, e.code, e.message ?: e.code)
+            errorReply(id, e.code, e.message)
         }
     }
 
@@ -283,7 +283,7 @@ class PluginCefBridgeHandler(
         return try {
             tipManager.show(page.pluginId, params)
         } catch (e: PluginTipException) {
-            throw PluginHostException(e.code, e.message)
+            throw PluginHostException(e.code, e.message.orEmpty())
         }
     }
 
