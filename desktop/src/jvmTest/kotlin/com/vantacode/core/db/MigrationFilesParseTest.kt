@@ -8,7 +8,7 @@ import java.io.File
 /**
  * 迁移文件静态校验（纯 JVM，不依赖 Robolectric——本容器 JVM 加载不了 Robolectric 的 conscrypt native 库）。
  *
- * 直接读文件系统上的迁移脚本（Gradle 单测工作目录 = 模块根 app/）：
+ * 直接读文件系统上的迁移脚本（Gradle 单测工作目录 = 模块根 desktop/）：
  * - 每个非空脚本经 [SqlScriptSplitter] 切分后必须产出语句（防解析器回归）；
  * - 版本号严格递增连续无重复（缺档会让 Room 走 fallback 清库）；
  * - 与 AgentDatabase.kt 的 SCHEMA_VERSION 对齐。
@@ -16,8 +16,8 @@ import java.io.File
  */
 class MigrationFilesParseTest {
 
-    private val migrationsDir = File("src/main/assets/migrations")
-    private val dbSource = File("src/main/java/com/vantacode/feature/agent/data/local/database/AgentDatabase.kt")
+    private val migrationsDir = File("src/jvmMain/resources/assets/migrations")
+    private val dbSource = File("src/jvmMain/kotlin/com/vantacode/feature/agent/data/local/database/AgentDatabase.kt")
 
     private fun migrationFiles(): List<File> =
         migrationsDir.listFiles { f -> f.name.endsWith(".sql") }?.sortedBy { it.name } ?: emptyList()

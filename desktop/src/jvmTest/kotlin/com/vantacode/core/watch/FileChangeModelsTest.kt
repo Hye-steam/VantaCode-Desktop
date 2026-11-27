@@ -52,8 +52,10 @@ class FileChangeModelsTest {
 
     @Test
     fun relativePartsOf_returns_segments_below_root() {
-        val root = File("/tmp/ws")
-        assertEquals(listOf("a", "b"), relativePartsOf(root, File("/tmp/ws/a/b")))
+        // 不用硬编码 File("/tmp/ws")：Windows 上它会变成 C:\tmp\ws，路径语义不同。
+        // 用 TemporaryFolder 拿一条平台无关的真实根路径。
+        val root = tempFolder.newFolder("ws")
+        assertEquals(listOf("a", "b"), relativePartsOf(root, File(root, "a/b")))
         assertTrue(relativePartsOf(root, root).isEmpty())
     }
 

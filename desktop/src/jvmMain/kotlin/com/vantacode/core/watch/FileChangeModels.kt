@@ -71,10 +71,14 @@ fun Flow<FileChangeBatch>.asDirtySignal(): Flow<Unit> = map { }
 
 /** 把宿主绝对路径转成相对 [root] 的路径段。 */
 internal fun relativePartsOf(root: File, path: File): List<String> {
-    val rootPath = root.absolutePath.trimEnd(File.separatorChar)
-    val abs = path.absolutePath
+    // 先把分隔符统一成 '/' 再截前缀：Windows 上 absolutePath 用 '\'，
+    // 直接 removePrefix("$rootPath/") 永远匹配不上，会把整条绝对路径当相对段返回，
+    // FileChangeHub 的忽略判定（isIgnoredDir）与容器路径（containerPathOf）都会错。
+    // Unix 上分隔符本来就是 '/'，replace 是空操作，行为不变。
+    val rootPath = root.absolutePath.trimEnd(File.separatorChar).replace(File.separatorChar, '/')
+    val abs = path.absolutePath.replace(File.separatorChar, '/')
     val rel = if (abs == rootPath) "" else abs.removePrefix("$rootPath/")
-    return rel.split(File.separatorChar, '/').filter { it.isNotEmpty() }
+    return rel.split('/').filter { it.isNotEmpty() }
 }
 
 /** 读取订阅根的 .gitignore（去空行与注释、去尾斜杠）；不存在或不可读返回空。 */
