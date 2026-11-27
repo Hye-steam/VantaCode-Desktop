@@ -485,8 +485,8 @@ class PluginOverlayManager @Inject constructor(
         val (screenWidth, screenHeight) = screenSize()
         synchronized(lock) {
             record.snappedEdge = null
-            record.x = (record.x + dx.toInt()).coerceIn(0, (screenWidth - record.width).coerceAtLeast(0))
-            record.y = (record.y + dy.toInt()).coerceIn(0, (screenHeight - record.height).coerceAtLeast(0))
+            record.x = (record.x + dx.toInt()).coerceIn(0, screenWidth)
+            record.y = (record.y + dy.toInt()).coerceIn(0, screenHeight)
             positionStore.save(record.overlayId, record.x, record.y)
             record.handle.applyGeometry(record.x, record.y, record.width, record.height)
         }
@@ -513,17 +513,17 @@ class PluginOverlayManager @Inject constructor(
             val maxY = (screenHeight - height).coerceAtLeast(0)
             val wasFull = record.dragRegion.coversFull(record.width, record.height)
             val nextX = when {
-                x != null -> x.toInt()
+                x != null -> x.toInt().coerceIn(0, maxX)
                 record.snappedEdge == "left" -> 0
                 record.snappedEdge == "right" -> maxX
                 else -> record.x
-            }.coerceIn(0, maxX)
+            }
             val nextY = when {
-                y != null -> y.toInt()
+                y != null -> y.toInt().coerceIn(0, maxY)
                 record.snappedEdge == "top" -> 0
                 record.snappedEdge == "bottom" -> maxY
                 else -> record.y
-            }.coerceIn(0, maxY)
+            }
             if (wasFull) record.dragRegion = OverlayDragRegion(0f, 0f, width.toFloat(), height.toFloat())
             record.width = width
             record.height = height
