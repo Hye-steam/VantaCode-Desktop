@@ -1,9 +1,9 @@
 # 仓库地图：分支、Tag、Release 对照
 
-> 一个仓库，三个产品：VantaCode 桌面版、VantaCode 安卓版、VantaGate。
+> 一个仓库，四个产品：VantaCode 桌面版、VantaCode 安卓版、VantaGate 安卓版、VantaGate 桌面版。
 > 本文档是本仓库的唯一事实地图：新人先看这里，再去翻分支、Tag 和 Releases。
-> 最后更新：2026-11-27（核实时点，北京时间约 17:30；Release 总数 40、Tag 总数 40）。
-> 注：VantaGate 桌面版（分支 `vantagate-desktop`、Tag 前缀 `vantagate-desktop-v`）已于 2026-11-26 移除：分支、4 个 Tag 和 4 个 Release（v1.0.0、v2.0.0、v2.0.1、v2.0.2）均已删除，不再提供下载；下表只含现存的三个产品。
+> 最后更新：2026-11-27（核实时点，北京时间约 22:47；Release 总数 41、Tag 总数 41）。
+> 注：VantaGate 桌面版曾于 2026-11-26 移除（分支、4 个 Tag 和 4 个 Release v1.0.0、v2.0.0、v2.0.1、v2.0.2 均已删除），后于 2026-11-27 按安卓版 2.17 全功能重建并正式发布 v2.17.0；下表含现存的四个产品。
 > 另见：[DOWNLOADS.md](../DOWNLOADS.md)（只列各产品最新版下载）。
 
 ## 1. 分支地图
@@ -12,11 +12,12 @@
 
 | 分支 | 产品 | 版本线 | 当前版本 | HEAD（核实日） | 顶层目录 | 构建 |
 |---|---|---|---|---|---|---|
-| `main`（默认分支） | VantaCode 桌面版 | 1.x | 1.4.0（2026-11-21） | `a878afcc` | `desktop/`、`terminal-emulator/`、`docs-site/`、`docs/`、`scripts/`、`data/` | `.\gradlew.bat :desktop:createDistributable`（便携目录）；`.\gradlew.bat :desktop:packageExe`（需 WiX 3.11） |
+| `main`（默认分支） | VantaCode 桌面版 | 1.x | 1.4.0（2026-11-21） | `a1a6619` | `desktop/`、`terminal-emulator/`、`docs-site/`、`docs/`、`scripts/`、`data/` | `.\gradlew.bat :desktop:createDistributable`（便携目录）；`.\gradlew.bat :desktop:packageExe`（需 WiX 3.11） |
 | `vantacode-android` | VantaCode 安卓版 | 5.x | v5.9.5（2026-11-27） | `333c4a7d` | `app/`、`terminal-emulator/`、`terminal-view/`、`skills-registry.json`、`build-flavor.sh`、`build-release.sh` | 见该分支的 `build-release.sh` / `build-flavor.sh` |
 | `vantagate-android` | VantaGate 安卓版 | 2.x | 2.17（2026-11-25） | `9d1bc25f` | `app/`、`core/`、`aigw-admin/`、`libs/`、`build.sh`、`test/` | 见该分支的 `build.sh` |
+| `vantagate-desktop` | VantaGate 桌面版 | 2.x | 2.17.0（2026-11-27） | `db282756` | `desktop/`、`core/`、`docs/` | `.\gradlew.bat :desktop:packageExeZh`（中文 Inno 安装包） |
 
-结构事实（已核实）：三个分支之间**没有共同历史**，各是独立的根历史；`main` 只有 `desktop/`、没有安卓代码，`vantacode-android` 只有 `app/`、没有桌面代码。
+结构事实（已核实）：`main`、`vantacode-android`、`vantagate-android` 三个分支之间**没有共同历史**，各是独立的根历史；`vantagate-desktop` 由 `vantagate-android` 的 2.17 提交（`9d1bc25f`）分出，与安卓分支共享历史。`main` 只有 `desktop/`、没有安卓代码，`vantacode-android` 只有 `app/`、没有桌面代码。
 
 ## 2. 三条版本线
 
@@ -25,8 +26,9 @@
 | VantaCode 桌面版（Windows） | `main` | 1.4.0 | `desktop-v`，如 `desktop-v1.5.0` | `[桌面]` |
 | VantaCode 安卓版 | `vantacode-android` | v5.9.5 | `android-v`，如 `android-v5.9.5` | `[安卓]` |
 | VantaGate 安卓版 | `vantagate-android` | 2.17 | `vantagate-v`，如 `vantagate-v2.18` | `[VantaGate]` |
+| VantaGate 桌面版（Windows） | `vantagate-desktop` | 2.17.0 | `vantagate-desktop-v`，如 `vantagate-desktop-v2.17.0` | `VantaGate Desktop` |
 
-## 3. Tag 对照表（40 个，全部）
+## 3. Tag 对照表（41 个，全部）
 
 发版前核对一次：Tag 名、指向的提交、分支，三者一致才推。
 
@@ -91,7 +93,13 @@
 
 跳过的版本（无 Tag、无 Release）：`v2.0`、`v2.1`、`v2.4`、`v2.5`、`v2.8`。
 
-## 4. Release 对照表（40 个，按产品分组，不按时间混排）
+### 3.4 VantaGate 桌面版（1 个，正确）
+
+| Tag | 指向 | 日期 | 状态 |
+|---|---|---|---|
+| `vantagate-desktop-v2.17.0` | `db282756` | 2026-11-27 | ✅（= 桌面分支 HEAD） |
+
+## 4. Release 对照表（41 个，按产品分组，不按时间混排）
 
 大小按 MiB 计（1 MiB = 1,048,576 字节）。最新版见 [DOWNLOADS.md](../DOWNLOADS.md)。
 
@@ -149,6 +157,12 @@
 | `vantagate-v2.15` | 2026-11-23 | `VantaGate-2.15.apk` | 23.0 MiB |
 | `vantagate-v2.16` | 2026-11-23 | `VantaGate-2.16.apk` | 23.0 MiB |
 | `vantagate-v2.17` | 2026-11-25 | `VantaGate-2.17.apk` | 23.0 MiB |
+
+### 4.4 VantaGate 桌面版（1 个）
+
+| Tag | 发布日期 | 资产 | 大小 |
+|---|---|---|---|
+| `vantagate-desktop-v2.17.0` | 2026-11-27 | `VantaGate-2.17.0-win64.zip` | 302.1 MiB，SHA-256 `097d2d9192145717f03ea57c846d426bd9a20640b8a10ef3e4b397daf5cc60c2` |
 
 ## 5. 以后发版的规则
 
