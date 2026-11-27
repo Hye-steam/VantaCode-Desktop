@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-11-27T21:54:05Z",
+  "generated_date": "2026-11-27",
+  "plugin_count": 32,
+  "desktop_in_progress": true,
+  "products": {
+    "android": {
+      "name": "VantaCode 安卓版",
+      "version_display": "v5.9.6",
+      "tag": "v5.9.6",
+      "asset_name": "VantaCode-5.9.6.apk",
+      "asset_ext": "APK",
+      "size_bytes": 36483129,
+      "size_mib": "34.8 MiB",
+      "published_date": "2026-11-27",
+      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.6/VantaCode-5.9.6.apk",
+      "sha256": null,
+      "release_count": 24
+    },
+    "desktop": {
+      "name": "VantaCode 桌面版",
+      "version_display": "1.4.0",
+      "tag": "v1.4.0",
+      "asset_name": "VantaCode-1.4.0.exe",
+      "asset_ext": "EXE",
+      "size_bytes": 421829632,
+      "size_mib": "402.3 MiB",
+      "published_date": "2026-11-21",
+      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v1.4.0/VantaCode-1.4.0.exe",
+      "sha256": "E18BF0962440FBDB68360F197C646504D1B43FD5F31F23ACDD58EE102B03F244",
+      "release_count": 3
+    },
+    "gate-android": {
+      "name": "VantaGate 安卓版",
+      "version_display": "2.17",
+      "tag": "vantagate-v2.17",
+      "asset_name": "VantaGate-2.17.apk",
+      "asset_ext": "APK",
+      "size_bytes": 24135688,
+      "size_mib": "23.0 MiB",
+      "published_date": "2026-11-25",
+      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.17/VantaGate-2.17.apk",
+      "sha256": null,
+      "release_count": 14
+    },
+    "gate-desktop": {
+      "name": "VantaGate 桌面版",
+      "version_display": "v2.17.0",
+      "tag": "vantagate-desktop-v2.17.0",
+      "asset_name": "VantaGate-2.17.0-win64.zip",
+      "asset_ext": "ZIP",
+      "size_bytes": 316731566,
+      "size_mib": "302.1 MiB",
+      "published_date": "2026-11-27",
+      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.17.0/VantaGate-2.17.0-win64.zip",
+      "sha256": "097d2d9192145717f03ea57c846d426bd9a20640b8a10ef3e4b397daf5cc60c2",
+      "release_count": 1
+    }
+  }
+}
