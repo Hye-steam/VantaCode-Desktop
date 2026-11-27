@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.util.Base64
 
 plugins {
     kotlin("multiplatform") version "2.3.10"
@@ -25,9 +26,9 @@ val decodeIcons = tasks.register("decodeIcons") {
     outputs.dir(outDir)
     doLast {
         val out = outDir.get().asFile.apply { mkdirs() }
-        val decoder = java.util.Base64.getMimeDecoder()
+        val decoder = Base64.getMimeDecoder()
         for ((b64Name, outName) in listOf("icon.ico.b64" to "icon.ico", "icon.png.b64" to "icon.png")) {
-            val b64File = iconsDir.file(b64Name).get().asFile
+            val b64File = iconsDir.file(b64Name).asFile
             require(b64File.isFile) { "缺少图标源文件：$b64File" }
             out.resolve(outName).writeBytes(decoder.decode(b64File.readText()))
         }
