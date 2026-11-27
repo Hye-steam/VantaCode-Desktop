@@ -19,4 +19,4 @@ dependencyResolutionManagement {
 rootProject.name = "ai-gateway"
 
 include(":core")
-include(":app")
+include(":desktop")
