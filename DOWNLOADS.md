@@ -9,7 +9,7 @@
 | 产品 | 最新版 | 下载 | 发布日期 | 大小 |
 |---|---|---|---|---|
 | VantaCode 桌面版（Windows x64） | 1.4.0 | [VantaCode-1.4.0.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v1.4.0/VantaCode-1.4.0.exe) | 2026-11-21 | 402.3 MiB（421,829,632 字节），SHA-256 `E18BF0962440FBDB68360F197C646504D1B43FD5F31F23ACDD58EE102B03F244` |
-| VantaCode 安卓版 | v5.9.5 | [VantaCode-5.9.5.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.5/VantaCode-5.9.5.apk) | 2026-11-27 | 34.4 MiB（36,070,967 字节） |
+| VantaCode 安卓版 | v5.9.5 | [VantaCode-5.9.5.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.5/VantaCode-5.9.5.apk) | 2026-11-26 | 34.4 MiB（36,070,967 字节） |
 | VantaGate 安卓版 | 2.17 | [VantaGate-2.17.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.17/VantaGate-2.17.apk) | 2026-11-25 | 23.0 MiB（24,135,688 字节） |
 
 桌面版安装时会弹出 GPL 许可接受页；首次启动会自动解包内置 ffmpeg（约 100 MB，仅一次），无需手动安装。
