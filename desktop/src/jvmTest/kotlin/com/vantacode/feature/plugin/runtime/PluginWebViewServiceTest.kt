@@ -198,7 +198,7 @@ class PluginWebViewServiceTest {
     }
 
     @Test
-    fun openInteractiveStartsOutcomeRelay() = runTest {
+    fun openInteractiveStartsOutcomeRelay() = runBlocking {
         val result = service.open(
             "p.test",
             params("url" to "https://example.com/login", "interactive" to true)
@@ -313,7 +313,7 @@ class PluginWebViewServiceTest {
     }
 
     @Test
-    fun awaitMessageMapsFailToErrorObject() = runTest {
+    fun awaitMessageMapsFailToErrorObject() = runBlocking {
         val browser = FakeBrowser()
         browserFactory.next = browser
         val result = service.open("p.test", params("url" to "https://example.com/"))
@@ -325,7 +325,7 @@ class PluginWebViewServiceTest {
     }
 
     @Test
-    fun awaitMessageTimesOut() = runTest {
+    fun awaitMessageTimesOut() = runBlocking {
         val result = service.open("p.test", params("url" to "https://example.com/"))
         val session = sessionOf(result)
         expectError("WEBVIEW_TIMEOUT") {
