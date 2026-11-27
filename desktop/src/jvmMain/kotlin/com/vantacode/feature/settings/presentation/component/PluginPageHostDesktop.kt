@@ -119,14 +119,33 @@ private suspend fun createSession(page: PluginPage, onClose: () -> Unit): Sessio
         themeCss = { ":root { color-scheme: light dark; }" }
     )
     val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+    val graph = com.vantacode.di.AppGraph
+    // 工作区根目录：与 PluginRuntimeManager.workspaceRoot() 同款逻辑
+    // （REMOTE_SSH 用远端当前路径，否则为本地 ~/.aigw/workspace）。
+    val workspaceRoot: () -> String = {
+        if (graph.executionModeHolder.currentMode() == com.vantacode.feature.settings.data.repository.ExecutionMode.REMOTE_SSH) {
+            graph.workspaceRepository.currentPath()
+        } else {
+            graph.pathHomeResolver.home().trimEnd('/') + "/workspace"
+        }
+    }
     val bridge = PluginCefBridgeHandler(
         page = page,
         scope = scope,
-        pluginManager = com.vantacode.di.AppGraph.pluginManager,
-        runtimeManager = com.vantacode.di.AppGraph.pluginRuntimeManager,
+        pluginManager = graph.pluginManager,
+        runtimeManager = graph.pluginRuntimeManager,
         authorized = { true },
         onClose = onClose,
-        onToast = { msg -> com.vantacode.core.platform.PlatformToast.show(msg) }
+        onToast = { msg -> com.vantacode.core.platform.PlatformToast.show(msg) },
+        // Phase 1：页面桥新增的后端服务。
+        fileAccess = graph.fileAccess,
+        homeResolver = graph.pathHomeResolver,
+        workspaceRoot = workspaceRoot,
+        commandEngine = graph.commandEngine,
+        chatService = graph.pluginChatService,
+        modelService = graph.pluginModelService,
+        tipManager = graph.pluginTipManager,
+        systemService = graph.pluginSystemService
     )
     val client = PluginCef.newClient(requestHandler, bridge)
     val url = "${PluginCefRequestHandler.ORIGIN}${PluginCefRequestHandler.PLUGIN}${page.pageFile}"
