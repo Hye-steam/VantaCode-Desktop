@@ -87,7 +87,12 @@ class PluginPortForwardManagerTest {
 
     @Test
     fun forwardOccupiedLocalPort_bumpsForward() = runTest {
-        val blocker = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))
+        // 占一个临时端口；要求它 < 65534，否则顺延目标会越界。
+        var blocker = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))
+        while (blocker.localPort >= 65534) {
+            blocker.close()
+            blocker = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))
+        }
         try {
             val occupied = blocker.localPort
             val info = manager.forward("test.plugin", "127.0.0.1", echoPort, occupied)
@@ -128,10 +133,12 @@ class PluginPortForwardManagerTest {
     fun forwardUnreachableTarget_throwsTargetUnreachable() = runTest {
         // 目标端口无监听：本地代理建监听前先探测，不可达立即报错且不留记录。
         // 注：回环目标默认走 direct（不探测，与 Android 本地模式一致），
-        // 这里用 localPort != remotePort 强制走代理路径以覆盖探测分支。
+        // 这里用 localPort != remotePort 强制走代理路径以覆盖探测分支；
+        // localPort 取 deadPort 相邻端口（必不相等，避免两次取临时端口撞号）。
         val deadPort = freePort()
+        val proxyPort = if (deadPort < 65535) deadPort + 1 else deadPort - 1
         val error = try {
-            manager.forward("test.plugin", "127.0.0.1", deadPort, freePort())
+            manager.forward("test.plugin", "127.0.0.1", deadPort, proxyPort)
             fail("不可达目标应抛 TARGET_UNREACHABLE")
         } catch (e: PortForwardException) {
             e
