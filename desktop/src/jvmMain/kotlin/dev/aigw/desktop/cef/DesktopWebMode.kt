@@ -3,6 +3,7 @@ package dev.aigw.desktop.cef
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.callback.CefCallback
+import org.cef.callback.CefCompletionCallback
 import org.cef.handler.CefRequestHandlerAdapter
 import org.cef.handler.CefResourceHandlerAdapter
 import org.cef.handler.CefResourceRequestHandler
@@ -10,11 +11,18 @@ import org.cef.handler.CefResourceRequestHandlerAdapter
 import org.cef.misc.BoolRef
 import org.cef.misc.IntRef
 import org.cef.misc.StringRef
+import org.cef.network.CefCookie
+import org.cef.network.CefCookieManager
 import org.cef.network.CefRequest
 import org.cef.network.CefResponse
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.nio.charset.Charset
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * 桌面模式伪装（由 Android 版 DesktopWebMode 原样移植）。
@@ -123,6 +131,19 @@ object DesktopWebMode {
 /**
  * 登录窗口的请求拦截：只拦导航 GET（HTML 文档），取回后注入伪装再吐给 CEF。
  * POST/子资源走默认通道，避免破坏登录流程。
+ *
+ * 只在真正需要桌面视口的登录页启用（WorkBuddy 扫码页按视口分流，见 LoginWindow）；
+ * 其他登录页不挂拦截器——安卓同款代码在登录流程里从来不启用（forceDesktop 无调用方）。
+ *
+ * 与安卓 shouldInterceptRequest 同款语义：
+ * - 只处理 2xx 的 HTML 主文档；非 HTML、3xx、错误码、异常一律回退默认加载
+ *   （返回 null），绝不因为注入失败把登录页搞成 502 死页；
+ * - 不跟随跳转（instanceFollowRedirects = false）：302 由 CEF 自己跟，地址栏与内容
+ *   保持同步，跳转目标的导航会再次被拦截注入；
+ * - 服务器下发的 Set-Cookie 逐条写回 CEF cookie 仓（安卓同款，缺了它会话建不起来，
+ *   页面会报「Scope 参数错误」这类缺上下文的错误页）；
+ * - 本地回调地址（127.0.0.1/localhost）不拦截，避免拦截器先 GET 一次回调 URL，
+ *   与页面钩子形成双入口竞态。
  */
 class DesktopModeRequestHandler(
     private val cookieHeaderFor: (String) -> String = { "" },
@@ -141,6 +162,8 @@ class DesktopModeRequestHandler(
         if (!isNavigation) return null
         if (!url.startsWith("http://") && !url.startsWith("https://")) return null
         if (request.method?.uppercase() != "GET") return null
+        if (isLocalCallback(url)) return null
+        val fetched = fetchInjected(url) ?: return null
         disableDefaultHandling.set(true)
         return object : CefResourceRequestHandlerAdapter() {
             override fun getResourceHandler(
@@ -148,33 +171,102 @@ class DesktopModeRequestHandler(
                 f: CefFrame?,
                 r: CefRequest,
             ): org.cef.handler.CefResourceHandler {
-                val (bytes, mime, status) = fetchInjected(r.url)
-                return BytesResourceHandler(bytes, mime, status)
+                return BytesResourceHandler(fetched.bytes, fetched.mime, fetched.status)
             }
         }
     }
 
-    private fun fetchInjected(url: String): Triple<ByteArray, String, Int> {
-        return try {
-            val conn = URL(url).openConnection() as HttpURLConnection
+    private fun isLocalCallback(url: String): Boolean {
+        val host = runCatching { URI(url).host }.getOrNull()?.lowercase().orEmpty()
+        return host == "127.0.0.1" || host == "localhost" || host.endsWith(".localhost")
+    }
+
+    private data class Fetched(val bytes: ByteArray, val mime: String, val status: Int)
+
+    /**
+     * 取回页面并注入伪装。返回 null 表示「不介入」，由 CEF 默认加载。
+     * 只在 2xx + HTML 时返回内容；其余一律 null。
+     */
+    private fun fetchInjected(url: String): Fetched? {
+        val conn: HttpURLConnection
+        try {
+            conn = URL(url).openConnection() as HttpURLConnection
             conn.connectTimeout = 15_000
             conn.readTimeout = 30_000
             conn.setRequestProperty("User-Agent", DesktopWebMode.UA)
+            // 主文档要改写 HTML，必须拿到未压缩的原始字节（安卓同款）
+            conn.setRequestProperty("Accept-Encoding", "identity")
             val cookies = cookieHeaderFor(url)
             if (cookies.isNotBlank()) conn.setRequestProperty("Cookie", cookies)
-            conn.instanceFollowRedirects = true
+            conn.instanceFollowRedirects = false
             val code = conn.responseCode
+            if (code !in 200..299) return null
             val type = conn.contentType ?: "text/html"
+            if (!type.contains("html", ignoreCase = true)) return null
             val charset = charsetOf(type) ?: Charsets.UTF_8
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val raw = stream?.use { it.readBytes() } ?: ByteArray(0)
-            if (code !in 200..299) return Triple(raw, type, code)
-            val html = raw.toString(charset)
-            val injected = DesktopWebMode.inject(html).toByteArray(charset)
-            Triple(injected, type, code)
-        } catch (e: Exception) {
-            Triple("VantaGate 桌面模式取页失败：${e.message}".toByteArray(Charsets.UTF_8), "text/plain", 502)
+            val raw = conn.inputStream.use { it.readBytes() }
+            val injected = DesktopWebMode.inject(raw.toString(charset)).toByteArray(charset)
+            // 页面靠 Set-Cookie 建立会话，漏同步会渲染出缺上下文的错误页（安卓同款）
+            conn.headerFields["Set-Cookie"]?.forEach { rawCookie ->
+                runCatching { writeSetCookie(url, rawCookie) }
+            }
+            runCatching {
+                CefCookieManager.getGlobalManager()?.flushStore(
+                    object : CefCompletionCallback {
+                        override fun onComplete() {}
+                    },
+                )
+            }
+            return Fetched(injected, type.substringBefore(';').trim(), code)
+        } catch (_: Exception) {
+            return null
         }
+    }
+
+    /** 把一条原始 Set-Cookie 写回 CEF cookie 仓（属性原样保留）。 */
+    private fun writeSetCookie(url: String, raw: String) {
+        val mgr = CefCookieManager.getGlobalManager() ?: return
+        val parts = raw.split(';').map { it.trim() }.filter { it.isNotEmpty() }
+        if (parts.isEmpty()) return
+        val nv = parts[0]
+        val eq = nv.indexOf('=')
+        if (eq <= 0) return
+        val name = nv.substring(0, eq).trim()
+        val value = nv.substring(eq + 1).trim()
+        if (name.isEmpty()) return
+        var domain: String? = null
+        var path = "/"
+        var expires: Date? = null
+        var secure = url.startsWith("https", ignoreCase = true)
+        var httpOnly = false
+        for (attr in parts.drop(1)) {
+            val i = attr.indexOf('=')
+            val key = (if (i >= 0) attr.substring(0, i) else attr).trim().lowercase()
+            val v = if (i >= 0) attr.substring(i + 1).trim() else ""
+            when (key) {
+                "domain" -> domain = v.removePrefix(".")
+                "path" -> if (v.isNotEmpty()) path = v
+                "expires" -> expires = parseHttpDate(v)
+                "secure" -> secure = true
+                "httponly" -> httpOnly = true
+            }
+        }
+        val host = domain ?: runCatching { URI(url).host }.getOrNull() ?: return
+        val cookie = CefCookie(name, value, host, path, secure, httpOnly, null, null, expires != null, expires)
+        runCatching { mgr.setCookie(url, cookie) }
+    }
+
+    private fun parseHttpDate(v: String): Date? {
+        val formats = listOf(
+            "EEE, dd MMM yyyy HH:mm:ss zzz",
+            "EEE, dd-MMM-yy HH:mm:ss zzz",
+        )
+        for (f in formats) {
+            runCatching {
+                SimpleDateFormat(f, Locale.US).apply { timeZone = TimeZone.getTimeZone("GMT") }.parse(v)
+            }.getOrNull()?.let { return it }
+        }
+        return null
     }
 
     private fun charsetOf(contentType: String?): Charset? {

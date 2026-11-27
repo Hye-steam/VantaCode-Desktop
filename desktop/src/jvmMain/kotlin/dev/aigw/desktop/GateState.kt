@@ -929,6 +929,7 @@ class GateViewModel(
     // ---------- 网页登录（JCEF） ----------
 
     fun startDeepSeekLogin() {
+        deepSeekTransport.warmUp()
         scope.launch {
             val url = withContext(Dispatchers.IO) { runCatching { engine.startTokenLogin("deepseek") } }
                 .getOrElse {

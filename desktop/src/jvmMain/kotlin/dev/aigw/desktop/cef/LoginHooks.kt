@@ -30,7 +30,11 @@ object LoginHooks {
         persistent:false, onSuccess:function(){}, onFailure:function(){}});
     } catch(e){}
   }
-  window.__aigwBridge = { onPayload: function(t){ send('aigw','onPayload',[String(t)]); } };
+  window.__aigwBridge = {
+    onPayload: function(t){ send('aigw','onPayload',[String(t)]); },
+    onLog: function(t){ send('aigw','onLog',[String(t)]); },
+    onExchangeOk: function(t){ send('aigw','onExchangeOk',[String(t)]); }
+  };
   window.DSBridge = {
     onStatus: function(id, code){ send('ds','onStatus',[String(id), String(code)]); },
     onChunk: function(id, text){ send('ds','onChunk',[String(id), String(text)]); },
@@ -85,6 +89,45 @@ object LoginHooks {
     const val EXPIRED_CHECK_JS =
         "(function(){var b=document.body;" +
             "return b&&b.innerText&&b.innerText.indexOf('页面已过期')>=0?'true':'false';})()"
+
+    /**
+     * 把网页登录态换成 CLI state 凭证（安卓 WebLoginActivity.cliExchangeJs 原样移植）。
+     *
+     * 扫码只完成了网页会话（页面已经是「已登录」但停在登录页）。
+     * 页面自己的前端在登录成功后会 POST `/console/login/enterprise?state=`
+     * 把会话写进该 state，后台轮询才能拿到凭证；这里代它补上这一步。
+     *
+     * 定时重试而非只跑一次：注入发生在页面加载完成时，那一刻用户往往还没扫码，
+     * 第一次必然拿不到会话。成功后停，失败继续（后台轮询会自己判定是否已入库）。
+     */
+    fun cliExchangeJs(state: String): String =
+        "(function(){" +
+            "if(window.__aigwCliDone){return;}" +
+            "if(window.__aigwCliTimer){clearInterval(window.__aigwCliTimer);}" +
+            "var n=0;" +
+            "var go=function(){" +
+            "if(window.__aigwCliDone){return;}" +
+            "if(n++>60){clearInterval(window.__aigwCliTimer);" +
+            "try{window.__aigwBridge.onLog('超时：3 分钟内未完成登录');}catch(e){}" +
+            "return;}" +
+            "try{" +
+            "fetch('/console/login/enterprise?state=" + state + "',{method:'POST'," +
+            "credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'})" +
+            ".then(function(r){return r.text().then(function(t){return {s:r.status,t:t};});})" +
+            ".then(function(o){" +
+            "var t=String(o.t||'');" +
+            // 401 说明用户还没扫完，继续等；其余响应要么成功要么是真错误，都停下来上报
+            "if(t.indexOf('invalid_token')>=0||o.s===401){return;}" +
+            "window.__aigwCliDone=1;clearInterval(window.__aigwCliTimer);" +
+            "try{window.__aigwBridge.onExchangeOk(t);}catch(e){}" +
+            "try{window.__aigwBridge.onPayload(t);}catch(e){}" +
+            "}).catch(function(e){" +
+            "try{window.__aigwBridge.onLog('请求异常：'+e);}catch(e2){}" +
+            ");" +
+            "}catch(e){}" +
+            "};" +
+            "go();window.__aigwCliTimer=setInterval(go,3000);" +
+            "})();"
 
     /** 优先读请求头截到的 token，回退 localStorage（结构为 {value:...}）。 */
     const val TOKEN_READ_JS =

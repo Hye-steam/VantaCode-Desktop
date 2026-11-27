@@ -201,7 +201,7 @@ val packageExeZh = tasks.register<Exec>("packageExeZh") {
     commandLine(
         "ISCC.exe",
         "/Q",
-        "/DAppVersion=$vantagesVersion",
+        "/DAppVersion=$vantagateVersion",
         issFile.asFile.absolutePath,
     )
 }

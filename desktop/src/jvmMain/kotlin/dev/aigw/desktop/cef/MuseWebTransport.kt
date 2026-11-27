@@ -6,6 +6,8 @@ import dev.aigw.provider.WebTransportResult
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import javax.swing.JFrame
+import javax.swing.SwingUtilities
 
 /**
  * muse.ai 的页面通道：生成能力只对真实页面开放，靠 JCEF 操作 DOM。
@@ -80,12 +82,18 @@ class MuseWebTransport : WebTransport {
         @Volatile
         private var started = false
 
+        /** 挂浏览器组件的后台窗（见 attachToBackgroundWindow）。 */
+        @Volatile
+        private var hostFrame: JFrame? = null
+
         fun start() {
             if (started) return
             started = true
             val b = try {
+                // 先建 about:blank：cookie 必须在首载之前注入并 flush（安卓同款），
+                // 否则首载落在登录墙上，后续再注也救不回来。
                 JcefBrowser(
-                    startUrl = HOME,
+                    startUrl = "about:blank",
                     afterLoad = { page ->
                         page.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
                         page.evalVoid(JS_ERROR_HOOK)
@@ -93,6 +101,7 @@ class MuseWebTransport : WebTransport {
                     },
                 )
             } catch (e: Throwable) {
+                started = false
                 throw IllegalStateException("muse 浏览器创建失败：${e.message}")
             }
             b.onBridge = onBridge@{ bridge, method, args ->
@@ -104,14 +113,50 @@ class MuseWebTransport : WebTransport {
                 }
             }
             browser = b
-            // 先注入登录 cookie 再等页面就绪
-            cookie?.let { injectCookies(b, it) }
-            if (!b.awaitReady(READY_TIMEOUT_MS)) {
-                throw IllegalStateException("muse 页面未就绪")
+            try {
+                // 未挂窗口的浏览器不产生合成帧，rAF 永不回调，Next.js 水合停在骨架上
+                // （安卓同款：400×800 alpha 0.01 离屏窗）。
+                attachToBackgroundWindow(b)
+                // 先注入登录 cookie 再等页面就绪
+                cookie?.let { injectCookies(b, it) }
+                b.flushCookies()
+                b.load(HOME)
+                if (!b.awaitReady(READY_TIMEOUT_MS)) {
+                    throw IllegalStateException("muse 页面未就绪")
+                }
+                b.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
+                b.evalVoid(JS_ERROR_HOOK)
+                b.evalVoid(jsHelper)
+            } catch (e: Throwable) {
+                close()
+                throw e
             }
-            b.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
-            b.evalVoid(JS_ERROR_HOOK)
-            b.evalVoid(jsHelper)
+        }
+
+        /**
+         * 把浏览器组件挂到一个后台窗口上，让页面拿到合成帧、rAF 正常跑。
+         * 安卓同款做法（WindowManager 挂 400×800 alpha 0.01 离屏窗）：
+         * 未挂窗口的 WebView 不产生合成帧，muse.ai 的水合链路由 rAF 驱动，
+         * 页面会一直停在服务端渲染的骨架上。
+         */
+        private fun attachToBackgroundWindow(page: JcefBrowser) {
+            val attach = {
+                val f = JFrame()
+                f.isUndecorated = true
+                f.setSize(400, 800)
+                f.setLocation(-500, -900)
+                f.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
+                f.add(page.component)
+                // 不用完全透明：部分系统会因此跳过合成，rAF 又不跑了（安卓同款 0.01）
+                runCatching { f.opacity = 0.01f }
+                f.isVisible = true
+                hostFrame = f
+            }
+            if (SwingUtilities.isEventDispatchThread()) {
+                runCatching { attach() }
+            } else {
+                runCatching { SwingUtilities.invokeAndWait(Runnable { attach() }) }
+            }
         }
 
         private fun injectCookies(page: JcefBrowser, raw: String) {
@@ -139,7 +184,16 @@ class MuseWebTransport : WebTransport {
 
         private fun gotoNewThread(page: JcefBrowser): Boolean {
             val cur = LoginHooks.parseJsString(page.evalJson("(location.pathname||'')", 5_000)).orEmpty()
-            if (cur.startsWith("/thread/new")) return true
+            if (cur.startsWith("/thread/new")) {
+                // 登录态校验：首载若在注 cookie 前发生会停在登录墙，pathname 看着对但没登录。
+                if (hasSession(page)) return true
+                page.load(HOME)
+                if (!page.awaitReady(READY_TIMEOUT_MS)) return false
+                page.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
+                page.evalVoid(JS_ERROR_HOOK)
+                page.evalVoid(jsHelper)
+                return hasSession(page) && awaitReady()
+            }
             page.load(HOME)
             if (!page.awaitReady(READY_TIMEOUT_MS)) return false
             page.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
@@ -148,12 +202,38 @@ class MuseWebTransport : WebTransport {
             return awaitReady()
         }
 
+        /** 会话是否还在：muse.ai 登录态全在 hatch_sess cookie 里。 */
+        private fun hasSession(page: JcefBrowser): Boolean =
+            runCatching { page.getCookies("https://muse.ai") }.getOrDefault("")
+                .contains("hatch_sess=")
+
         fun generate(prompt: String, expect: String): WebTransportResult {
             val page = browser ?: return WebTransportResult(0, "", "muse 浏览器未就绪")
             if (!gotoNewThread(page)) return WebTransportResult(0, "", "muse 页面未就绪")
-            val verdict = LoginHooks.parseJsString(page.evalJson(jsStart(id, prompt, expect), 20_000))
-            if (verdict != "ok") {
-                return WebTransportResult(0, "", "muse 生成启动失败：${verdict ?: "无响应"}")
+            // 页面导航会重建 JS 上下文，注入过的脚本随之消失，直接调会静默失效、
+            // 请求一直挂着。这里确认后补注入，180 秒内重试（安卓同款）。
+            var attempts = 0
+            var lastVerdict: String? = null
+            var started = false
+            val startDeadline = System.currentTimeMillis() + 180_000
+            while (!started && System.currentTimeMillis() < startDeadline) {
+                val verdict = LoginHooks.parseJsString(page.evalJson(jsStart(id, prompt, expect), 20_000))
+                lastVerdict = verdict
+                if (verdict == "ok") {
+                    started = true
+                } else {
+                    attempts++
+                    Thread.sleep(2000)
+                    page.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
+                    page.evalVoid(JS_ERROR_HOOK)
+                    page.evalVoid(jsHelper)
+                }
+            }
+            if (!started) {
+                return WebTransportResult(
+                    0, "",
+                    "muse 生成启动失败：页面脚本未就绪（重试 $attempts 次，${lastVerdict ?: "无响应"}）",
+                )
             }
             // 生成启动后等产物：视频慢，给足 20 分钟
             val deadline = System.currentTimeMillis() + TIMEOUT_MS
@@ -172,6 +252,8 @@ class MuseWebTransport : WebTransport {
             runCatching { browser?.close() }
             browser = null
             started = false
+            runCatching { hostFrame?.dispose() }
+            hostFrame = null
         }
     }
 

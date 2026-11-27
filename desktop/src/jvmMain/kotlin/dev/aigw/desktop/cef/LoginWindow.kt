@@ -94,8 +94,15 @@ class LoginWindow(
             val page = try {
                 JcefBrowser(
                     startUrl = startUrl,
-                    requestHandler = DesktopModeRequestHandler { url ->
-                        runCatching { browser?.getCookies(url).orEmpty() }.getOrDefault("")
+                    // 桌面模式拦截只挂在真正需要桌面视口的登录页（WorkBuddy 扫码页按视口分流）；
+                    // 其他登录页不挂——安卓同款拦截在登录流程里从来不启用，挂上反而丢 Set-Cookie
+                    // 导致会话建不起来。UA 与 viewportFixJs 兜底仍对所有页生效。
+                    requestHandler = if (mode == LoginHooks.MODE_DEVICE) {
+                        DesktopModeRequestHandler { url ->
+                            runCatching { browser?.getCookies(url).orEmpty() }.getOrDefault("")
+                        }
+                    } else {
+                        null
                     },
                     afterLoad = { b ->
                         b.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
@@ -104,8 +111,20 @@ class LoginWindow(
                             LoginHooks.MODE_TOKEN -> b.evalVoid(LoginHooks.TOKEN_HOOK_JS)
                             LoginHooks.MODE_CALLBACK -> b.evalVoid(LoginHooks.CALLBACK_HOOK_JS)
                         }
-                        val expired = LoginHooks.parseJsString(b.evalJson(LoginHooks.EXPIRED_CHECK_JS, 5_000))
-                        if (expired == "true") setStatus("页面已过期，请重新打开登录")
+                        // 扫码登录要把网页会话兑换进 CLI state（安卓 onPageFinished 同款，
+                        // 3 分钟重试在脚本内）。
+                        if (deviceState.isNotEmpty()) b.evalVoid(LoginHooks.cliExchangeJs(deviceState))
+                        // EXPIRED_CHECK_JS 走 evalJson 会在 CEF UI 线程上等桥回包：afterLoad
+                        // 本就跑在 UI 线程上，5 秒必然卡死。放后台线程查，结果只写状态栏。
+                        // 只在设备授权模式查（安卓同款）。
+                        if (mode == LoginHooks.MODE_DEVICE) {
+                            Thread {
+                                val expired = LoginHooks.parseJsString(
+                                    b.evalJson(LoginHooks.EXPIRED_CHECK_JS, 5_000),
+                                )
+                                if (expired == "true") setStatus("页面已过期，请重新打开登录")
+                            }.apply { isDaemon = true }.start()
+                        }
                     },
                 )
             } catch (e: Throwable) {
@@ -115,14 +134,28 @@ class LoginWindow(
             }
             browser = page
             page.onBridge = { _, method, args ->
-                if (method == "onPayload") {
-                    val payload = args.getOrNull(0).orEmpty()
-                    if (payload.contains("authorization_code")) {
-                        Thread { completeCallback(payload) }.apply { isDaemon = true }.start()
+                when (method) {
+                    "onPayload" -> {
+                        val payload = args.getOrNull(0).orEmpty()
+                        if (payload.contains("authorization_code")) {
+                            Thread { completeCallback(payload) }.apply { isDaemon = true }.start()
+                        }
+                    }
+                    "onLog" -> {
+                        val msg = args.getOrNull(0).orEmpty()
+                        runCatching { engine.eventLog.info("登录", "扫码兑换：${msg.take(200)}") }
+                        if (msg.isNotBlank()) setStatus(msg)
+                    }
+                    "onExchangeOk" -> {
+                        val body = args.getOrNull(0).orEmpty()
+                        runCatching { engine.eventLog.success("登录", "扫码兑换成功：${body.take(160)}") }
+                        setStatus("已登录，正在添加账号…")
                     }
                 }
             }
-            page.clearAllCookies()
+            page.onPopup = { url -> handlePopup(page, url) }
+            page.onExternalScheme = { url -> setStatus("已复制链接，请在对应应用中打开：$url") }
+            page.clearCookiesFor(startUrl)
             frame.add(page.component, BorderLayout.CENTER)
             frame.addWindowListener(object : java.awt.event.WindowAdapter() {
                 override fun windowClosed(e: java.awt.event.WindowEvent?) {
@@ -138,6 +171,66 @@ class LoginWindow(
     private fun openExternal() {
         runCatching { Desktop.getDesktop().browse(URI(startUrl)) }
             .onFailure { setStatus("打开系统浏览器失败：${it.message}") }
+    }
+
+    /** 弹窗（window.open / OAuth 新窗口）：回调地址直接交主页面，其余开临时窗承接。 */
+    private fun handlePopup(page: JcefBrowser, url: String) {
+        if (isCallbackUrl(url)) {
+            page.load(url)
+            return
+        }
+        openPopupWindow(page, url)
+    }
+
+    /** 回调地址判定（安卓 WebLoginActivity.isCallbackUrl 原样移植）。 */
+    private fun isCallbackUrl(url: String): Boolean {
+        if (mode != LoginHooks.MODE_CALLBACK) return false
+        val looksLocal = url.contains("127.0.0.1") || url.contains("localhost")
+        val hasCode = url.contains("authorization_code=") || url.contains("code=")
+        return looksLocal && hasCode
+    }
+
+    /** 临时弹窗：接住授权页的导航，落到回调地址时交回主页面（安卓 onCreateWindow 同款）。 */
+    private fun openPopupWindow(mainPage: JcefBrowser, url: String) {
+        SwingUtilities.invokeLater {
+            val popupFrame = JFrame("授权 — VantaGate")
+            popupFrame.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
+            popupFrame.layout = BorderLayout()
+            popupFrame.setSize(900, 640)
+            val screen = Toolkit.getDefaultToolkit().screenSize
+            popupFrame.setLocation((screen.width - 900) / 2, (screen.height - 640) / 2)
+            val popup = try {
+                JcefBrowser(
+                    startUrl = url,
+                    afterLoad = { b ->
+                        b.evalVoid(LoginHooks.BRIDGE_SHIM_JS)
+                        val cur = b.currentUrl
+                        if (isCallbackUrl(cur)) {
+                            SwingUtilities.invokeLater { popupFrame.dispose() }
+                            // 回调服务器在弹窗导航时已收到 code；还没入库才交主页面走钩子路径
+                            if (!engine.browserLoginSucceeded()) mainPage.load(cur)
+                        }
+                    },
+                )
+            } catch (e: Throwable) {
+                setStatus("弹窗打开失败：${e.message}")
+                return@invokeLater
+            }
+            popup.onPopup = { nested -> handlePopup(mainPage, nested) }
+            popup.onExternalScheme = { u -> setStatus("已复制链接，请在对应应用中打开：$u") }
+            val bar = JPanel(FlowLayout(FlowLayout.RIGHT))
+            val closeBtn = JButton("关闭")
+            closeBtn.addActionListener { runCatching { popup.close() }; popupFrame.dispose() }
+            bar.add(closeBtn)
+            popupFrame.add(bar, BorderLayout.NORTH)
+            popupFrame.add(popup.component, BorderLayout.CENTER)
+            popupFrame.addWindowListener(object : java.awt.event.WindowAdapter() {
+                override fun windowClosed(e: java.awt.event.WindowEvent?) {
+                    runCatching { popup.close() }
+                }
+            })
+            popupFrame.isVisible = true
+        }
     }
 
     private fun setStatus(text: String) {
@@ -240,19 +333,29 @@ class LoginWindow(
         setStatus("等待超时：授权完成后可复制浏览器地址栏链接，回来点「粘贴回调链接导入」")
     }
 
+    @Volatile
+    private var callbackHandling = false
+
     private fun completeCallback(payload: String) {
         if (finished) return
+        // 回调双入口（拦截器 GET 与页面钩子）可能并发调进来：安卓同款 callbackHandled 门，
+        // 失败时复位以便重试，成功后由 finish 终结。
+        if (callbackHandling) return
+        callbackHandling = true
         val result = runCatching { engine.completeBrowserLogin(payload) }
         result.onSuccess {
             setStatus("登录成功：${it.displayName}")
             finish(it)
         }.onFailure {
+            callbackHandling = false
             setStatus("登录失败：${it.message}")
         }
     }
 
     /** Token 登录：按供应商从 Cookie/localStorage 抓凭证（与 Android pollTokenLogin 一致）。 */
     private fun pollTokenLogin(page: JcefBrowser) {
+        // 上次已提交过的凭证：失败后不再重复提交，等凭证变化再试（安卓同款 lastCred）。
+        var lastCred: String? = null
         repeat(300) {
             Thread.sleep(2000)
             if (!polling || finished) return
@@ -261,7 +364,7 @@ class LoginWindow(
             try {
                 when (providerId) {
                     "muse" -> {
-                        val cookie = page.getCookies("https://muse.ai")
+                        val cookie = runCatching { page.getCookies("https://muse.ai") }.getOrDefault("")
                         if (cookie.contains("hatch_sess")) {
                             val sess = Regex("hatch_sess=([^;\\s]+)").find(cookie)?.groupValues?.get(1).orEmpty()
                             val uid = sess.take(8).ifEmpty { "muse" + System.currentTimeMillis() % 100000 }
@@ -278,19 +381,27 @@ class LoginWindow(
                         }
                     }
                     "chatglm" -> {
-                        val cookie = page.getCookies("https://chatglm.cn")
-                        if (cookie.contains("chatglm_token=")) {
-                            val cred = LoginHooks.chatglmCredentialJson(cookie)
-                            if (cred.isNotBlank()) {
-                                val account = engine.completeTokenLogin(providerId, cred)
-                                setStatus("登录成功：${account.displayName}")
-                                finish(account)
-                                return
-                            }
+                        val cookie = runCatching { page.getCookies("https://chatglm.cn") }.getOrDefault("")
+                        val cred = LoginHooks.chatglmCredentialJson(cookie)
+                        if (cred.isBlank()) {
+                            setStatus("请在页面用手机号登录，完成后自动返回")
+                            return@repeat
+                        }
+                        // 访客态等失败后不能停止轮询：等 cookie 变化（真正登录后 token 会变）再重试
+                        if (cred == lastCred) return@repeat
+                        lastCred = cred
+                        val result = runCatching { engine.completeTokenLogin(providerId, cred) }
+                        result.onSuccess {
+                            setStatus("登录成功：${it.displayName}")
+                            finish(it)
+                            return
+                        }.onFailure {
+                            setStatus("登录失败：${it.message}（请在页面完成手机号登录）")
+                            return@repeat
                         }
                     }
                     "jimeng" -> {
-                        val cookie = page.getCookies("https://jimeng.jianying.com")
+                        val cookie = runCatching { page.getCookies("https://jimeng.jianying.com") }.getOrDefault("")
                         if (cookie.contains("sessionid=")) {
                             val account = persistJimeng(cookie) ?: return@repeat
                             setStatus("登录成功：${account.displayName}")
@@ -299,7 +410,7 @@ class LoginWindow(
                         }
                     }
                     "doubao" -> {
-                        val cookie = page.getCookies("https://www.doubao.com")
+                        val cookie = runCatching { page.getCookies("https://www.doubao.com") }.getOrDefault("")
                         if (cookie.contains("sessionid=")) {
                             val account = persistDoubao(page, cookie)
                             if (account != null) {
@@ -312,12 +423,26 @@ class LoginWindow(
                         }
                     }
                     "mimo" -> {
-                        val cookie = page.getCookies("https://aistudio.xiaomi.com")
-                        if (cookie.contains("serviceToken=")) {
-                            val account = engine.completeTokenLogin(providerId, cookie)
-                            setStatus("登录成功：${account.displayName}")
-                            finish(account)
+                        val cookie = runCatching { page.getCookies("https://aistudio.xiaomi.com") }.getOrDefault("")
+                        // 安卓同款：serviceToken + userId + (xiaomichatbot_ph 或 ph_token)
+                        // 三件套齐了才提交，只凭 serviceToken 就提交必然失败。
+                        val hasAll = cookie.contains("serviceToken=") &&
+                            cookie.contains("userId=") &&
+                            (cookie.contains("xiaomichatbot_ph=") || cookie.contains("ph_token="))
+                        if (!hasAll) {
+                            setStatus("请在页面完成小米账号登录")
+                            return@repeat
+                        }
+                        if (cookie == lastCred) return@repeat
+                        lastCred = cookie
+                        val result = runCatching { engine.completeTokenLogin(providerId, cookie) }
+                        result.onSuccess {
+                            setStatus("登录成功：${it.displayName}")
+                            finish(it)
                             return
+                        }.onFailure {
+                            setStatus("登录失败：${it.message}")
+                            return@repeat
                         }
                     }
                     else -> {

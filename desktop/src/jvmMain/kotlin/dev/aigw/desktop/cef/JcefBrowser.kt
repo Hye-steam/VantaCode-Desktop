@@ -4,17 +4,23 @@ import com.google.gson.Gson
 import com.google.gson.JsonParser
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
+import org.cef.callback.CefCompletionCallback
+import org.cef.callback.CefCookieVisitor
 import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import org.cef.handler.CefRequestHandler
+import org.cef.handler.CefRequestHandlerAdapter
+import org.cef.handler.CefResourceRequestHandler
 import org.cef.misc.BoolRef
 import org.cef.network.CefCookie
 import org.cef.network.CefCookieManager
-import org.cef.callback.CefCookieVisitor
+import org.cef.network.CefRequest
 import java.awt.Component
+import java.awt.Toolkit
+import java.awt.datatransfer.StringSelection
 import java.net.URI
 import java.util.Collections
 import java.util.UUID
@@ -43,6 +49,10 @@ class JcefBrowser(
     var afterLoad: ((JcefBrowser) -> Unit)? = null,
     /** 收到桥消息时调用：bridge 名、方法名、字符串参数。 */
     var onBridge: ((bridge: String, method: String, args: List<String>) -> Unit)? = null,
+    /** 页面触发 window.open / 新窗口导航时调用（未设置时默认在当前页打开）。 */
+    var onPopup: ((url: String) -> Unit)? = null,
+    /** 页面要跳自定义协议（weixin:// 等）时调用，链接已复制到剪贴板。 */
+    var onExternalScheme: ((url: String) -> Unit)? = null,
 ) {
     private val gson = Gson()
     private val evalFutures = ConcurrentHashMap<String, CompletableFuture<String?>>()
@@ -99,7 +109,58 @@ class JcefBrowser(
         }
     }
 
-    private val client = GateCef.newClient(requestHandler, routerHandler)
+    /**
+     * 复合请求处理：自定义协议拦截（本类）+ 调用方拦截器（登录窗的桌面模式）委托。
+     * 不直接把调用方的 handler 交给 CefClient 是为了让协议拦截对所有页面都生效，
+     * 而桌面模式拦截只在需要时挂载。
+     * 注意：必须在 client 之前声明，client 初始化时就要用到它。
+     */
+    private val compositeRequestHandler: CefRequestHandler = object : CefRequestHandlerAdapter() {
+        override fun onBeforeBrowse(
+            browser: CefBrowser?,
+            frame: CefFrame?,
+            request: CefRequest?,
+            userGesture: Boolean,
+            isRedirect: Boolean,
+        ): Boolean {
+            val url = request?.url.orEmpty()
+            if (url.isBlank()) return false
+            if (isBrowsableScheme(url)) return false
+            // 自定义协议（weixin://、office-raccoon:// 等）：CEF 不认识会报
+            // ERR_UNKNOWN_URL_SCHEME。拦截后复制链接并通知上层，由用户在对应应用里打开。
+            runCatching {
+                Toolkit.getDefaultToolkit().systemClipboard
+                    .setContents(StringSelection(url), null)
+            }
+            runCatching { onExternalScheme?.invoke(url) }
+            return true
+        }
+
+        override fun getResourceRequestHandler(
+            browser: CefBrowser?,
+            frame: CefFrame?,
+            request: CefRequest,
+            isNavigation: Boolean,
+            isDownload: Boolean,
+            requestInitiator: String?,
+            disableDefaultHandling: BoolRef,
+        ): CefResourceRequestHandler? {
+            return requestHandler?.getResourceRequestHandler(
+                browser, frame, request, isNavigation, isDownload, requestInitiator,
+                disableDefaultHandling,
+            )
+        }
+    }
+
+    private val client = GateCef.newClient(compositeRequestHandler, routerHandler)
+
+    private fun isBrowsableScheme(url: String): Boolean {
+        val scheme = url.substringBefore(':', "").lowercase()
+        return scheme in setOf(
+            "http", "https", "about", "data", "blob", "file",
+            "chrome", "chrome-extension", "devtools",
+        )
+    }
 
     val browser: CefBrowser = client.createBrowser(startUrl, true, transparent)
 
@@ -137,7 +198,8 @@ class JcefBrowser(
                 if (!isLoading) currentUrl = browser?.url ?: currentUrl
             }
         })
-        // 弹窗（window.open / OAuth 新窗口）直接在当前页打开，避免多窗口管理。
+        // 弹窗（window.open / OAuth 新窗口）：有 onPopup 时交上层决定（登录窗会把回调地址
+        // 交回主页面、其余开临时窗承接，避免主页面被顶掉丢了登录态）；未设置时保持老行为。
         client.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
             override fun onBeforePopup(
                 browser: CefBrowser?,
@@ -146,7 +208,13 @@ class JcefBrowser(
                 targetFrameName: String?,
             ): Boolean {
                 val url = targetUrl.orEmpty()
-                if (url.isNotBlank()) runCatching { browser?.loadURL(url) }
+                if (url.isBlank()) return true
+                val handler = onPopup
+                if (handler != null) {
+                    runCatching { handler(url) }
+                } else {
+                    runCatching { browser?.loadURL(url) }
+                }
                 return true
             }
         })
@@ -202,7 +270,8 @@ class JcefBrowser(
             mgr.visitUrlCookies(url, true, object : CefCookieVisitor {
                 override fun visit(cookie: CefCookie, count: Int, total: Int, delete: BoolRef): Boolean {
                     list.add(cookie)
-                    if (total > 0 && count >= total - 1) latch.countDown()
+                    // total == 0 时也要放行：否则无 Cookie 的 URL 每次都等满整个超时
+                    if (total <= 0 || count >= total - 1) latch.countDown()
                     return true
                 }
             })
@@ -231,6 +300,22 @@ class JcefBrowser(
     /** 清空全部 Cookie（登录窗打开时用，避免上次登录态直接通过）。 */
     fun clearAllCookies() {
         runCatching { CefCookieManager.getGlobalManager()?.deleteCookies("", "") }
+    }
+
+    /** 只清空指定 URL 所在域的 Cookie：登录窗打开时清目标域，避免清掉其他供应商的会话。 */
+    fun clearCookiesFor(url: String) {
+        runCatching { CefCookieManager.getGlobalManager()?.deleteCookies(url, "") }
+    }
+
+    /** 把内存里的 Cookie 写盘（登录前注入后调用，保证首载带上）。 */
+    fun flushCookies() {
+        runCatching {
+            CefCookieManager.getGlobalManager()?.flushStore(
+                object : CefCompletionCallback {
+                    override fun onComplete() {}
+                },
+            )
+        }
     }
 
     fun close() {

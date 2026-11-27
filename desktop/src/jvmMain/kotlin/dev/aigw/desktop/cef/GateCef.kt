@@ -47,6 +47,8 @@ object GateCef {
                 builder.cefSettings.cache_path = File(installDir, "cache").absolutePath
                 // 全局桌面 UA：登录页按 UA 分流时出桌面布局（WorkBuddy 出二维码而非微信-only）
                 builder.cefSettings.user_agent = DesktopWebMode.UA
+                // 登录页按语言分流：安卓同款 setZhLanguages("zh-CN,zh")，缺了会出英文登录页
+                builder.cefSettings.accept_language_list = "zh-CN,zh"
                 builder.setProgressHandler { progress, message ->
                     println("[$TAG] JCEF 安装 $progress%: $message")
                 }
