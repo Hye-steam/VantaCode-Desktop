@@ -78,14 +78,17 @@ fun main() {
                 if (SystemTray.isSupported()) {
                     val image = loadTrayImage() ?: return@runCatching
                     val tray = SystemTray.getSystemTray()
-                    val popup = PopupMenu()
-                    val showItem = MenuItem("显示主窗口")
+                    // 托盘弹出菜单默认字体在打包的 jlink 运行时里没有中文字形，中文会显示成方框，
+                    // 这里显式指定一个带中文的系统字体（微软雅黑优先）。
+                    val menuFont = cjkMenuFont()
+                    val popup = PopupMenu().apply { font = menuFont }
+                    val showItem = MenuItem("显示主窗口").apply { font = menuFont }
                     showItem.addActionListener { windowVisible = true }
-                    val startItem = MenuItem("启动网关")
+                    val startItem = MenuItem("启动网关").apply { font = menuFont }
                     startItem.addActionListener { vm.startGateway() }
-                    val stopItem = MenuItem("停止网关")
+                    val stopItem = MenuItem("停止网关").apply { font = menuFont }
                     stopItem.addActionListener { vm.stopGateway() }
-                    val exitItem = MenuItem("退出")
+                    val exitItem = MenuItem("退出").apply { font = menuFont }
                     exitItem.addActionListener {
                         cleanup()
                         exitApplication()
@@ -146,6 +149,20 @@ private fun loadWindowIcon(): androidx.compose.ui.graphics.ImageBitmap? {
     } catch (_: Exception) {
         null
     }
+}
+
+/** 托盘菜单字体：优先选系统里带中文的字体，避免默认字体缺中文字形导致菜单显示方框。 */
+private fun cjkMenuFont(): java.awt.Font {
+    val candidates = listOf("Microsoft YaHei", "SimSun", "NSimSun", "Microsoft JhengHei", "SimHei")
+    val available = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+        .availableFontFamilyNames.toSet()
+    for (name in candidates) {
+        if (name in available) {
+            val font = java.awt.Font(name, java.awt.Font.PLAIN, 12)
+            if (font.canDisplayUpTo("显示主窗口启动网关停止网关退出") == -1) return font
+        }
+    }
+    return java.awt.Font("Dialog", java.awt.Font.PLAIN, 12)
 }
 
 private fun loadTrayImage(): BufferedImage? {
