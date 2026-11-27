@@ -95,7 +95,7 @@ class MuseWebTransport : WebTransport {
             } catch (e: Throwable) {
                 throw IllegalStateException("muse 浏览器创建失败：${e.message}")
             }
-            b.onBridge = { bridge, method, args ->
+            b.onBridge = onBridge@{ bridge, method, args ->
                 if (bridge != "muse") return@onBridge
                 if (args.getOrNull(0) != id) return@onBridge
                 when (method) {
