@@ -32,7 +32,7 @@ private fun setImmersiveDarkMode(window: Window) {
     val value = Memory(4).apply { setInt(0, 1) }
     // Win10 20H1+ 用 20；1809–1909 用 19。
     val hr = Dwmapi.INSTANCE.DwmSetWindowAttribute(hwnd, 20, value, 4)
-    if (hr.intValue() != 0) {
+    if (hr != 0) {
         Dwmapi.INSTANCE.DwmSetWindowAttribute(hwnd, 19, value, 4)
     }
 }
