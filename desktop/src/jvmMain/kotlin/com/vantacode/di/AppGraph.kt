@@ -491,6 +491,7 @@ object AppGraph {
             providerKeyRotator,
             agentNotificationCenter,
             agentEventInjector,
+            pluginHookDispatcher,
             fileAccess,
             context
         )
