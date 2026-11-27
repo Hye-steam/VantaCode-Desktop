@@ -411,9 +411,14 @@ class PluginWebViewService @Inject constructor(
                     throw PluginWebViewException("WEBVIEW_TIMEOUT", "login timed out after ${timeoutMs}ms")
             }
             val targets = if (cookieUrls.isEmpty()) listOf(url) else cookieUrls
+            // 先在 builder 外面把 cookie 读出来：buildJsonObject / associateWith 的 lambda
+            // 都不是 suspend，不能在里面 withContext；for 循环里可以。
+            val cookieStrings = mutableMapOf<String, String>()
+            for (targetUrl in targets) {
+                cookieStrings[targetUrl] = withContext(Dispatchers.IO) { cookieStore.getCookies(targetUrl) }
+            }
             val cookiesByUrl = buildJsonObject {
-                targets.forEach { targetUrl ->
-                    val raw = withContext(Dispatchers.IO) { cookieStore.getCookies(targetUrl) }
+                cookieStrings.forEach { (targetUrl, raw) ->
                     put(targetUrl, withSentinel(raw))
                 }
             }

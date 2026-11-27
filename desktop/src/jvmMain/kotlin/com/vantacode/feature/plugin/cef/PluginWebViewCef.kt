@@ -42,14 +42,15 @@ import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
 import org.cef.browser.CefMessageRouter
 import org.cef.callback.CefCompletionCallback
+import org.cef.callback.CefCookieVisitor
 import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefLifeSpanHandlerAdapter
+import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import org.cef.misc.BoolRef
 import org.cef.network.CefCookie
 import org.cef.network.CefCookieManager
-import org.cef.network.CefCookieVisitor
 
 /**
  * 插件 webview 会话的 JCEF 实现（对照 VantaGate 的 `JcefBrowser` + `LoginWindow`）。
@@ -153,7 +154,7 @@ class CefPluginWebViewBrowser(
             override fun onLoadError(
                 browser: CefBrowser?,
                 frame: CefFrame?,
-                errorCode: Int,
+                errorCode: CefLoadHandler.ErrorCode,
                 errorText: String?,
                 failedUrl: String?
             ) {

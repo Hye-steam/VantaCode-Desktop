@@ -3,6 +3,7 @@ package com.vantacode.feature.plugin.runtime
 import java.io.File
 import java.nio.file.Files
 import java.util.Base64
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -274,8 +275,10 @@ class PluginWebViewServiceTest {
         }
     }
 
+    // 注意：waitFor 内部用 withTimeoutOrNull + withContext(Dispatchers.IO)；
+    // runTest 的虚拟时间会在 IO 跳转期间直接跳到超时点导致误判超时，所以这两个测试用 runBlocking 跑真实时间。
     @Test
-    fun waitForPollsUntilTruthy() = runTest {
+    fun waitForPollsUntilTruthy() = runBlocking {
         val browser = FakeBrowser()
         var calls = 0
         browser.evalHandler = {
@@ -295,7 +298,7 @@ class PluginWebViewServiceTest {
     }
 
     @Test
-    fun waitForTimesOut() = runTest {
+    fun waitForTimesOut() = runBlocking {
         val browser = FakeBrowser()
         browser.evalHandler = { "\"false\"" }
         browserFactory.next = browser
