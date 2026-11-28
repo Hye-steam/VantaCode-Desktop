@@ -158,7 +158,7 @@ class PluginWebViewService @Inject constructor(
         sessions.values.filter { it.pluginId == pluginId }.toList().forEach { destroy(it) }
     }
 
-    suspend fun open(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun open(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val url = asStringOrThrow(obj["url"], "url")
         val userAgent = (obj["userAgent"] as? JsonPrimitive)?.contentOrNull
@@ -189,7 +189,7 @@ class PluginWebViewService @Inject constructor(
         return buildJsonObject { put("session", session.id) }
     }
 
-    suspend fun setCookies(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun setCookies(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         requireSession(pluginId, asStringOrThrow(obj["session"], "session"))
         val cookies = asStringOrThrow(obj["cookies"], "cookies")
@@ -199,7 +199,7 @@ class PluginWebViewService @Inject constructor(
     }
 
     /** 在页面里执行一段 JS，返回求值结果的 JSON 文本（与 Android 同款）。 */
-    suspend fun eval(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun eval(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val session = requireSession(pluginId, asStringOrThrow(obj["session"], "session"))
         val js = asStringOrThrow(obj["js"], "js")
@@ -214,7 +214,7 @@ class PluginWebViewService @Inject constructor(
      * 反复求值 [expr]，直到它返回真值或超时（与 Android 同款）。
      * 返回命中时的那个值；超时抛 `WEBVIEW_TIMEOUT`。
      */
-    suspend fun waitFor(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun waitFor(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val session = requireSession(pluginId, asStringOrThrow(obj["session"], "session"))
         val expr = asStringOrThrow(obj["expr"], "expr")
@@ -250,7 +250,7 @@ class PluginWebViewService @Inject constructor(
      * 但 CookieManager 能看到全部。返回的串是 `a=1; b=2` 形式。
      * 有 session 就顺带校验归属，避免插件拿别人的会话 id 探 cookie；无 session 时只按域名读。
      */
-    suspend fun getCookies(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun getCookies(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val url = asStringOrThrow(obj["url"], "url")
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -266,7 +266,7 @@ class PluginWebViewService @Inject constructor(
      * 等页面通过 JS 桥主动回调（`onOk`/`onFail`，与 Android 同款）。
      * 只要「跑一段异步脚本，完成时把结果推回来」的场景都靠它，宿主不需要知道页面细节。
      */
-    suspend fun awaitMessage(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun awaitMessage(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val session = requireSession(pluginId, asStringOrThrow(obj["session"], "session"))
         val timeoutMs = (obj["timeoutMs"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
@@ -298,7 +298,7 @@ class PluginWebViewService @Inject constructor(
      * 桌面另外接受 `{data|base64, dir, name?}`（插件自带 base64 直接落盘）与
      * `{url, dir, name?}`（http(s) 下载落盘）；三种形态都返回 `{path, size}`。
      */
-    suspend fun saveBlob(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun saveBlob(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val dir = asStringOrThrow(obj["dir"], "dir")
         val name = (obj["name"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: "media.bin"
@@ -384,7 +384,7 @@ class PluginWebViewService @Inject constructor(
      * 插件按该字样判断取消）；超时未确认 → `WEBVIEW_TIMEOUT`；JCEF 不可用 → `WEBVIEW_OFF`。
      * 无论成功失败，登录窗口都会关闭，不留后台浏览器。
      */
-    suspend fun login(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun login(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val url = asStringOrThrow(obj["url"], "url")
         val title = (obj["title"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: "登录"
@@ -435,7 +435,7 @@ class PluginWebViewService @Inject constructor(
         }
     }
 
-    suspend fun close(pluginId: String, params: JsonElement): JsonElement {
+    suspend fun close(pluginId: String, params: JsonElement): JsonObject {
         val obj = params.asObjectOrThrow()
         val session = requireSession(pluginId, asStringOrThrow(obj["session"], "session"))
         destroy(session)
