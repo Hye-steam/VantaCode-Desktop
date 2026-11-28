@@ -63,17 +63,32 @@ class PluginIndexClient @Inject constructor(
     suspend fun fetchIndex(source: PluginIndexSource, forceRefresh: Boolean = false): PluginIndexSnapshot =
         withContext(Dispatchers.IO) {
             val cached = cacheFile(source)
-            val url = accelerated(source.indexUrl)
-            val bytes = try {
-                getBytes(url, MAX_INDEX_BYTES, noCache = forceRefresh)
-            } catch (e: IOException) {
-                if (forceRefresh) throw e
-                val fallback = readCache(cached) ?: throw e
-                return@withContext PluginIndexSnapshot(fallback, stale = true, fetchedAt = cached.lastModified())
+            // 索引只有几 KB，但 raw.githubusercontent.com 在国内经常直连超时，
+            // 首次打开市场会直接报「Connect timed out」且无缓存可回退。
+            // 复用插件包下载的候选地址（镜像 → 直连 → jsDelivr）逐个试；
+            // 每个候选都要能解析成索引才算有效，避免镜像返回 HTML 错误页。
+            val manual = storeSettings.downloadMirror.first().trim()
+            val candidates = mirrorSelector.downloadCandidates(source.indexUrl, manual)
+            var lastError: IOException? = null
+            for (candidate in candidates) {
+                val bytesResult = runCatching { getBytes(candidate, MAX_INDEX_BYTES, noCache = forceRefresh) }
+                val bytes = bytesResult.getOrNull()
+                if (bytes == null) {
+                    val e = bytesResult.exceptionOrNull()
+                    lastError = if (e is IOException) e else IOException("索引请求失败: $candidate", e)
+                    continue
+                }
+                val index = runCatching { PluginIndexParser.parse(bytes) }.getOrNull()
+                if (index == null) {
+                    lastError = IOException("索引解析失败（疑似镜像错误页）: $candidate")
+                    continue
+                }
+                writeCache(cached, bytes)
+                return@withContext PluginIndexSnapshot(index, stale = false, fetchedAt = System.currentTimeMillis())
             }
-            val index = PluginIndexParser.parse(bytes)
-            writeCache(cached, bytes)
-            PluginIndexSnapshot(index, stale = false, fetchedAt = System.currentTimeMillis())
+            if (forceRefresh) throw lastError ?: IOException("索引请求失败")
+            val fallback = readCache(cached) ?: throw (lastError ?: IOException("索引请求失败"))
+            PluginIndexSnapshot(fallback, stale = true, fetchedAt = cached.lastModified())
         }
 
     /**
@@ -223,19 +238,6 @@ class PluginIndexClient @Inject constructor(
             }
             return out.toByteArray()
         }
-    }
-
-    /**
-     * 给插件包地址套加速前缀。
-     *
-     * 只对 Release 资产走镜像：索引与元数据是几 KB 的 raw 文件，直连本来就快，
-     * 走代理反而常被换成 HTML 错误页，表现为「index.json 解析失败」。
-     */
-    private suspend fun accelerated(url: String): String {
-        if (!url.contains("/releases/download/")) return url
-        val manual = storeSettings.downloadMirror.first().trim()
-        val prefix = mirrorSelector.pickFastest(url, manual) ?: return url
-        return mirrorSelector.accelerate(prefix, url)
     }
 
     private fun assetName(id: String, version: String): String = "${id}_$version.zip"

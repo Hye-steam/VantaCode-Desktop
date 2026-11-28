@@ -234,13 +234,6 @@ internal fun PluginSection(
                 }
             }
         }
-
-        Text(
-            text = Strings.plugin_page_unsupported,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.xs)
-        )
     }
 }
 
