@@ -8,7 +8,7 @@
 
 | 产品 | 最新版 | 下载 | 发布日期 | 大小 |
 |---|---|---|---|---|
-| VantaCode 桌面版（Windows x64） | 1.5.0 | [VantaCode-1.5.0.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/desktop-v1.5.0/VantaCode-1.5.0.exe) | 2026-11-28 | 402.8 MiB（422,412,800 字节），SHA-256 `07D4B97A4FB3A8DF57CC8B3AA066DC2988B464183301B291DFC9F52CA57D973D` |
+| VantaCode 桌面版（Windows x64） | 1.5.1 | [VantaCode-1.5.1.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/desktop-v1.5.1/VantaCode-1.5.1.exe) | 2026-11-28 | 402.8 MiB（422,412,800 字节），SHA-256 `2CF78AD8861B22CC6A901C910BC9CC738A2E5C71790CA56845AC51C2F709A1D5` |
 | VantaCode 安卓版 | v5.9.7 | [VantaCode-5.9.7.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.7/VantaCode-5.9.7.apk) | 2026-11-27 | 34.8 MiB（36,502,781 字节） |
 | VantaGate 安卓版 | 2.17 | [VantaGate-2.17.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.17/VantaGate-2.17.apk) | 2026-11-25 | 23.0 MiB（24,135,688 字节） |
 | VantaGate 桌面版（Windows x64） | v2.17.0 | [VantaGate-2.17.0-win64.zip](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.17.0/VantaGate-2.17.0-win64.zip) | 2026-11-27 | 302.1 MiB（316,731,566 字节） |
