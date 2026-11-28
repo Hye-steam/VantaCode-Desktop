@@ -284,6 +284,26 @@ class PluginHookDispatcher @Inject constructor(
         )
     }
 
+    /** 权限确认框即将弹出，等待使用者决策；桌宠等插件用它提示「需要授权」。 */
+    fun dispatchPermissionRequested(
+        sessionId: String?,
+        runId: String,
+        callId: String,
+        toolName: String,
+        mode: String,
+        scope: String,
+        agentName: String?
+    ) {
+        if (sessionId == null) return
+        dispatch(
+            event = PluginHookEvents.AGENT_PERMISSION_REQUESTED,
+            payload = payload(runId, sessionId, mode, scope, agentName) {
+                put("callId", callId)
+                put("toolName", toolName)
+            }
+        )
+    }
+
     /** 一次工具调用真正开始执行。 */
     fun dispatchToolStarted(
         sessionId: String?,

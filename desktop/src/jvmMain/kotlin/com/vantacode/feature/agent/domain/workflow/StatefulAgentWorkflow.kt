@@ -120,6 +120,7 @@ class StatefulAgentWorkflow @Inject constructor(
     private val keyRotator: ProviderKeyRotator,
     private val agentNotificationCenter: AgentNotificationCenter,
     private val eventInjector: AgentEventInjector,
+    private val pluginHookDispatcher: com.vantacode.feature.plugin.runtime.PluginHookDispatcher,
     private val fileAccess: FileAccessProvider,
     private val appContext: DesktopContext
 ) : AgentWorkflow {
@@ -1409,6 +1410,18 @@ class StatefulAgentWorkflow @Inject constructor(
                     rememberDisabledReason = eval.rememberDisabledReason,
                     sessionId = sessionId.orEmpty()
                 )
+                // 权限弹窗即将弹出：先广播给插件，桌宠借此切到「需要授权」。
+                runCatching {
+                    pluginHookDispatcher.dispatchPermissionRequested(
+                        sessionId = sessionId,
+                        runId = callId,
+                        callId = callId,
+                        toolName = tool.name,
+                        mode = mode.name,
+                        scope = "project",
+                        agentName = null
+                    )
+                }
                 when (permissionManager.awaitApproval(request)) {
                     PermissionChoice.REJECT -> PermissionCheckResult(false, "用户拒绝执行该工具", "USER_REJECTED")
                     PermissionChoice.ONCE -> PermissionCheckResult(true)

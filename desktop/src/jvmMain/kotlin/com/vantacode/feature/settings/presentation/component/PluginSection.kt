@@ -360,7 +360,12 @@ private fun PluginDetailSection(
                 title = if (plugin.record.enabled) Strings.plugin_disable else Strings.plugin_enable,
                 subtitle = "当前：${if (plugin.record.enabled) Strings.plugin_enable else Strings.plugin_disable}",
                 onClick = {
-                    scope.launch { manager.setEnabled(plugin.id, !plugin.record.enabled); onChanged() }
+                    scope.launch {
+                        // 关掉再禁用：否则桌宠浮层与插件进程会残留
+                        //（closePlugin 会关掉该插件的浮层与端口映射）。
+                        if (plugin.record.enabled) closePluginProcess(plugin.id)
+                        manager.setEnabled(plugin.id, !plugin.record.enabled); onChanged()
+                    }
                 }
             )
             SettingsDivider()

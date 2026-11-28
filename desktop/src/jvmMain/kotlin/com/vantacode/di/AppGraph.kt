@@ -9,6 +9,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.vantacode.core.db.MigrationLoader
 import com.vantacode.core.net.applyTcpKeepAlive
+import com.vantacode.core.platform.DesktopAssets
 import com.vantacode.core.platform.DesktopContext
 import com.vantacode.core.platform.PlatformInfo
 import com.vantacode.core.platform.PlatformPaths
@@ -184,6 +185,15 @@ import com.vantacode.feature.plugin.runtime.PluginHttpService
 import com.vantacode.feature.plugin.runtime.PluginIntrospectionService
 import com.vantacode.feature.plugin.runtime.PluginModelService
 import com.vantacode.feature.plugin.runtime.PluginNotifier
+import com.vantacode.feature.plugin.cef.CefPluginOverlayWindowFactory
+import com.vantacode.feature.plugin.cef.CefPluginWebViewBrowserFactory
+import com.vantacode.feature.plugin.cef.CefPluginWebViewCookieStore
+import com.vantacode.feature.plugin.cef.CefPluginWebViewLoginWindowFactory
+import com.vantacode.feature.plugin.runtime.FilePluginOverlayPositionStore
+import com.vantacode.feature.plugin.runtime.PluginOverlayManager
+import com.vantacode.feature.plugin.runtime.PluginOverlayPositionStore
+import com.vantacode.feature.plugin.runtime.PluginOverlayWindowFactory
+import com.vantacode.feature.plugin.runtime.PluginPortForwardManager
 import com.vantacode.feature.plugin.runtime.PluginProviderRegistrar
 import com.vantacode.feature.plugin.runtime.PluginRuntimeManager
 import com.vantacode.feature.plugin.runtime.PluginSecretStore
@@ -193,6 +203,7 @@ import com.vantacode.feature.plugin.runtime.PluginTerminalRunner
 import com.vantacode.feature.plugin.runtime.PluginTipManager
 import com.vantacode.feature.plugin.runtime.PluginToolManager
 import com.vantacode.feature.plugin.runtime.PluginToolService
+import com.vantacode.feature.plugin.runtime.PluginWebViewService
 import com.vantacode.feature.plugin.tool.PluginTool
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -491,6 +502,7 @@ object AppGraph {
             providerKeyRotator,
             agentNotificationCenter,
             agentEventInjector,
+            pluginHookDispatcher,
             fileAccess,
             context
         )
@@ -542,6 +554,9 @@ object AppGraph {
     val pluginTerminalRunner: PluginTerminalRunner by lazy {
         PluginTerminalRunner(terminalSessionProvider, pluginManager)
     }
+    val pluginPortForwardManager: PluginPortForwardManager by lazy {
+        PluginPortForwardManager(remoteSshConnection, executionModeHolder)
+    }
     val pluginProviderRegistrar: PluginProviderRegistrar by lazy {
         PluginProviderRegistrar(pluginManager, aiProviderRepository)
     }
@@ -586,13 +601,54 @@ object AppGraph {
 
     // PluginTipManager ↔ PluginRuntimeManager 互为依赖：用 javax.inject.Provider 惰性取，打断初始化环。
     val pluginTipManager: PluginTipManager by lazy { PluginTipManager(pluginManager, Provider { pluginRuntimeManager }) }
+
+    /**
+     * 插件浮层（桌宠）宿主：只在插件调用 `host.overlay.create` 时建窗，没有内置桌宠。
+     * 位置存 `~/.vantacode/plugin-overlay-positions.json`；窗口是 JFrame + JCEF 透明 OSR。
+     */
+    val pluginOverlayPositionStore: PluginOverlayPositionStore by lazy {
+        FilePluginOverlayPositionStore(
+            File(System.getProperty("user.home"), ".vantacode/plugin-overlay-positions.json")
+        )
+    }
+    val pluginOverlayWindowFactory: PluginOverlayWindowFactory by lazy {
+        CefPluginOverlayWindowFactory(
+            hostAsset = { name ->
+                runCatching {
+                    DesktopAssets.open("plugin-ui/$name").use { it.readBytes() }
+                }.getOrNull()
+            },
+            themeCss = { ":root { color-scheme: light dark; }" }
+        )
+    }
+    val pluginOverlayManager: PluginOverlayManager by lazy {
+        PluginOverlayManager(
+            source = { pluginId ->
+                pluginManager.plugins.value.firstOrNull { it.id == pluginId && it.isActive }?.content?.overlay
+            },
+            windowFactory = pluginOverlayWindowFactory,
+            positionStore = pluginOverlayPositionStore
+        )
+    }
+    /**
+     * 插件 WebView 通道（隐藏会话 + 网页登录窗口）：只在插件调用 `host.webview.*` /
+     * 配置页调 `aicode.webview.login` 时建浏览器，平时不初始化 JCEF。
+     */
+    val pluginWebViewService: PluginWebViewService by lazy {
+        PluginWebViewService(
+            browserFactory = CefPluginWebViewBrowserFactory(),
+            cookieStore = CefPluginWebViewCookieStore,
+            loginWindowFactory = CefPluginWebViewLoginWindowFactory()
+        )
+    }
     val pluginRuntimeManager: PluginRuntimeManager by lazy {
         PluginRuntimeManager(
             pluginManager, containerInstaller, nativeCommandEngine, fileAccess, pathHomeResolver,
             commandEngine, workspaceRepository, executionModeHolder, pluginEventBus, pluginNotifier,
-            pluginTerminalRunner, pluginShizukuRunner, pluginTipManager, pluginChatService,
+            pluginTerminalRunner, pluginPortForwardManager, pluginShizukuRunner, pluginTipManager, pluginOverlayManager,
+            pluginChatService,
             pluginModelService, pluginSecretStore, pluginSystemService, pluginIntrospectionService,
-            pluginToolService, pluginHttpService, aiProviderRepository
+            pluginToolService, pluginHttpService, aiProviderRepository, pluginWebViewService
         )
     }
     val pluginHookDispatcher: PluginHookDispatcher by lazy {

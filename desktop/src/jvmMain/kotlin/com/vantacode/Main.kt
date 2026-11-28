@@ -13,6 +13,8 @@ import androidx.compose.ui.window.WindowDecoration
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import com.vantacode.di.AppGraph
+import com.vantacode.feature.plugin.cef.PluginCef
 import java.awt.Dimension
 import java.awt.Toolkit
 import javax.imageio.ImageIO
@@ -35,7 +37,12 @@ fun main() = application {
     )
 
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            // 先关浮层窗口、释放 JCEF，再退出；否则桌宠浮层浏览器会残留。
+            runCatching { AppGraph.pluginOverlayManager.closeAll() }
+            runCatching { PluginCef.shutdown() }
+            exitApplication()
+        },
         title = "VantaCode",
         state = defaultWindowState,
         decoration = WindowDecoration.Undecorated(),
