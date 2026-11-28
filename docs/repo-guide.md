@@ -2,7 +2,7 @@
 
 > 一个仓库，四个产品：VantaCode 桌面版、VantaCode 安卓版、VantaGate 安卓版、VantaGate 桌面版。
 > 本文档是本仓库的唯一事实地图：新人先看这里，再去翻分支、Tag 和 Releases。
-> 最后更新：2026-11-28（核实时点，北京时间约 14:15；Release 总数 43、Tag 总数 43）。
+> 最后更新：2026-11-28（核实时点，北京时间约 20:05；Release 总数 46、Tag 总数 46）。
 > 注：VantaGate 桌面版曾于 2026-11-26 移除（分支、4 个 Tag 和 4 个 Release v1.0.0、v2.0.0、v2.0.1、v2.0.2 均已删除），后于 2026-11-27 按安卓版 2.17 全功能重建并正式发布 v2.17.0；下表含现存的四个产品。
 > 另见：[DOWNLOADS.md](../DOWNLOADS.md)（只列各产品最新版下载）。
 
@@ -12,7 +12,7 @@
 
 | 分支 | 产品 | 版本线 | 当前版本 | HEAD（核实日） | 顶层目录 | 构建 |
 |---|---|---|---|---|---|---|
-| `main`（默认分支） | VantaCode 桌面版 | 1.x | 1.4.0（2026-11-21） | `a1a6619` | `desktop/`、`terminal-emulator/`、`docs-site/`、`docs/`、`scripts/`、`data/` | `.\gradlew.bat :desktop:createDistributable`（便携目录）；`.\gradlew.bat :desktop:packageExe`（需 WiX 3.11） |
+| `main`（默认分支） | VantaCode 桌面版 | 1.x | 1.5.2（2026-11-28） | `763dfcb1` | `desktop/`、`terminal-emulator/`、`docs-site/`、`docs/`、`scripts/`、`data/` | `.\gradlew.bat :desktop:createDistributable`（便携目录）；`.\gradlew.bat :desktop:packageExe`（需 WiX 3.11） |
 | `vantacode-android` | VantaCode 安卓版 | 5.x | v5.9.7（2026-11-27） | `d5496521` | `app/`、`terminal-emulator/`、`terminal-view/`、`skills-registry.json`、`build-flavor.sh`、`build-release.sh` | 见该分支的 `build-release.sh` / `build-flavor.sh` |
 | `vantagate-android` | VantaGate 安卓版 | 2.x | 2.17（2026-11-25） | `9d1bc25f` | `app/`、`core/`、`aigw-admin/`、`libs/`、`build.sh`、`test/` | 见该分支的 `build.sh` |
 | `vantagate-desktop` | VantaGate 桌面版 | 2.x | 2.17.0（2026-11-27） | `db282756` | `desktop/`、`core/`、`docs/` | `.\gradlew.bat :desktop:packageExeZh`（中文 Inno 安装包） |
@@ -23,24 +23,27 @@
 
 | 产品 | 分支 | 当前版本 | 新 Tag 前缀（以后强制） | Release 标题前缀 |
 |---|---|---|---|---|
-| VantaCode 桌面版（Windows） | `main` | 1.4.0 | `desktop-v`，如 `desktop-v1.5.0` | `[桌面]` |
+| VantaCode 桌面版（Windows） | `main` | 1.5.2 | `desktop-v`，如 `desktop-v1.5.0` | `[桌面]` |
 | VantaCode 安卓版 | `vantacode-android` | v5.9.7 | `android-v`，如 `android-v5.9.6` | `[安卓]` |
 | VantaGate 安卓版 | `vantagate-android` | 2.17 | `vantagate-v`，如 `vantagate-v2.18` | `[VantaGate]` |
 | VantaGate 桌面版（Windows） | `vantagate-desktop` | 2.17.0 | `vantagate-desktop-v`，如 `vantagate-desktop-v2.17.0` | `VantaGate Desktop` |
 
-## 3. Tag 对照表（43 个，全部）
+## 3. Tag 对照表（46 个，全部）
 
 发版前核对一次：Tag 名、指向的提交、分支，三者一致才推。
 
 状态说明：✅ 正确；❌ 指向错误（不动它，只标注）；⚠️ 近似（借用他版提交）。
 
-### 3.1 VantaCode 桌面版（3 个，全部正确）
+### 3.1 VantaCode 桌面版（6 个，全部正确）
 
 | Tag | 指向 | 日期 | 状态 |
 |---|---|---|---|
 | `v1.2.0` | `322f2a45` | 2026-11-13 | ✅ |
 | `v1.3.0` | `6c4b32b7` | 2026-11-14 | ✅ |
 | `v1.4.0` | `d6c077d0` | 2026-11-21 | ✅ |
+| `desktop-v1.5.0` | `a62cb5dc` | 2026-11-28 | ✅ |
+| `desktop-v1.5.1` | `e301bab3` | 2026-11-28 | ✅ |
+| `desktop-v1.5.2` | `763dfcb1` | 2026-11-28 | ✅ |
 
 ### 3.2 VantaCode 安卓版（25 个，14 个打错）
 
@@ -113,8 +116,8 @@
 | `v1.3.0` | 2026-11-14 | `VantaCode-1.3.0.exe` | 234.3 MiB |
 | `v1.4.0` | 2026-11-21 | `VantaCode-1.4.0.exe` | 402.3 MiB，SHA-256 `E18BF0962440FBDB68360F197C646504D1B43FD5F31F23ACDD58EE102B03F244` |
 | `desktop-v1.5.0` | 2026-11-28 | `VantaCode-1.5.0.exe` | 402.8 MiB |
-| `desktop-v1.5.1` | 2026-11-28 |  |  |
-| `desktop-v1.5.2` | 2026-11-28 |  |  |
+| `desktop-v1.5.1` | 2026-11-28 | `VantaCode-1.5.1.exe` | 402.8 MiB |
+| `desktop-v1.5.2` | 2026-11-28 | `VantaCode-1.5.2.exe` | 402.8 MiB |
 
 ### 4.2 VantaCode 安卓版（25 个）
 
@@ -174,9 +177,9 @@
 ## 5. 以后发版的规则
 
 1. **Tag**：按第 2 节的前缀打，发版前核对 Tag 名、提交、分支三者一致。
-2. **Release 标题**：`[产品] 名字 版本 · 一句话`，例如 `[桌面] VantaCode Desktop 1.4.0`、`[安卓] VantaCode v5.9.4`、`[VantaGate] VantaGate 2.17`。
+2. **Release 标题**：`[产品] 名字 版本 · 一句话`，例如 `[桌面] VantaCode Desktop 1.5.2`、`[安卓] VantaCode v5.9.4`、`[VantaGate] VantaGate 2.17`。
 3. **Release 正文**固定四段：这次改了什么 / 适用平台 / 下载哪个文件 / SHA-256。
-4. **资产名**统一带版本号：桌面 `VantaCode-1.4.0.exe`、安卓 `VantaCode-5.9.4.apk`、VantaGate 同理。
+4. **资产名**统一带版本号：桌面 `VantaCode-1.5.2.exe`、安卓 `VantaCode-5.9.4.apk`、VantaGate 同理。
 5. **发版后同步更新**：README 顶部的下载表和 [DOWNLOADS.md](../DOWNLOADS.md)，不要只依赖 Releases 列表。
 
 ## 6. 已知引用与待办（不属于本次整理）
