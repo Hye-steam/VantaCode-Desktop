@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-11-27T21:58:18Z",
-  "generated_date": "2026-11-27",
+  "generated_at": "2026-11-28T06:07:48Z",
+  "generated_date": "2026-11-28",
   "plugin_count": 32,
   "desktop_in_progress": true,
   "products": {
     "android": {
       "name": "VantaCode 安卓版",
-      "version_display": "v5.9.6",
-      "tag": "v5.9.6",
-      "asset_name": "VantaCode-5.9.6.apk",
+      "version_display": "v5.9.7",
+      "tag": "v5.9.7",
+      "asset_name": "VantaCode-5.9.7.apk",
       "asset_ext": "APK",
-      "size_bytes": 36483129,
+      "size_bytes": 36502781,
       "size_mib": "34.8 MiB",
       "published_date": "2026-11-27",
-      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.6/VantaCode-5.9.6.apk",
+      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.7/VantaCode-5.9.7.apk",
       "sha256": null,
-      "release_count": 24
+      "release_count": 25
     },
     "desktop": {
       "name": "VantaCode 桌面版",
