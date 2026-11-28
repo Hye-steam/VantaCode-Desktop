@@ -86,6 +86,9 @@ internal fun PluginSection(
     fun refresh() {
         scope.launch {
             loading = true
+            // 先清掉上次的报错：否则刷新成功后旧的 "Connect timed out" 还挂在上面，
+            // 市场明明已经加载出来了，看着像还失败着。
+            message = null
             manager.refresh()
             installed = manager.plugins.value
             // 详情对象也刷新，保证启停后状态同步

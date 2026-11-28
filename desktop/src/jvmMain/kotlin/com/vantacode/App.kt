@@ -682,9 +682,14 @@ fun AppNavigation(
                 }
             }
 
-            BackgroundWatermark(
-                modifier = Modifier.fillMaxSize()
-            )
+            // 全局背景水印只盖在聊天页：设置页（含插件市场）文字密集，
+            // 浅色壁纸会把次要文字（onSurfaceVariant）洗得很淡、读不清，
+            // 设置页改走实色底，不盖水印。
+            if (currentRoute != "settings") {
+                BackgroundWatermark(
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             // 首次启动引导覆层（覆盖所有路由之上，全程常驻顶层）。
             if (agreementAccepted && onboardingUiState.active) {
