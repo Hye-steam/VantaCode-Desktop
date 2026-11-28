@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-28T07:12:16Z",
+  "generated_at": "2026-11-28T09:04:33Z",
   "generated_date": "2026-11-28",
   "plugin_count": 32,
   "desktop_in_progress": false,
@@ -19,16 +19,16 @@
     },
     "desktop": {
       "name": "VantaCode 桌面版",
-      "version_display": "1.5.0",
-      "tag": "desktop-v1.5.0",
-      "asset_name": "VantaCode-1.5.0.exe",
+      "version_display": "1.5.1",
+      "tag": "desktop-v1.5.1",
+      "asset_name": "VantaCode-1.5.1.exe",
       "asset_ext": "EXE",
       "size_bytes": 422412800,
       "size_mib": "402.8 MiB",
       "published_date": "2026-11-28",
-      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/desktop-v1.5.0/VantaCode-1.5.0.exe",
-      "sha256": "07D4B97A4FB3A8DF57CC8B3AA066DC2988B464183301B291DFC9F52CA57D973D",
-      "release_count": 4
+      "url": "https://github.com/Hye-steam/VantaCode-Desktop/releases/download/desktop-v1.5.1/VantaCode-1.5.1.exe",
+      "sha256": "2CF78AD8861B22CC6A901C910BC9CC738A2E5C71790CA56845AC51C2F709A1D5",
+      "release_count": 5
     },
     "gate-android": {
       "name": "VantaGate 安卓版",
