@@ -437,7 +437,7 @@ class PluginWebViewServiceTest {
                 })
             }
         )
-        val cookies = result["cookies"]?.jsonObject ?: fail("no cookies")
+        val cookies = result["cookies"]?.jsonObject ?: error("no cookies")
         // 按 URL 分键；每串首对是哨兵（替真实会话 cookie 挡 github-mcp cookieHeader 的键前缀）。
         val gh = cookies["https://github.com"]?.jsonPrimitive?.contentOrNull.orEmpty()
         assertTrue(gh.startsWith("_vanta_host=1; "))
@@ -460,7 +460,7 @@ class PluginWebViewServiceTest {
     fun loginDefaultsCookieUrlsToLoginUrl() = runTest {
         cookieStore.cookiesByUrl["https://example.com/login"] = "s=1"
         val result = service.login("p.test", params("url" to "https://example.com/login"))
-        val cookies = result["cookies"]?.jsonObject ?: fail("no cookies")
+        val cookies = result["cookies"]?.jsonObject ?: error("no cookies")
         assertTrue(cookies.containsKey("https://example.com/login"))
         assertTrue(
             (cookies["https://example.com/login"]?.jsonPrimitive?.contentOrNull.orEmpty()).contains("s=1")
