@@ -553,6 +553,23 @@ class StatefulAgentWorkflow @Inject constructor(
         } else 0
         var overflowRecoveryAttempted = false
 
+        // 本轮运行 id：插件事件（agent.run/tool started/finished）用它关联一次用户请求。
+        // sessionId 为空时不派发（与其它 dispatch 一致）；派发失败不影响主流程。
+        val runId = UUID.randomUUID().toString()
+        val runToolCallCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val runSessionId = currentContext.sessionId
+        if (runSessionId != null) {
+            runCatching {
+                pluginHookDispatcher.dispatchRunStarted(
+                    sessionId = runSessionId,
+                    runId = runId,
+                    mode = currentContext.mode.name,
+                    scope = "project",
+                    agentName = null
+                )
+            }
+        }
+
         while (!state.isFinished && actionQueue.isNotEmpty()) {
             val action = actionQueue.removeFirst()
             val (newState, effects) = reduce(state, action)
@@ -790,6 +807,24 @@ class StatefulAgentWorkflow @Inject constructor(
                                 val pathLocks = ConcurrentHashMap<String, Mutex>()
                                 toolCalls.map { toolCall ->
                                     async {
+                                        // 工具真正开始执行：通知插件（桌宠等借此切到「工作中」）。
+                                        val toolStartedNs = System.nanoTime()
+                                        val toolSessionId = currentContext.sessionId
+                                        val toolMode = currentContext.mode.name
+                                        if (toolSessionId != null) {
+                                            runCatching {
+                                                pluginHookDispatcher.dispatchToolStarted(
+                                                    sessionId = toolSessionId,
+                                                    runId = runId,
+                                                    callId = toolCall.id,
+                                                    toolName = toolCall.name,
+                                                    mode = toolMode,
+                                                    scope = "project",
+                                                    agentName = null
+                                                )
+                                            }
+                                        }
+                                        runToolCallCount.incrementAndGet()
                                         val run: suspend () -> ToolRunResult = {
                                             val tool = toolRegistry.getTool(toolCall.name)
                                             if (tool is StreamingAgentTool) {
@@ -801,8 +836,32 @@ class StatefulAgentWorkflow @Inject constructor(
                                         // 同一批里针对同一路径的调用必须串行：并行会让「读-改-写」互相覆盖，
                                         // 并让写入方的回读校验看到别人的内容而误报失败。不同路径仍并行。
                                         val path = (toolCall.arguments["path"] as? JsonPrimitive)?.contentOrNull
-                                        if (path.isNullOrBlank()) run()
-                                        else pathLocks.computeIfAbsent(path) { Mutex() }.withLock { run() }
+                                        var result: ToolRunResult? = null
+                                        var thrown: Throwable? = null
+                                        try {
+                                            result = if (path.isNullOrBlank()) run()
+                                            else pathLocks.computeIfAbsent(path) { Mutex() }.withLock { run() }
+                                        } catch (e: Throwable) {
+                                            thrown = e
+                                            throw e
+                                        } finally {
+                                            if (toolSessionId != null) {
+                                                runCatching {
+                                                    pluginHookDispatcher.dispatchToolFinished(
+                                                        sessionId = toolSessionId,
+                                                        runId = runId,
+                                                        callId = toolCall.id,
+                                                        toolName = toolCall.name,
+                                                        mode = toolMode,
+                                                        scope = "project",
+                                                        agentName = null,
+                                                        status = if (thrown != null || result?.isError == true) "error" else "success",
+                                                        durationMs = ((System.nanoTime() - toolStartedNs) / 1_000_000L).toInt()
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        result!!
                                     }
                                 }.awaitAll()
                             }
@@ -904,6 +963,21 @@ class StatefulAgentWorkflow @Inject constructor(
         }
         
         state.error?.let { send(AgentEvent.Failed(it, state.errorCode)) }
+        // 本轮结束：通知插件（桌宠等借此切回待机态）。派发失败不影响主流程。
+        if (runSessionId != null) {
+            runCatching {
+                pluginHookDispatcher.dispatchRunFinished(
+                    sessionId = runSessionId,
+                    runId = runId,
+                    mode = currentContext.mode.name,
+                    scope = "project",
+                    agentName = null,
+                    status = if (state.error != null) "error" else "success",
+                    toolCalls = runToolCallCount.get(),
+                    errorCode = state.errorCode
+                )
+            }
+        }
         send(AgentEvent.Completed)
     }
 
