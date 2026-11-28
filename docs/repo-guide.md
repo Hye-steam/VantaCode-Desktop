@@ -101,17 +101,18 @@
 |---|---|---|---|
 | `vantagate-desktop-v2.17.0` | `db282756` | 2026-11-27 | ✅（= 桌面分支 HEAD） |
 
-## 4. Release 对照表（43 个，按产品分组，不按时间混排）
+## 4. Release 对照表（44 个，按产品分组，不按时间混排）
 
 大小按 MiB 计（1 MiB = 1,048,576 字节）。最新版见 [DOWNLOADS.md](../DOWNLOADS.md)。
 
-### 4.1 VantaCode 桌面版（3 个）
+### 4.1 VantaCode 桌面版（4 个）
 
 | Tag | 发布日期 | 资产 | 大小 |
 |---|---|---|---|
 | `v1.2.0` | 2026-11-13 | `VantaCode-1.2.0.exe` | 233.4 MiB |
 | `v1.3.0` | 2026-11-14 | `VantaCode-1.3.0.exe` | 234.3 MiB |
 | `v1.4.0` | 2026-11-21 | `VantaCode-1.4.0.exe` | 402.3 MiB，SHA-256 `E18BF0962440FBDB68360F197C646504D1B43FD5F31F23ACDD58EE102B03F244` |
+| `desktop-v1.5.0` | 2026-11-28 | `VantaCode-1.5.0.exe` | 402.8 MiB |
 
 ### 4.2 VantaCode 安卓版（25 个）
 

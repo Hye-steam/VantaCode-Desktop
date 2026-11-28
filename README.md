@@ -20,7 +20,7 @@
 
 | 产品 | 最新版 | 下载 |
 |---|---|---|
-| VantaCode 桌面版（Windows x64） | 1.4.0（2026-11-21） | [VantaCode-1.4.0.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v1.4.0/VantaCode-1.4.0.exe)（402.3 MiB） |
+| VantaCode 桌面版（Windows x64） | 1.5.0（2026-11-28） | [VantaCode-1.5.0.exe](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/desktop-v1.5.0/VantaCode-1.5.0.exe)（402.8 MiB） |
 | VantaCode 安卓版 | v5.9.7（2026-11-27） | [VantaCode-5.9.7.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/v5.9.7/VantaCode-5.9.7.apk)（34.8 MiB） |
 | VantaGate 安卓版 | 2.17（2026-11-25） | [VantaGate-2.17.apk](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-v2.17/VantaGate-2.17.apk)（23.0 MiB） |
 | VantaGate 桌面版（Windows x64） | v2.17.0（2026-11-27） | [VantaGate-2.17.0-win64.zip](https://github.com/Hye-steam/VantaCode-Desktop/releases/download/vantagate-desktop-v2.17.0/VantaGate-2.17.0-win64.zip)（302.1 MiB） |
