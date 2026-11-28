@@ -99,10 +99,22 @@ class PluginCefBridgeHandler(
         FileLogger.d("PluginCefBridge", "dispatch start: $shortReq")
         // 网页登录要等用户在窗口里操作（默认 10 分钟），不能用 30 秒的通用上限；
         // 其它方法保持 30 秒，避免插件调用挂起。
-        val method = runCatching {
-            (Json.parseToJsonElement(request) as? JsonObject)?.get("method")?.jsonPrimitive?.contentOrNull
+        // 注意：插件页的登录不是直接调 webview.login，而是经 plugin.invoke 转发给
+        // 插件进程的 ui.accounts.webLogin（内部再调 host.webview.login 开窗等用户），
+        // 顶层 method 是 plugin.invoke，也要给足 10 分钟，否则 30 秒就超时取消，
+        // 用户还没输完账号登录就被断掉（日志里的两次 webLogin 超时就是这么来的）。
+        val rootJson = runCatching {
+            Json.parseToJsonElement(request) as? JsonObject
         }.getOrNull()
-        val timeoutMs = if (method == "webview.login") WEBVIEW_LOGIN_TIMEOUT_MS else 30_000L
+        val method = rootJson?.get("method")?.jsonPrimitive?.contentOrNull
+        val invokeHandler = if (method == "plugin.invoke") {
+            (rootJson?.get("params") as? JsonObject)
+                ?.get("handler")?.jsonPrimitive?.contentOrNull
+        } else null
+        val isInteractiveLogin = method == "webview.login" ||
+            invokeHandler == "ui.accounts.webLogin" ||
+            (invokeHandler?.startsWith("ui.accounts.") == true)
+        val timeoutMs = if (isInteractiveLogin) WEBVIEW_LOGIN_TIMEOUT_MS else 30_000L
         scope.launch(Dispatchers.IO) {
             val reply = runCatching {
                 kotlinx.coroutines.withTimeout(timeoutMs) { dispatch(request) }
